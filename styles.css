@@ -1,0 +1,211 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+    background: #1a1a1a;
+    color: #ffffff;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.app-container {
+    display: flex;
+    height: 100vh;
+}
+
+.editor-panel {
+    flex: 1;
+    background: #2d2d2d;
+    border-right: 1px solid #444;
+    display: flex;
+    flex-direction: column;
+}
+
+.preview-panel {
+    flex: 1;
+    background: #1a1a1a;
+    display: flex;
+    flex-direction: column;
+}
+
+.panel-header {
+    padding: 1rem;
+    background: #3d3d3d;
+    border-bottom: 1px solid #444;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.panel-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #ffffff;
+}
+
+.display-info {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.9rem;
+    color: #ccc;
+}
+
+#yamlEditor {
+    flex: 1;
+    background: #1e1e1e;
+    color: #ffffff;
+    border: none;
+    padding: 1rem;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: none;
+    outline: none;
+}
+
+#yamlEditor::placeholder {
+    color: #666;
+}
+
+.controls {
+    padding: 1rem;
+    background: #3d3d3d;
+    border-top: 1px solid #444;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn {
+    background: #4a4a4a;
+    color: #ffffff;
+    border: 1px solid #666;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.btn:hover {
+    background: #5a5a5a;
+    border-color: #777;
+}
+
+.btn-primary {
+    background: #007acc;
+    border-color: #0066aa;
+}
+
+.btn-primary:hover {
+    background: #0088dd;
+    border-color: #0077bb;
+}
+
+.display-container {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    background: #0d1117;
+}
+
+.lvgl-display {
+    background: #000000;
+    border: 2px solid #333;
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+    min-width: 400px;
+    min-height: 240px;
+}
+
+.placeholder {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: #666;
+    font-style: italic;
+}
+
+/* LVGL Widget Styles */
+.lvgl-obj {
+    position: absolute;
+    box-sizing: border-box;
+}
+
+.lvgl-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: Arial, sans-serif;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+}
+
+.lvgl-flex {
+    display: flex;
+}
+
+.lvgl-flex.column {
+    flex-direction: column;
+}
+
+.lvgl-flex.row {
+    flex-direction: row;
+}
+
+.lvgl-flex.center-main {
+    justify-content: center;
+}
+
+.lvgl-flex.space-between-main {
+    justify-content: space-between;
+}
+
+.lvgl-flex.start-main {
+    justify-content: flex-start;
+}
+
+.lvgl-flex.end-main {
+    justify-content: flex-end;
+}
+
+.lvgl-flex.center-cross {
+    align-items: center;
+}
+
+.lvgl-flex.start-cross {
+    align-items: flex-start;
+}
+
+.lvgl-flex.end-cross {
+    align-items: flex-end;
+}
+
+.lvgl-flex.stretch-cross {
+    align-items: stretch;
+}
+
+/* Responsive design */
+@media (max-width: 1200px) {
+    .app-container {
+        flex-direction: column;
+    }
+    
+    .editor-panel, .preview-panel {
+        height: 50vh;
+    }
+    
+    .editor-panel {
+        border-right: none;
+        border-bottom: 1px solid #444;
+    }
+}

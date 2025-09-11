@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESPHome LVGL Simulator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <div class="editor-panel">
+            <div class="panel-header">
+                <h3>ESPHome LVGL Configuration</h3>
+                <button id="loadConfig" class="btn">Load Config</button>
+            </div>
+            <textarea id="yamlEditor" placeholder="Paste your ESPHome LVGL YAML configuration here..."></textarea>
+            <div class="controls">
+                <button id="renderPreview" class="btn btn-primary">Render Preview</button>
+                <button id="loadExample" class="btn">Load Example</button>
+            </div>
+        </div>
+        
+        <div class="preview-panel">
+            <div class="panel-header">
+                <h3>LVGL Display Preview</h3>
+                <div class="display-info">
+                    <span id="displaySize">800x480</span>
+                    <span id="colorDepth">16-bit</span>
+                </div>
+            </div>
+            <div class="display-container">
+                <div id="lvglDisplay" class="lvgl-display">
+                    <div class="placeholder">
+                        <p>Load a configuration to see the preview</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+    <script src="lvgl-simulator.js"></script>
+</body>
+</html>
