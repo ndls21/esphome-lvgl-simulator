@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ESPHome LVGL Simulator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -19,14 +21,20 @@
                 <button id="loadExample" class="btn">Load Example</button>
             </div>
         </div>
-        
+
         <div class="preview-panel">
             <div class="panel-header">
                 <h3>LVGL Display Preview</h3>
                 <div class="display-info">
-                    <span id="displaySize">800x480</span>
+                    <span id="displaySize">466x466</span>
                     <span id="colorDepth">16-bit</span>
                 </div>
+            </div>
+            <div class="page-nav">
+                <button id="prevPage" class="btn" disabled>&#9664;</button>
+                <select id="pageSelect"></select>
+                <button id="nextPage" class="btn" disabled>&#9654;</button>
+                <span id="pageInfo" class="page-info-text">— / —</span>
             </div>
             <div class="display-container">
                 <div id="lvglDisplay" class="lvgl-display">
