@@ -168,6 +168,20 @@ is functionally correct and meets the Acceptance Criteria, it merges — even if
 different approach might be marginally cleaner. Redesign discussions belong in the
 issue, before implementation begins.
 
+### Review feedback does NOT go back to subagents
+
+Subagents finish and exit — they have no persistent watch on the PR.
+When review finds a problem, the main session handles it:
+- **Simple bug** (wrong flag, off-by-one, missed edge case): main session fixes
+  directly on the branch via the GitHub API and pushes.
+- **Complex fix** (requires re-thinking the approach): main session spawns a new
+  focused fix-agent with the exact problem described and the file/line to change.
+- **Ambiguity** (the right fix depends on user intent): main session asks the user
+  before touching anything.
+
+In all cases the fix lands on the existing branch before merge — the PR diff is
+the complete record of what shipped.
+
 ---
 
 ## Issue Workflow
