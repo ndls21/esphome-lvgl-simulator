@@ -5,6 +5,7 @@ import { renderLabel } from './widgets/label.js';
 import { renderButton } from './widgets/button.js';
 import { renderBar } from './widgets/bar.js';
 import { renderArc, makeSVGArc, applyArcPosition } from './widgets/arc.js';
+import { renderSlider } from './widgets/slider.js';
 
 class ESPHomeLVGLSimulator {
     constructor() {
@@ -224,6 +225,7 @@ lvgl:
             case 'arc':    return this.renderArc(cfg, parent);
             case 'button': return this.renderButton(cfg, parent);
             case 'bar':    return this.renderBar(cfg, parent);
+            case 'slider': return this.renderSlider(cfg, parent);
             default:
                 console.warn(`Unsupported widget: ${type}`);
                 return this.renderUnsupported(type, cfg, parent);
@@ -449,6 +451,7 @@ Object.assign(ESPHomeLVGLSimulator.prototype, {
     renderArc,
     makeSVGArc,
     applyArcPosition,
+    renderSlider,
 });
 
 document.addEventListener('DOMContentLoaded', () => {
