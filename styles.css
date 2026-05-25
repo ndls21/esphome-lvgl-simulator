@@ -366,6 +366,29 @@ body {
     white-space: nowrap;
 }
 
+.lvgl-roller {
+    position: absolute;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.lvgl-roller__option {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    flex: 1;
+    padding: 2px 4px;
+}
+
+.lvgl-roller__option--selected {
+    font-weight: bold;
+}
+
 /* Responsive design */
 @media (max-width: 1200px) {
     .app-container {
