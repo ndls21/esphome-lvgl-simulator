@@ -225,6 +225,17 @@ body {
     align-items: stretch;
 }
 
+.lvgl-button {
+  position: absolute;
+  box-sizing: border-box;
+  cursor: default;
+  user-select: none;
+  border-radius: 6px;
+}
+.lvgl-button--checked {
+  filter: brightness(1.3);
+}
+
 /* Responsive design */
 @media (max-width: 1200px) {
     .app-container {

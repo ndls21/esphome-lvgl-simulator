@@ -338,9 +338,10 @@ lvgl:
         const cfg = widget[type];
 
         switch (type) {
-            case 'obj':   return this.renderObj(cfg, parent);
-            case 'label': return this.renderLabel(cfg, parent);
-            case 'arc':   return this.renderArc(cfg, parent);
+            case 'obj':    return this.renderObj(cfg, parent);
+            case 'label':  return this.renderLabel(cfg, parent);
+            case 'arc':    return this.renderArc(cfg, parent);
+            case 'button': return this.renderButton(cfg, parent);
             default:
                 console.warn(`Unsupported widget: ${type}`);
                 return this.renderUnsupported(type, cfg, parent);
@@ -397,6 +398,36 @@ lvgl:
             el.style.justifyContent = ta === 'CENTER' ? 'center' : ta === 'RIGHT' ? 'flex-end' : 'flex-start';
         }
 
+        return el;
+    }
+
+    renderButton(config, parent) {
+        const cfg = this.resolveStyles(config);
+        const el = document.createElement('div');
+        el.className = 'lvgl-button';
+        this.applyCommonStyles(el, cfg);
+        el.style.display = 'flex';
+        el.style.alignItems = 'center';
+        el.style.justifyContent = 'center';
+
+        if (cfg.text !== undefined) {
+            const txt = String(cfg.text);
+            el.textContent = txt.includes('__lambda__') ? '---' : txt;
+        }
+        if (cfg.text_color) el.style.color = this.parseColor(cfg.text_color);
+        if (cfg.text_font) {
+            el.style.fontSize = this.parseFontSize(cfg.text_font);
+            el.style.fontFamily = this.parseFontFamily(cfg.text_font);
+        }
+        if (cfg.checkable && cfg.checked) {
+            el.classList.add('lvgl-button--checked');
+        }
+        if (cfg.widgets) {
+            cfg.widgets.forEach(w => {
+                const child = this.renderWidget(w, el);
+                if (child) el.appendChild(child);
+            });
+        }
         return el;
     }
 
