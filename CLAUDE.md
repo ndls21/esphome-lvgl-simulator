@@ -139,6 +139,37 @@ the issue descriptions say.
 
 ---
 
+## PR Review Process
+
+Before any PR is merged to main, the main chat session (not a subagent) reviews
+each branch for correctness. This is the human-in-the-loop gate.
+
+### How it works
+
+1. Subagents push branches and open draft PRs autonomously (per the rules above).
+2. The main session reviews all open draft PRs together — code, not just descriptions.
+3. Issues found in review are communicated to the user in the main chat. We decide
+   together whether to: fix immediately (main session edits the branch), spawn a
+   fix subagent, or accept the risk and merge anyway.
+4. If a PR is clean (no issues found), it is merged without further discussion.
+5. PRs are merged in dependency order (foundational changes first).
+
+### What the review checks
+- Correctness of logic against the issue's Acceptance Criteria
+- Edge cases the subagent may have missed
+- Bugs introduced (bad regex flags, off-by-one, unhandled undefined)
+- Regressions to existing functionality (renderWidget, applyCommonStyles, preprocessYAML)
+- Code style violations (see Coding Conventions below)
+
+### Review is NOT a redesign
+
+The review process is a bug-catch gate, not a redesign session. If the implementation
+is functionally correct and meets the Acceptance Criteria, it merges — even if a
+different approach might be marginally cleaner. Redesign discussions belong in the
+issue, before implementation begins.
+
+---
+
 ## Issue Workflow
 
 ### Picking up an issue
