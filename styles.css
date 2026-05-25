@@ -254,6 +254,51 @@ body {
     opacity: 0.5;
 }
 
+.lvgl-slider {
+    position: absolute;
+    box-sizing: border-box;
+    background: #333;
+    border-radius: 10px;
+    overflow: visible;
+}
+
+.lvgl-slider__indicator {
+    height: 100%;
+    background: #4DA6FF;
+    border-radius: inherit;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.lvgl-slider__indicator--unknown {
+    opacity: 0.5;
+}
+
+.lvgl-slider__knob {
+    position: absolute;
+    top: 50%;
+    background: white;
+    border-radius: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+}
+
+.lvgl-slider__knob--unknown {
+    opacity: 0.8;
+}
+
+.lvgl-slider__lambda-marker {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 10px;
+    color: #333;
+    font-weight: bold;
+    pointer-events: none;
+}
+
 /* Responsive design */
 @media (max-width: 1200px) {
     .app-container {
