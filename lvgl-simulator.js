@@ -133,6 +133,49 @@ lvgl:
         }
     }
 
+    parseGlobals() {
+        const globals = this.config.globals || [];
+        globals.forEach(g => {
+            if (!g.id) return;
+            const cppType = (g.type || 'float').trim();
+            const simType = this._mapCppType(cppType);
+            const rawInitial = g.initial_value !== undefined ? String(g.initial_value) : undefined;
+            const initialValue = rawInitial !== undefined
+                ? this._coerceGlobalValue(rawInitial, simType)
+                : this._defaultForType(simType);
+
+            this.store.register(g.id, {
+                entityType: 'global',
+                type: simType,
+                cppType: cppType,
+                initialValue,
+                restoreValue: g.restore_value ?? false,
+            });
+        });
+    }
+
+    _mapCppType(cpp) {
+        if (cpp === 'bool') return 'boolean';
+        if (cpp === 'std::string' || cpp === 'string') return 'string';
+        if (/^(float|double)$/.test(cpp)) return 'float';
+        return 'integer'; // int, uint8_t, uint16_t, etc.
+    }
+
+    _coerceGlobalValue(raw, simType) {
+        // C++ string literals use double quotes: '"AUTO"' → 'AUTO'
+        const stripped = raw.replace(/^"(.*)"$/, '$1').replace(/^'(.*)'$/, '$1');
+        if (simType === 'boolean') return stripped === 'true' || stripped === '1';
+        if (simType === 'float') return parseFloat(stripped) || 0;
+        if (simType === 'integer') return parseInt(stripped) || 0;
+        return stripped; // string
+    }
+
+    _defaultForType(simType) {
+        if (simType === 'boolean') return false;
+        if (simType === 'float' || simType === 'integer') return 0;
+        return '';
+    }
+
     render() {
         if (!this.config || !this.config.lvgl) {
             this.displayError('No LVGL configuration found');
@@ -148,6 +191,7 @@ lvgl:
                 }
             });
 
+            this.parseGlobals();
             this.setupDisplay();
             this.pages = this.config.lvgl.pages || [];
 
