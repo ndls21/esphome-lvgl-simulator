@@ -139,7 +139,7 @@ lvgl:
 
             // Handle other ESPHome tags
             line = line.replace(/!extend\s+\w+/g, '');
-            line = line.replace(/!remove\s+\w+/, '"__remove__"');
+            line = line.replace(/!remove\s+\w+/g, '"__remove__"');
             line = line.replace(/!include\s+\S+/g, '"__include__"');
 
             result.push(line);
