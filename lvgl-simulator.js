@@ -9,6 +9,7 @@ import { renderSlider } from './widgets/slider.js';
 import { renderCheckbox } from './widgets/checkbox.js';
 import { renderImg } from './widgets/img.js';
 import { renderRoller } from './widgets/roller.js';
+import { renderSpinner } from './widgets/spinner.js';
 
 class ESPHomeLVGLSimulator {
     constructor() {
@@ -233,6 +234,7 @@ lvgl:
             case 'bar':    return this.renderBar(cfg, parent);
             case 'img':    return this.renderImg(cfg, parent);
             case 'roller': return this.renderRoller(cfg, parent);
+            case 'spinner': return this.renderSpinner(cfg, parent);
             default:
                 console.warn(`Unsupported widget: ${type}`);
                 return this.renderUnsupported(type, cfg, parent);
@@ -462,6 +464,7 @@ Object.assign(ESPHomeLVGLSimulator.prototype, {
     renderCheckbox,
     renderImg,
     renderRoller,
+    renderSpinner,
 });
 
 document.addEventListener('DOMContentLoaded', () => {
