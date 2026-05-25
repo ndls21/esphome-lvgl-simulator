@@ -469,8 +469,9 @@ lvgl:
         const cfg = this.resolveStyles(config);
         const width = cfg.width || 100;
         const height = cfg.height || width;
-        const arcWidth = cfg.arc_width || 8;
-        const rounded = cfg.arc_rounded ? 'round' : 'butt';
+        const mainPart = this.extractPartStyles(cfg, 'main');
+        const arcWidth = mainPart.arc_width || 8;
+        const rounded = mainPart.arc_rounded ? 'round' : 'butt';
 
         const ns = 'http://www.w3.org/2000/svg';
         const svg = document.createElementNS(ns, 'svg');
@@ -489,12 +490,20 @@ lvgl:
         const endAngle = cfg.end_angle ?? 45;
         const minVal = cfg.min_value ?? 0;
         const maxVal = cfg.max_value ?? 100;
-        const value = cfg.value ?? minVal;
+        // LVGL 0° = 6 o'clock, SVG 0° = 3 o'clock → subtract 90
+        const svgStartAngle = startAngle - 90;
+        const svgEndAngle = endAngle - 90;
+        // Lambda value renders at midpoint with dashed indicator
+        const rawValue = cfg.value;
+        const isLambda = rawValue !== undefined && String(rawValue).includes('__lambda__');
+        const value = isLambda ? (minVal + maxVal) / 2 : (rawValue ?? minVal);
 
-        const totalSpan = ((endAngle - startAngle) + 360) % 360 || 360;
+        const totalSpan = ((svgEndAngle - svgStartAngle) + 360) % 360 || 360;
 
-        const bgColor = this.parseColor(cfg.arc_color ?? 0x333333);
-        svg.appendChild(this.makeSVGArc(ns, cx, cy, r, startAngle, totalSpan, arcWidth, bgColor, rounded));
+        const bgColor = this.parseColor(mainPart.arc_color ?? 0x333333);
+        const bgArcEl = this.makeSVGArc(ns, cx, cy, r, svgStartAngle, totalSpan, arcWidth, bgColor, rounded);
+        if (cfg.arc_opa !== undefined) bgArcEl.setAttribute('stroke-opacity', this.parseOpacity(cfg.arc_opa));
+        svg.appendChild(bgArcEl);
 
         if (cfg.indicator) {
             const fraction = maxVal > minVal ? Math.max(0, Math.min(1, (value - minVal) / (maxVal - minVal))) : 0;
@@ -503,7 +512,10 @@ lvgl:
                 const indColor = this.parseColor(cfg.indicator.arc_color ?? 0x4DA6FF);
                 const indWidth = cfg.indicator.arc_width ?? arcWidth;
                 const indRounded = cfg.indicator.arc_rounded ? 'round' : rounded;
-                svg.appendChild(this.makeSVGArc(ns, cx, cy, r, startAngle, indicatorSpan, indWidth, indColor, indRounded));
+                const indicatorEl = this.makeSVGArc(ns, cx, cy, r, svgStartAngle, indicatorSpan, indWidth, indColor, indRounded);
+                if (isLambda) indicatorEl.setAttribute('stroke-dasharray', '8 4');
+                if (cfg.indicator.arc_opa !== undefined) indicatorEl.setAttribute('stroke-opacity', this.parseOpacity(cfg.indicator.arc_opa));
+                svg.appendChild(indicatorEl);
             }
         }
 
@@ -524,6 +536,28 @@ lvgl:
         }
 
         return svg;
+    }
+
+    extractPartStyles(config, partName) {
+        const topLevel = { ...config };
+        const partBlock = config[partName] || {};
+        const nonStyleKeys = ['id', 'widgets', 'text', 'src', 'points', 'options', 'scales',
+                              'align', 'x', 'y', 'width', 'height', 'styles', 'group',
+                              'main', 'indicator', 'knob', 'selected', 'items', 'scrollbar',
+                              'layout', 'on_click', 'on_value', 'on_press', 'on_release'];
+        nonStyleKeys.forEach(k => delete topLevel[k]);
+        return { ...topLevel, ...partBlock };
+    }
+
+    applyStateStyles(el, config, partStyles) {
+        this.applyCommonStyles(el, partStyles);
+        if (config.checked === true && partStyles.checked) {
+            this.applyCommonStyles(el, partStyles.checked);
+        }
+        if ((config.disabled === true || (config.flags || []).includes('disabled')) && partStyles.disabled) {
+            el.style.opacity = '0.5';
+            this.applyCommonStyles(el, partStyles.disabled);
+        }
     }
 
     // Draw an arc starting at startDeg, sweeping clockwise by spanDeg
