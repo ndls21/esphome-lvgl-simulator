@@ -61,60 +61,81 @@ commit/push independently vs pause for human review.
 
 ## Parallel Work Protocol
 
-Multiple subagents work on separate issues simultaneously. To do this safely:
+Subagents work on separate issues simultaneously using **git worktrees**.
+Each agent runs in a fully isolated working directory — no branch switching,
+no shared working tree state, no risk of agents interfering with each other.
 
-### Starting work on an issue
-1. Fetch the latest main branch first:
-   ```
-   git fetch origin main
-   git checkout -b issue/<number>-short-description origin/main
-   ```
-2. Confirm the issue's dependencies are merged into main before starting.
-   Check issue #45 for the dependency graph.
-3. If a dependency is not yet merged, either wait or pick a different issue.
+### How the orchestrating session spawns parallel agents
 
-### Finishing work on an issue
+The parent session uses `isolation: "worktree"` when calling the Agent tool.
+This automatically creates a temporary worktree on a fresh branch for each agent.
+The agent works in that isolated directory, commits there, then pushes its branch.
+The worktree is cleaned up automatically if the agent makes no changes.
+
+```
+Parent session
+  ├── Agent(issue=13, isolation="worktree")  → worktree A on branch issue/13-styles-block
+  ├── Agent(issue=17, isolation="worktree")  → worktree B on branch issue/17-preprocessor
+  └── Agent(issue=35, isolation="worktree")  → worktree C on branch issue/35-github-pages
+```
+
+Each agent is fully isolated — they cannot see or affect each other's changes.
+
+### Inside a worktree — what the agent must do
+
+The worktree starts on a temporary branch. The agent should immediately
+rename it to match the issue convention:
+
+```bash
+git checkout -b issue/<number>-short-description
+```
+
+Then work normally. The working tree is already isolated — no need to stash,
+no risk of picking up another agent's uncommitted changes.
+
+### Finishing work inside a worktree
+
 1. Run the verification checklist (see below).
 2. Stage only the files relevant to this issue:
-   ```
+   ```bash
    git add <specific files>
    ```
 3. Commit with the format: `[#<number>] Description of what and why`
-4. Rebase onto latest main to stay current:
-   ```
+4. Rebase onto latest main before pushing:
+   ```bash
    git fetch origin main
    git rebase origin/main
    ```
 5. Resolve any conflicts (see Merge Protocol below), then push:
-   ```
+   ```bash
    git push -u origin issue/<number>-short-description
    ```
 6. Create a draft PR immediately after pushing (required — do not skip).
-7. Close the GitHub issue or add a comment linking to the PR.
+7. Add a comment to the GitHub issue linking to the PR.
 
 ### Merge Protocol — resolving conflicts without human involvement
+
 When `git rebase origin/main` produces conflicts:
 
-1. Open each conflicted file. Read both sides carefully.
-2. If the conflict is in a file you did NOT touch (e.g. a parallel agent
-   also touched styles.css): take BOTH changes — preserve the other
-   agent's work and add yours alongside it.
-3. If the conflict is in a file you DID touch and the other change is in
-   a completely separate function: keep both sets of changes intact.
-4. If the conflict is in code you both modified (same lines): examine
-   what both changes are trying to do. If compatible, merge them
-   manually. If truly incompatible, stop and flag to the user.
+1. Read both sides of every conflicted file carefully.
+2. Conflict in a file you did NOT touch (a parallel agent also changed it):
+   take BOTH changes — preserve the other agent's addition and add yours.
+3. Conflict in a file you DID touch and the other change is in a separate
+   function: keep both sets of changes intact.
+4. Conflict where both agents modified the same lines: examine what both
+   changes intend. If compatible, merge manually. If semantically
+   incompatible, stop and flag to the user — do not guess.
 5. After resolving:
-   ```
+   ```bash
    git add <resolved files>
    git rebase --continue
    git push -u origin <branch> --force-with-lease
    ```
-6. Note the conflict and resolution in the PR description.
+6. Describe the conflict and how it was resolved in the PR body.
 
-Only escalate to the user if: the two changes are semantically
-incompatible and merging them would require understanding intent
-beyond what the issues describe.
+Only escalate to the user if the conflict is semantically incompatible
+and resolving it correctly requires understanding intent beyond what
+the issue descriptions say.
 
 ---
 
@@ -219,16 +240,25 @@ Children inside a flex container can have `flex_grow: 1` — map to CSS
 ---
 
 ## Verification Protocol
-There is no automated test suite. Before every commit:
 
-1. Load `example_config.yaml` in the editor → confirm it renders correctly
-   (no regressions to existing obj/label/arc widgets)
-2. Write a minimal YAML snippet that exercises only the new/changed feature
-   and confirm it renders as described in the issue
-3. Verify every Acceptance Criteria checkbox in the issue is satisfied
-4. Open browser DevTools console — confirm zero uncaught JS errors
-5. For preprocessor changes: test a YAML with multiple `!lambda` blocks,
-   `!secret`, and nested indentation — confirm nothing is corrupted
+There is no automated test suite. Verification differs by context:
+
+### Inside a worktree (subagent context — no browser available)
+1. Read every changed file and confirm it matches the issue specification.
+2. Verify every Acceptance Criteria checkbox in the issue against the code.
+3. For JS changes: confirm no syntax errors (`node --check lvgl-simulator.js`
+   if Node is available, otherwise read carefully for obvious syntax issues).
+4. For preprocessor changes: mentally trace a YAML string with `!lambda`,
+   `!secret`, and nested indentation through the new regex logic.
+5. Confirm no existing functions were removed or their signatures changed.
+6. Confirm `example_config.yaml` is not referenced or broken by the change.
+
+### In an interactive session (browser available)
+1. Load `example_config.yaml` → confirm it renders correctly (no regressions).
+2. Paste a minimal YAML snippet that exercises the new feature → confirm render.
+3. Check browser DevTools console for zero uncaught JS errors.
+4. Step through each Acceptance Criteria checkbox manually.
+5. For preprocessor changes: test with a lambda-heavy config and nested lambdas.
 
 ---
 
