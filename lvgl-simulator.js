@@ -322,27 +322,28 @@ lvgl:
     }
 
     renderButton(config, parent) {
+        const cfg = this.resolveStyles(config);
         const el = document.createElement('div');
         el.className = 'lvgl-button';
-        this.applyCommonStyles(el, config);
+        this.applyCommonStyles(el, cfg);
         el.style.display = 'flex';
         el.style.alignItems = 'center';
         el.style.justifyContent = 'center';
 
-        if (config.text !== undefined) {
-            const txt = String(config.text);
+        if (cfg.text !== undefined) {
+            const txt = String(cfg.text);
             el.textContent = txt.includes('__lambda__') ? '---' : txt;
         }
-        if (config.text_color) el.style.color = this.parseColor(config.text_color);
-        if (config.text_font) {
-            el.style.fontSize = this.parseFontSize(config.text_font);
-            el.style.fontFamily = this.parseFontFamily(config.text_font);
+        if (cfg.text_color) el.style.color = this.parseColor(cfg.text_color);
+        if (cfg.text_font) {
+            el.style.fontSize = this.parseFontSize(cfg.text_font);
+            el.style.fontFamily = this.parseFontFamily(cfg.text_font);
         }
-        if (config.checkable && config.checked) {
+        if (cfg.checkable && cfg.checked) {
             el.classList.add('lvgl-button--checked');
         }
-        if (config.widgets) {
-            config.widgets.forEach(w => {
+        if (cfg.widgets) {
+            cfg.widgets.forEach(w => {
                 const child = this.renderWidget(w, el);
                 if (child) el.appendChild(child);
             });
