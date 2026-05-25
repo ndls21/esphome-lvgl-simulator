@@ -364,6 +364,30 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+.lvgl-switch {
+    position: absolute;
+    box-sizing: border-box;
+    background: #555555;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    padding: 3px;
+    cursor: default;
+    user-select: none;
+}
+
+.lvgl-switch--on {
+    justify-content: flex-end;
+}
+
+.lvgl-switch:not(.lvgl-switch--on) {
+    justify-content: flex-start;
+}
+
+.lvgl-switch__knob {
+    background: white;
+    border-radius: 50%;
+    flex-shrink: 0;
 }
 .lvgl-spinner {
     position: absolute;
