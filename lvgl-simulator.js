@@ -340,19 +340,30 @@ lvgl:
         const cy = height / 2;
         const r = Math.min(width, height) / 2 - arcWidth / 2 - 2;
 
-        // LVGL arc angles: 0° = 3 o'clock (right), clockwise (same as SVG path convention)
+        // LVGL angles: 0° = 6 o'clock, clockwise. SVG angles: 0° = 3 o'clock, clockwise.
+        // Mapping: svgAngle = lvglAngle - 90
         const startAngle = cfg.start_angle ?? 135;
         const endAngle = cfg.end_angle ?? 45;
+        const svgStartAngle = startAngle - 90;
+        const svgEndAngle = endAngle - 90;
         const minVal = cfg.min_value ?? 0;
         const maxVal = cfg.max_value ?? 100;
-        const value = cfg.value ?? minVal;
 
-        // Clockwise span from start to end
-        const totalSpan = ((endAngle - startAngle) + 360) % 360 || 360;
+        // Handle lambda value: render at 50% fill with dashed stroke
+        const rawValue = cfg.value;
+        const isLambda = rawValue !== undefined && String(rawValue).includes('__lambda__');
+        const value = isLambda ? (minVal + maxVal) / 2 : (rawValue ?? minVal);
+
+        // Clockwise span from svgStart to svgEnd
+        const totalSpan = ((svgEndAngle - svgStartAngle) + 360) % 360 || 360;
 
         // Background arc
         const bgColor = this.parseColor(cfg.arc_color ?? 0x333333);
-        svg.appendChild(this.makeSVGArc(ns, cx, cy, r, startAngle, totalSpan, arcWidth, bgColor, rounded));
+        const bgArcEl = this.makeSVGArc(ns, cx, cy, r, svgStartAngle, totalSpan, arcWidth, bgColor, rounded);
+        if (cfg.arc_opa !== undefined) {
+            bgArcEl.setAttribute('stroke-opacity', this.parseOpacity(cfg.arc_opa));
+        }
+        svg.appendChild(bgArcEl);
 
         // Indicator arc
         if (cfg.indicator) {
@@ -362,7 +373,14 @@ lvgl:
                 const indColor = this.parseColor(cfg.indicator.arc_color ?? 0x4DA6FF);
                 const indWidth = cfg.indicator.arc_width ?? arcWidth;
                 const indRounded = cfg.indicator.arc_rounded ? 'round' : rounded;
-                svg.appendChild(this.makeSVGArc(ns, cx, cy, r, startAngle, indicatorSpan, indWidth, indColor, indRounded));
+                const indicatorEl = this.makeSVGArc(ns, cx, cy, r, svgStartAngle, indicatorSpan, indWidth, indColor, indRounded);
+                if (isLambda) {
+                    indicatorEl.setAttribute('stroke-dasharray', '8 4');
+                }
+                if (cfg.indicator.arc_opa !== undefined) {
+                    indicatorEl.setAttribute('stroke-opacity', this.parseOpacity(cfg.indicator.arc_opa));
+                }
+                svg.appendChild(indicatorEl);
             }
         }
 
