@@ -7,18 +7,44 @@ No build step. Pure HTML + vanilla JS + CSS. Hosted on GitHub Pages.
 
 ## Architecture
 ```
-index.html            — UI shell, CDN imports (js-yaml 4.1.0), layout
-lvgl-simulator.js     — All rendering logic (single class: LVGLSimulator)
-styles.css            — Dark-theme UI + LVGL widget CSS classes
-example_config.yaml   — Default config loaded on startup
-esphome_proxy.py      — (Stage 6) Local WebSocket bridge to ESP32 device
-requirements.txt      — Python deps for proxy script
-.github/workflows/    — GitHub Actions (GitHub Pages deploy)
+index.html              — UI shell, CDN imports (js-yaml 4.1.0), layout
+lvgl-simulator.js       — Entry point: imports, ESPHomeLVGLSimulator core class,
+                          Object.assign(prototype, widget renderers)
+core/store.js           — SimulatorStateStore (observable key-value store)
+core/preprocessor.js    — preprocessYAML() pure function
+widgets/obj.js          — renderObj
+widgets/label.js        — renderLabel
+widgets/button.js       — renderButton
+widgets/bar.js          — renderBar
+widgets/arc.js          — renderArc, makeSVGArc, applyArcPosition
+styles.css              — Dark-theme UI + LVGL widget CSS classes
+example_config.yaml     — Default config loaded on startup
+esphome_proxy.py        — (Stage 6) Local WebSocket bridge to ESP32 device
+requirements.txt        — Python deps for proxy script
+.github/workflows/      — GitHub Actions (GitHub Pages deploy)
 ```
 
 Key CDN dependencies (loaded in index.html, no npm/build):
-- `js-yaml 4.1.0` — YAML parsing
+- `js-yaml 4.1.0` — YAML parsing (loaded as non-module script; available as `jsyaml` global)
 - Google Fonts — Montserrat, Roboto
+
+### How the module system works
+
+`lvgl-simulator.js` imports each widget renderer as a plain function and assigns
+it to `ESPHomeLVGLSimulator.prototype` using `Object.assign`. This means widget
+files use `this.*` normally — `this` resolves to the simulator instance at call time.
+
+```js
+// widgets/bar.js — no imports needed; this.* works via prototype binding
+export function renderBar(config, parent) {
+    const cfg = this.resolveStyles(config);  // this = ESPHomeLVGLSimulator instance
+    // ...
+}
+```
+
+Widget files have no imports. They access all simulator methods (`this.parseColor`,
+`this.applyCommonStyles`, etc.) via `this`, which is bound correctly by the prototype
+assignment in `lvgl-simulator.js`.
 
 All issues tracked at: https://github.com/ndls21/esphome-lvgl-simulator/issues
 Issue #45 is the master roadmap with dependency graph and sprint order.
@@ -65,6 +91,28 @@ Subagents work on separate issues simultaneously using **git worktrees**.
 Each agent runs in a fully isolated working directory — no branch switching,
 no shared working tree state, no risk of agents interfering with each other.
 
+### What can run in parallel — the file ownership rule
+
+Thanks to the ES module split, each widget issue now owns exactly one new file.
+Two issues can run in parallel if and only if they do not write to the same file.
+
+| Issue type | Files written | Safe to parallelise? |
+|---|---|---|
+| New widget (e.g. slider, checkbox) | `widgets/<type>.js` (new), `styles.css` (append), `lvgl-simulator.js` (2 lines) | ✅ Yes — with each other |
+| Preprocessor fix | `core/preprocessor.js` | ✅ Yes — with widget issues |
+| State store addition | `core/store.js` | ✅ Yes — with widget issues |
+| UI panel / layout change | `index.html`, `styles.css` | ⚠️ Serialise with other `styles.css` writers |
+| `renderWidget` dispatch change | `lvgl-simulator.js` | ⚠️ Serialise — only one agent at a time |
+| `applyCommonStyles` / core utils | `lvgl-simulator.js` | ❌ Do not parallelise |
+
+**Practical rule for the orchestrating session:**
+- All widget issues in a sprint can be launched in parallel — one agent per widget.
+- `styles.css` conflicts are minor (each widget appends its own class block) and
+  easy to auto-resolve: take BOTH additions.
+- `lvgl-simulator.js` conflicts from widget work are now tiny: one `import` line
+  and one `case` line per widget. These are additive and auto-resolvable too.
+- Only serialise when two issues modify the same existing *function body*.
+
 ### How the orchestrating session spawns parallel agents
 
 The parent session uses `isolation: "worktree"` when calling the Agent tool.
@@ -74,9 +122,9 @@ The worktree is cleaned up automatically if the agent makes no changes.
 
 ```
 Parent session
-  ├── Agent(issue=13, isolation="worktree")  → worktree A on branch issue/13-styles-block
-  ├── Agent(issue=17, isolation="worktree")  → worktree B on branch issue/17-preprocessor
-  └── Agent(issue=35, isolation="worktree")  → worktree C on branch issue/35-github-pages
+  ├── Agent(issue=2,  isolation="worktree")  → worktree A on branch issue/2-checkbox
+  ├── Agent(issue=3,  isolation="worktree")  → worktree B on branch issue/3-slider
+  └── Agent(issue=11, isolation="worktree")  → worktree C on branch issue/11-switch
 ```
 
 Each agent is fully isolated — they cannot see or affect each other's changes.
@@ -206,17 +254,61 @@ the complete record of what shipped.
 ## Coding Conventions
 
 ### Adding a new widget renderer — mandatory checklist
-Every new widget MUST follow this order:
 
-1. Add `case 'widget_type':` in `renderWidget()` switch (~line 217 of lvgl-simulator.js)
-2. Call `this.resolveStyles(config)` at the top — use `cfg`, not `config`, throughout
-3. Call `this.applyCommonStyles(el, cfg)` for position/size/borders/padding
-4. Handle lambda values via `this.lambda.evaluate(val, fallback)` — never
-   manually check for `__lambda__` strings after Stage 4 lands
-5. Add CSS class `.lvgl-<type>` in styles.css with at minimum:
-   `position: absolute; box-sizing: border-box;`
-6. Handle `widgets:` children array if the widget can contain children
-7. Handle `parts` sub-blocks (main/indicator/knob) via `extractPartStyles()`
+Every new widget lives in its own file. The three files to touch are:
+
+**1. Create `widgets/<type>.js`**
+
+```js
+export function renderFoo(config, parent) {
+    const cfg = this.resolveStyles(config);   // ALWAYS first
+    const el = document.createElement('div');
+    el.className = 'lvgl-foo';
+    this.applyCommonStyles(el, cfg);          // position/size/borders/padding
+    // ... widget-specific logic ...
+    return el;
+}
+```
+
+Rules for the function body:
+- `this.resolveStyles(config)` must be the first call — use `cfg` throughout, never `config`
+- `this.applyCommonStyles(el, cfg)` for all standard layout properties
+- Check lambda values via `String(val).includes('__lambda__')` — render a safe fallback
+- Handle `widgets:` children by calling `this.renderWidget(child, el)` in a forEach
+- Handle parts sub-blocks via `this.extractPartStyles(cfg, 'main')` etc.
+- No imports needed — all simulator methods are available as `this.*`
+
+**2. Add two lines to `lvgl-simulator.js`**
+
+At the top, add one import:
+```js
+import { renderFoo } from './widgets/foo.js';
+```
+
+In the `Object.assign` block at the bottom, add one entry:
+```js
+Object.assign(ESPHomeLVGLSimulator.prototype, {
+    // ... existing entries ...
+    renderFoo,
+});
+```
+
+Also add the dispatch case to `renderWidget()`:
+```js
+case 'foo': return this.renderFoo(cfg, parent);
+```
+
+**3. Add CSS to `styles.css`**
+
+```css
+.lvgl-foo {
+    position: absolute;
+    box-sizing: border-box;
+    /* structural defaults only */
+}
+```
+
+Dynamic values (colors, sizes from config) go in `el.style.*` in the JS file, not here.
 
 ### General JS style
 - Vanilla JS only — no frameworks, no TypeScript, no npm
@@ -291,12 +383,20 @@ There is no automated test suite. Verification differs by context:
 ### Inside a worktree (subagent context — no browser available)
 1. Read every changed file and confirm it matches the issue specification.
 2. Verify every Acceptance Criteria checkbox in the issue against the code.
-3. For JS changes: confirm no syntax errors (`node --check lvgl-simulator.js`
-   if Node is available, otherwise read carefully for obvious syntax issues).
-4. For preprocessor changes: mentally trace a YAML string with `!lambda`,
-   `!secret`, and nested indentation through the new regex logic.
-5. Confirm no existing functions were removed or their signatures changed.
-6. Confirm `example_config.yaml` is not referenced or broken by the change.
+3. For JS changes: confirm no syntax errors — run `node --check` on every
+   modified file individually:
+   ```bash
+   node --check widgets/<type>.js
+   node --check lvgl-simulator.js
+   ```
+4. Confirm the new widget file exports its function(s) correctly and that
+   `lvgl-simulator.js` imports them and includes them in both the `renderWidget`
+   switch and the `Object.assign` block.
+5. For preprocessor changes: mentally trace a YAML string with `!lambda`,
+   `!secret`, and nested indentation through the new regex logic in
+   `core/preprocessor.js`.
+6. Confirm no existing functions were removed or their signatures changed.
+7. Confirm `example_config.yaml` is not referenced or broken by the change.
 
 ### In an interactive session (browser available)
 1. Load `example_config.yaml` → confirm it renders correctly (no regressions).
