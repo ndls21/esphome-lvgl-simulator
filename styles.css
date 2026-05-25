@@ -299,6 +299,37 @@ body {
     pointer-events: none;
 }
 
+.lvgl-checkbox {
+    position: absolute;
+    box-sizing: border-box;
+    user-select: none;
+}
+
+.lvgl-checkbox__box {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    border: 2px solid #888;
+    border-radius: 4px;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.lvgl-checkbox__box--checked::after {
+    content: '\2713';
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.lvgl-checkbox__label {
+    color: white;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
 /* Responsive design */
 @media (max-width: 1200px) {
     .app-container {
