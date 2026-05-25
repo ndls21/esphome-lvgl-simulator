@@ -192,6 +192,7 @@ lvgl:
             });
 
             this.parseGlobals();
+            this.parseSensorComponents();
             this.setupDisplay();
             this.pages = this.config.lvgl.pages || [];
 
@@ -206,6 +207,62 @@ lvgl:
             console.error('Error rendering:', error);
             this.displayError('Render Error: ' + error.message);
         }
+    }
+
+    parseSensorComponents() {
+        const sensors = this.config.sensor || [];
+        [].concat(sensors).forEach(s => {
+            if (!s.id) return;
+            this.store.register(s.id, {
+                entityType: 'sensor',
+                type: 'float',
+                name: s.name || s.id,
+                unit: s.unit_of_measurement || '',
+                decimals: s.accuracy_decimals ?? 1,
+                min: s.min_value,
+                max: s.max_value,
+                platform: s.platform || 'unknown',
+                initialValue: null,
+            });
+        });
+
+        const binarySensors = this.config.binary_sensor || [];
+        [].concat(binarySensors).forEach(s => {
+            if (!s.id) return;
+            this.store.register(s.id, {
+                entityType: 'binary_sensor',
+                type: 'boolean',
+                name: s.name || s.id,
+                deviceClass: s.device_class || '',
+                initialValue: false,
+            });
+        });
+
+        const textSensors = this.config.text_sensor || [];
+        [].concat(textSensors).forEach(s => {
+            if (!s.id) return;
+            this.store.register(s.id, {
+                entityType: 'text_sensor',
+                type: 'string',
+                name: s.name || s.id,
+                initialValue: '',
+            });
+        });
+
+        const numbers = this.config.number || [];
+        [].concat(numbers).forEach(s => {
+            if (!s.id) return;
+            this.store.register(s.id, {
+                entityType: 'number',
+                type: 'float',
+                name: s.name || s.id,
+                unit: s.unit_of_measurement || '',
+                min: s.min_value ?? 0,
+                max: s.max_value ?? 100,
+                step: s.step ?? 1,
+                initialValue: s.initial_value ?? s.min_value ?? 0,
+            });
+        });
     }
 
     setupDisplay() {
