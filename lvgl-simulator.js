@@ -342,6 +342,7 @@ lvgl:
             case 'label':  return this.renderLabel(cfg, parent);
             case 'arc':    return this.renderArc(cfg, parent);
             case 'button': return this.renderButton(cfg, parent);
+            case 'bar':    return this.renderBar(cfg, parent);
             default:
                 console.warn(`Unsupported widget: ${type}`);
                 return this.renderUnsupported(type, cfg, parent);
@@ -431,6 +432,39 @@ lvgl:
         return el;
     }
 
+    renderBar(config, parent) {
+        const cfg = this.resolveStyles(config);
+        const el = document.createElement('div');
+        el.className = 'lvgl-bar';
+        this.applyCommonStyles(el, cfg);
+
+        const min = cfg.min_value ?? 0;
+        const max = cfg.max_value ?? 100;
+        const rawVal = cfg.value;
+        const isLambda = rawVal !== undefined && String(rawVal).includes('__lambda__');
+        const val = isLambda
+            ? (min + max) / 2
+            : Math.min(max, Math.max(min, Number(rawVal ?? min)));
+        const pct = max > min ? ((val - min) / (max - min)) * 100 : 0;
+
+        const indicator = document.createElement('div');
+        indicator.className = 'lvgl-bar__indicator';
+        indicator.style.width = pct + '%';
+        if (isLambda) indicator.classList.add('lvgl-bar__indicator--unknown');
+
+        const ind = cfg.indicator || {};
+        if (ind.bg_color && ind.bg_grad_color && ind.bg_grad_dir) {
+            const dir = this.parseGradientDirection(ind.bg_grad_dir);
+            indicator.style.background = `linear-gradient(${dir}, ${this.parseColor(ind.bg_color)}, ${this.parseColor(ind.bg_grad_color)})`;
+        } else if (ind.bg_color) {
+            indicator.style.backgroundColor = this.parseColor(ind.bg_color);
+        }
+        if (ind.radius !== undefined) indicator.style.borderRadius = ind.radius + 'px';
+
+        el.appendChild(indicator);
+        return el;
+    }
+
     renderArc(config, parent) {
         const cfg = this.resolveStyles(config);
         const width = cfg.width || 100;
@@ -451,21 +485,17 @@ lvgl:
         const cy = height / 2;
         const r = Math.min(width, height) / 2 - arcWidth / 2 - 2;
 
-        // LVGL arc angles: 0° = 3 o'clock (right), clockwise (same as SVG path convention)
         const startAngle = cfg.start_angle ?? 135;
         const endAngle = cfg.end_angle ?? 45;
         const minVal = cfg.min_value ?? 0;
         const maxVal = cfg.max_value ?? 100;
         const value = cfg.value ?? minVal;
 
-        // Clockwise span from start to end
         const totalSpan = ((endAngle - startAngle) + 360) % 360 || 360;
 
-        // Background arc
         const bgColor = this.parseColor(cfg.arc_color ?? 0x333333);
         svg.appendChild(this.makeSVGArc(ns, cx, cy, r, startAngle, totalSpan, arcWidth, bgColor, rounded));
 
-        // Indicator arc
         if (cfg.indicator) {
             const fraction = maxVal > minVal ? Math.max(0, Math.min(1, (value - minVal) / (maxVal - minVal))) : 0;
             const indicatorSpan = fraction * totalSpan;
@@ -477,7 +507,6 @@ lvgl:
             }
         }
 
-        // Child widgets overlay
         if (cfg.widgets) {
             const wrapper = document.createElement('div');
             wrapper.style.cssText = 'position:absolute;width:0;height:0;top:0;left:0;';
