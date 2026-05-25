@@ -365,6 +365,13 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+.lvgl-spinner {
+    position: absolute;
+    box-sizing: border-box;
+    /* Phase 1: static render only — no animation */
+    /* Phase 2: animation: lvgl-spin 1s linear infinite; */
+}
+/* @keyframes lvgl-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } */
 
 .lvgl-roller {
     position: absolute;
