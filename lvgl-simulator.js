@@ -1,6 +1,7 @@
 class ESPHomeLVGLSimulator {
     constructor() {
         this.config = null;
+        this.styleDefinitions = {};
         this.pages = [];
         this.currentPageIndex = 0;
         this.displayElement = document.getElementById('lvglDisplay');
@@ -131,6 +132,14 @@ lvgl:
         }
 
         try {
+            this.styleDefinitions = {};
+            (this.config.lvgl.style_definitions || []).forEach(def => {
+                if (def.id) {
+                    const { id, ...props } = def;
+                    this.styleDefinitions[id] = props;
+                }
+            });
+
             this.setupDisplay();
             this.pages = this.config.lvgl.pages || [];
 
@@ -222,14 +231,27 @@ lvgl:
         }
     }
 
+    resolveStyles(config) {
+        const ids = config.styles
+            ? (Array.isArray(config.styles) ? config.styles : [config.styles])
+            : [];
+        const base = {};
+        ids.forEach(id => {
+            const s = this.styleDefinitions[id];
+            if (s) Object.assign(base, s);
+        });
+        return Object.assign(base, config);
+    }
+
     renderObj(config, parent) {
+        const cfg = this.resolveStyles(config);
         const el = document.createElement('div');
         el.className = 'lvgl-obj';
-        this.applyCommonStyles(el, config);
-        this.applyLayout(el, config);
+        this.applyCommonStyles(el, cfg);
+        this.applyLayout(el, cfg);
 
-        if (config.widgets) {
-            config.widgets.forEach(child => {
+        if (cfg.widgets) {
+            cfg.widgets.forEach(child => {
                 const childEl = this.renderWidget(child, el);
                 if (childEl) el.appendChild(childEl);
             });
@@ -238,22 +260,23 @@ lvgl:
     }
 
     renderLabel(config, parent) {
+        const cfg = this.resolveStyles(config);
         const el = document.createElement('div');
         el.className = 'lvgl-label';
-        this.applyCommonStyles(el, config);
+        this.applyCommonStyles(el, cfg);
 
-        if (config.text !== undefined) {
-            const txt = String(config.text);
+        if (cfg.text !== undefined) {
+            const txt = String(cfg.text);
             el.textContent = txt.includes('__lambda__') ? '---' : txt;
         }
 
-        if (config.text_color) el.style.color = this.parseColor(config.text_color);
-        if (config.text_font) {
-            el.style.fontSize = this.parseFontSize(config.text_font);
-            el.style.fontFamily = this.parseFontFamily(config.text_font);
+        if (cfg.text_color) el.style.color = this.parseColor(cfg.text_color);
+        if (cfg.text_font) {
+            el.style.fontSize = this.parseFontSize(cfg.text_font);
+            el.style.fontFamily = this.parseFontFamily(cfg.text_font);
         }
-        if (config.text_align) {
-            const ta = config.text_align.toUpperCase();
+        if (cfg.text_align) {
+            const ta = cfg.text_align.toUpperCase();
             el.style.textAlign = ta === 'CENTER' ? 'center' : ta === 'RIGHT' ? 'right' : 'left';
             el.style.justifyContent = ta === 'CENTER' ? 'center' : ta === 'RIGHT' ? 'flex-end' : 'flex-start';
         }
@@ -262,10 +285,11 @@ lvgl:
     }
 
     renderArc(config, parent) {
-        const width = config.width || 100;
-        const height = config.height || width;
-        const arcWidth = config.arc_width || 8;
-        const rounded = config.arc_rounded ? 'round' : 'butt';
+        const cfg = this.resolveStyles(config);
+        const width = cfg.width || 100;
+        const height = cfg.height || width;
+        const arcWidth = cfg.arc_width || 8;
+        const rounded = cfg.arc_rounded ? 'round' : 'butt';
 
         const ns = 'http://www.w3.org/2000/svg';
         const svg = document.createElementNS(ns, 'svg');
@@ -274,48 +298,48 @@ lvgl:
         svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
         svg.style.position = 'absolute';
         svg.style.overflow = 'visible';
-        this.applyArcPosition(svg, config, width, height);
+        this.applyArcPosition(svg, cfg, width, height);
 
         const cx = width / 2;
         const cy = height / 2;
         const r = Math.min(width, height) / 2 - arcWidth / 2 - 2;
 
         // LVGL arc angles: 0° = 3 o'clock (right), clockwise (same as SVG path convention)
-        const startAngle = config.start_angle ?? 135;
-        const endAngle = config.end_angle ?? 45;
-        const minVal = config.min_value ?? 0;
-        const maxVal = config.max_value ?? 100;
-        const value = config.value ?? minVal;
+        const startAngle = cfg.start_angle ?? 135;
+        const endAngle = cfg.end_angle ?? 45;
+        const minVal = cfg.min_value ?? 0;
+        const maxVal = cfg.max_value ?? 100;
+        const value = cfg.value ?? minVal;
 
         // Clockwise span from start to end
         const totalSpan = ((endAngle - startAngle) + 360) % 360 || 360;
 
         // Background arc
-        const bgColor = this.parseColor(config.arc_color ?? 0x333333);
+        const bgColor = this.parseColor(cfg.arc_color ?? 0x333333);
         svg.appendChild(this.makeSVGArc(ns, cx, cy, r, startAngle, totalSpan, arcWidth, bgColor, rounded));
 
         // Indicator arc
-        if (config.indicator) {
+        if (cfg.indicator) {
             const fraction = maxVal > minVal ? Math.max(0, Math.min(1, (value - minVal) / (maxVal - minVal))) : 0;
             const indicatorSpan = fraction * totalSpan;
             if (indicatorSpan > 0) {
-                const indColor = this.parseColor(config.indicator.arc_color ?? 0x4DA6FF);
-                const indWidth = config.indicator.arc_width ?? arcWidth;
-                const indRounded = config.indicator.arc_rounded ? 'round' : rounded;
+                const indColor = this.parseColor(cfg.indicator.arc_color ?? 0x4DA6FF);
+                const indWidth = cfg.indicator.arc_width ?? arcWidth;
+                const indRounded = cfg.indicator.arc_rounded ? 'round' : rounded;
                 svg.appendChild(this.makeSVGArc(ns, cx, cy, r, startAngle, indicatorSpan, indWidth, indColor, indRounded));
             }
         }
 
         // Child widgets overlay
-        if (config.widgets) {
+        if (cfg.widgets) {
             const wrapper = document.createElement('div');
             wrapper.style.cssText = 'position:absolute;width:0;height:0;top:0;left:0;';
             wrapper.appendChild(svg);
 
             const overlay = document.createElement('div');
             overlay.style.cssText = `position:absolute;width:${width}px;height:${height}px;`;
-            this.applyArcPosition(overlay, config, width, height);
-            config.widgets.forEach(child => {
+            this.applyArcPosition(overlay, cfg, width, height);
+            cfg.widgets.forEach(child => {
                 const childEl = this.renderWidget(child, overlay);
                 if (childEl) overlay.appendChild(childEl);
             });
