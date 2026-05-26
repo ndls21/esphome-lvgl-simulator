@@ -370,15 +370,27 @@ lvgl:
     }
 
     resolveStyles(config) {
+        const themeDefaults = (this.theme || {})[this.currentWidgetType] || {};
         const ids = config.styles
             ? (Array.isArray(config.styles) ? config.styles : [config.styles])
             : [];
-        const base = {};
+        const base = Object.assign({}, themeDefaults);
         ids.forEach(id => {
             const s = this.styleDefinitions[id];
-            if (s) Object.assign(base, s);
+            if (s) this._deepMerge(base, s);
         });
         return Object.assign(base, config);
+    }
+
+    _deepMerge(target, source) {
+        Object.keys(source || {}).forEach(key => {
+            if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+                target[key] = this._deepMerge(target[key] || {}, source[key]);
+            } else {
+                target[key] = source[key];
+            }
+        });
+        return target;
     }
 
     renderUnsupported(type, config, parent) {
