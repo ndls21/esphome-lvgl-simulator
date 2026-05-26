@@ -1,4 +1,5 @@
 import { SimulatorStateStore } from './core/store.js';
+import { LambdaEvaluator } from './core/lambda.js';
 import { preprocessYAML } from './core/preprocessor.js';
 import { resolveIncludes } from './core/resolver.js';
 import { renderObj } from './widgets/obj.js';
@@ -24,6 +25,7 @@ class ESPHomeLVGLSimulator {
         this.substitutions = {};
         this.fileMap = {};
         this.store = new SimulatorStateStore();
+        this.lambda = new LambdaEvaluator(this.store);
         this.theme = {};
         this.currentWidgetType = '';
         this._renderedElements = {};
