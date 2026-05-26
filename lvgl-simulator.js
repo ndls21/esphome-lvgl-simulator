@@ -930,20 +930,106 @@ lvgl:
         const body = document.createElement('div');
         body.className = 'mock-section-body';
 
+        const numericTypes = new Set(['sensor', 'number', 'global']);
         items.forEach(item => {
-            const row = document.createElement('div');
-            row.className = 'mock-item';
-            row.dataset.entityId = item.id;
-            row.innerHTML = `
-                <span class="mock-item-id">${item.id}</span>
-                <span class="mock-item-type">${item.type || type}</span>
-            `;
-            body.appendChild(row);
+            const isNumeric = numericTypes.has(type) && item.type !== 'boolean' && item.type !== 'string';
+            if (isNumeric) {
+                body.appendChild(this.createNumericControl(item.id, item));
+            } else {
+                const row = document.createElement('div');
+                row.className = 'mock-item';
+                row.dataset.entityId = item.id;
+                row.innerHTML = `
+                    <span class="mock-item-id">${item.id}</span>
+                    <span class="mock-item-type">${item.type || type}</span>
+                `;
+                body.appendChild(row);
+            }
         });
 
         section.appendChild(header);
         section.appendChild(body);
         return section;
+    }
+
+    _smartRange(meta) {
+        if (meta.min !== undefined && meta.max !== undefined) {
+            return { min: meta.min, max: meta.max };
+        }
+        const unit = (meta.unit || '').toLowerCase();
+        if (unit === '%') return { min: 0, max: 100 };
+        if (unit === '°c' || unit === 'c') return { min: -20, max: 60 };
+        if (unit === '°f' || unit === 'f') return { min: 0, max: 150 };
+        if (unit === 'v') return { min: 0, max: 60 };
+        if (unit === 'a') return { min: 0, max: 50 };
+        if (unit === 'mph' || unit === 'km/h') return { min: 0, max: 200 };
+        return { min: meta.min ?? 0, max: meta.max ?? 100 };
+    }
+
+    createNumericControl(id, meta) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'mock-control mock-control--numeric';
+        wrapper.dataset.entityId = id;
+
+        const labelRow = document.createElement('div');
+        labelRow.className = 'mock-control__label-row';
+        const nameEl = document.createElement('span');
+        nameEl.className = 'mock-control__name';
+        nameEl.textContent = meta.name || id;
+        nameEl.title = id;
+        const unitEl = document.createElement('span');
+        unitEl.className = 'mock-control__unit';
+        unitEl.textContent = meta.unit || '';
+        labelRow.appendChild(nameEl);
+        labelRow.appendChild(unitEl);
+
+        const { min, max } = this._smartRange(meta);
+        const isInt = meta.type === 'integer';
+        const decimals = meta.accuracy_decimals ?? meta.decimals ?? (isInt ? 0 : 1);
+        const step = meta.step ?? (isInt ? 1 : Math.pow(10, -decimals));
+        const currentVal = this.store.get(id) ?? meta.initialValue ?? min;
+
+        const sliderRow = document.createElement('div');
+        sliderRow.className = 'mock-control__slider-row';
+
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = min;
+        slider.max = max;
+        slider.step = step;
+        slider.value = currentVal;
+        slider.className = 'mock-control__slider';
+
+        const numInput = document.createElement('input');
+        numInput.type = 'number';
+        numInput.min = min;
+        numInput.max = max;
+        numInput.step = step;
+        numInput.value = isInt ? Math.round(currentVal) : Number(currentVal).toFixed(decimals);
+        numInput.className = 'mock-control__number';
+
+        const update = (val) => {
+            const parsed = parseFloat(val);
+            if (isNaN(parsed)) return;
+            const clamped = Math.min(max, Math.max(min, parsed));
+            const display = isInt ? Math.round(clamped) : clamped.toFixed(decimals);
+            slider.value = clamped;
+            numInput.value = display;
+            this.store.set(id, isInt ? Math.round(clamped) : clamped);
+        };
+        slider.addEventListener('input', e => update(e.target.value));
+        numInput.addEventListener('change', e => update(e.target.value));
+
+        const rangeRow = document.createElement('div');
+        rangeRow.className = 'mock-control__range-row';
+        rangeRow.innerHTML = `<span>${min}</span><span>${max}</span>`;
+
+        sliderRow.appendChild(slider);
+        sliderRow.appendChild(numInput);
+        wrapper.appendChild(labelRow);
+        wrapper.appendChild(sliderRow);
+        wrapper.appendChild(rangeRow);
+        return wrapper;
     }
 }
 
