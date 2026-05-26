@@ -341,22 +341,20 @@ lvgl:
         const cfg = widget[type];
 
         switch (type) {
-            case 'obj':    return this.renderObj(cfg, parent);
-            case 'label':  return this.renderLabel(cfg, parent);
-            case 'arc':    return this.renderArc(cfg, parent);
-            case 'button': return this.renderButton(cfg, parent);
+            case 'obj':      return this.renderObj(cfg, parent);
+            case 'label':    return this.renderLabel(cfg, parent);
+            case 'arc':      return this.renderArc(cfg, parent);
+            case 'button':   return this.renderButton(cfg, parent);
             case 'bar':      return this.renderBar(cfg, parent);
             case 'slider':   return this.renderSlider(cfg, parent);
             case 'checkbox': return this.renderCheckbox(cfg, parent);
-            case 'bar':    return this.renderBar(cfg, parent);
-            case 'img':    return this.renderImg(cfg, parent);
-            case 'roller': return this.renderRoller(cfg, parent);
-            case 'spinner': return this.renderSpinner(cfg, parent);
-            case 'switch': return this.renderSwitch(cfg, parent);
-            case 'bar':        return this.renderBar(cfg, parent);
-            case 'dropdown':   return this.renderDropdown(cfg, parent);
-            case 'line':   return this.renderLine(cfg, parent);
-            case 'led':    return this.renderLed(cfg, parent);
+            case 'img':      return this.renderImg(cfg, parent);
+            case 'roller':   return this.renderRoller(cfg, parent);
+            case 'spinner':  return this.renderSpinner(cfg, parent);
+            case 'switch':   return this.renderSwitch(cfg, parent);
+            case 'dropdown': return this.renderDropdown(cfg, parent);
+            case 'line':     return this.renderLine(cfg, parent);
+            case 'led':      return this.renderLed(cfg, parent);
             default:
                 console.warn(`Unsupported widget: ${type}`);
                 return this.renderUnsupported(type, cfg, parent);
@@ -590,6 +588,10 @@ lvgl:
             <div class="placeholder" style="color:#ff4444;padding:1rem;text-align:center;">
                 <p>Error: ${message}</p>
             </div>`;
+    }
+
+    extractPartStyles(cfg, part) {
+        return cfg[part] || {};
     }
 }
 
