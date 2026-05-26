@@ -53,6 +53,7 @@ export function preprocessYAML(text) {
         line = line.replace(/!extend\s+\w+/g, '');
         line = line.replace(/!remove\s+\w+/g, '"__remove__"');
         line = line.replace(/!include\s+\S+/g, '"__include__"');
+        line = line.replace(/!ENV\s+\S+/g, '"__env__"');
 
         result.push(line);
     }
