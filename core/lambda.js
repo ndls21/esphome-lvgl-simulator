@@ -17,7 +17,6 @@ export class LambdaEvaluator {
         if (translated === null) return fallback;
         try {
             if (!this._cache.has(body)) {
-                const store = this.store;
                 // eslint-disable-next-line no-new-func
                 this._cache.set(body, new Function('__store__', translated));
             }
@@ -30,18 +29,33 @@ export class LambdaEvaluator {
 
     _translate(body) {
         let js = body.trim();
-        // Strip leading 'return' keyword — we'll add it back
         js = js.replace(/^return\s+/, '').replace(/;+$/, '').trim();
-        // Stub translators — real patterns added in follow-on issues
+
+        // Global writes (id(x) = val) are read-only in the simulator — untranslatable
+        if (/\bid\s*\(\s*\w+\s*\)\s*=[^=]/.test(js)) return null;
+
+        js = this._translateIdHasState(js);
         js = this._translateIdState(js);
-        // Check for untranslatable C++ syntax
+        js = this._translateIdGlobal(js);
+
         if (this._isUntranslatable(js)) return null;
         return `return (${js});`;
     }
 
+    _translateIdHasState(js) {
+        return js.replace(/\bid\s*\(\s*(\w+)\s*\)\.has_state\s*\(\s*\)/g, "__store__.has('$1')");
+    }
+
     _translateIdState(js) {
-        // id(sensor_id).state  →  __store__.get('sensor_id')
-        return js.replace(/\bid\s*\(\s*(\w+)\s*\)\.state\b/g, "__store__.get('$1')");
+        js = js.replace(/\bid\s*\(\s*(\w+)\s*\)\.state\b/g, "__store__.get('$1')");
+        js = js.replace(/\bid\s*\(\s*(\w+)\s*\)\.get_state\s*\(\s*\)/g, "__store__.get('$1')");
+        js = js.replace(/\bid\s*\(\s*(\w+)\s*\)\.get_raw_state\s*\(\s*\)/g, "__store__.get('$1')");
+        return js;
+    }
+
+    _translateIdGlobal(js) {
+        // Any remaining id(name) not followed by . or ( — these are global reads
+        return js.replace(/\bid\s*\(\s*(\w+)\s*\)(?!\s*[.(])/g, "__store__.get('$1')");
     }
 
     _isUntranslatable(js) {
