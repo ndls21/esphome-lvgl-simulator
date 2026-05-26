@@ -445,6 +445,12 @@ body {
 .lvgl-line {
     position: absolute;
     box-sizing: border-box;
+.lvgl-led {
+    position: absolute;
+    box-sizing: border-box;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
 }
 
 /* Responsive design */
