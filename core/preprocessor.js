@@ -14,9 +14,6 @@ export function preprocessYAML(text) {
 
     const lines = text.split('\n');
     const result = [];
-    let inLambdaBlock = false;
-    let lambdaIndent = 0;
-
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i];
 
@@ -26,28 +23,32 @@ export function preprocessYAML(text) {
         // Detect start of block lambda (!lambda |  or  !lambda |-)
         const blockLambdaMatch = line.match(/^(\s*\S.*?:\s*)!lambda\s+\|-?\s*$/);
         if (blockLambdaMatch) {
-            result.push(blockLambdaMatch[1] + '"__lambda__"');
-            inLambdaBlock = true;
-            lambdaIndent = line.match(/^(\s*)/)[1].length;
-            continue;
-        }
-
-        // If inside a block lambda, skip lines that are more indented
-        if (inLambdaBlock) {
-            const lineIndent = line.match(/^(\s*)/)[1].length;
-            if (line.trim() === '' || lineIndent > lambdaIndent) {
-                continue; // skip lambda body lines
-            } else {
-                inLambdaBlock = false; // end of block
+            const bodyLines = [];
+            const baseIndent = line.match(/^(\s*)/)[1].length;
+            let j = i + 1;
+            while (j < lines.length) {
+                const bl = lines[j];
+                const blIndent = bl.match(/^(\s*)/)[1].length;
+                if (bl.trim() === '' || blIndent > baseIndent) {
+                    if (bl.trim()) bodyLines.push(bl.trim());
+                    j++;
+                } else {
+                    break;
+                }
             }
+            i = j - 1; // skip consumed lines (the for loop will do i++ so we end at j)
+            const body = bodyLines.join(' ');
+            const encoded = body ? btoa(unescape(encodeURIComponent(body))) : '';
+            result.push(blockLambdaMatch[1] + (encoded ? `"__lambda__:${encoded}"` : '"__lambda__"'));
+            continue;
         }
 
         // Handle inline lambda (quoted or unquoted)
         // Quoted: !lambda "..." or !lambda '...'
-        line = line.replace(/!lambda\s+"[^"]*"/g, '"__lambda__"');
-        line = line.replace(/!lambda\s+'[^']*'/g, '"__lambda__"');
+        line = line.replace(/!lambda\s+"([^"]*)"/g, (_, body) => `"__lambda__:${btoa(unescape(encodeURIComponent(body)))}"`);
+        line = line.replace(/!lambda\s+'([^']*)'/g, (_, body) => `"__lambda__:${btoa(unescape(encodeURIComponent(body)))}"`);
         // Unquoted: !lambda return ...;  (anything to end of line)
-        line = line.replace(/!lambda\s+(.+)$/, '"__lambda__"');
+        line = line.replace(/!lambda\s+(.+)$/, (_, body) => `"__lambda__:${btoa(unescape(encodeURIComponent(body.trim())))}"`)
 
         // Handle other ESPHome tags
         line = line.replace(/!extend\s+\w+/g, '');

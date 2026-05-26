@@ -867,6 +867,32 @@ lvgl:
         }
     }
 
+    _evalFormatArgs(format, args) {
+        const values = args.map(arg => {
+            const val = this.store.get(arg.id);
+            if (val === null || val === undefined) {
+                return arg.type === 'string' ? '?' : 0;
+            }
+            switch ((arg.type || 'float').toLowerCase()) {
+                case 'int': case 'integer': return Math.round(Number(val));
+                case 'bool': case 'boolean': return Boolean(val);
+                case 'string': return String(val);
+                default: return Number(val);
+            }
+        });
+        return this.lambda.sprintf(format, ...values);
+    }
+
+    _formatTime(fmtStr) {
+        const now = new Date();
+        return fmtStr
+            .replace('%H', String(now.getHours()).padStart(2, '0'))
+            .replace('%M', String(now.getMinutes()).padStart(2, '0'))
+            .replace('%S', String(now.getSeconds()).padStart(2, '0'))
+            .replace('%I', String(now.getHours() % 12 || 12).padStart(2, '0'))
+            .replace('%p', now.getHours() < 12 ? 'AM' : 'PM');
+    }
+
     displayError(message) {
         this.displayElement.innerHTML = `
             <div class="placeholder" style="color:#ff4444;padding:1rem;text-align:center;">
