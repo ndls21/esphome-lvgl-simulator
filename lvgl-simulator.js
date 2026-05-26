@@ -933,8 +933,14 @@ lvgl:
         const numericTypes = new Set(['sensor', 'number', 'global']);
         items.forEach(item => {
             const isNumeric = numericTypes.has(type) && item.type !== 'boolean' && item.type !== 'string';
+            const isBoolean = item.type === 'boolean' || type === 'binary_sensor';
+            const isString = item.type === 'string' || type === 'text_sensor';
             if (isNumeric) {
                 body.appendChild(this.createNumericControl(item.id, item));
+            } else if (isBoolean) {
+                body.appendChild(this.createBooleanControl(item.id, item));
+            } else if (isString) {
+                body.appendChild(this.createStringControl(item.id, item));
             } else {
                 const row = document.createElement('div');
                 row.className = 'mock-item';
@@ -1029,6 +1035,77 @@ lvgl:
         wrapper.appendChild(labelRow);
         wrapper.appendChild(sliderRow);
         wrapper.appendChild(rangeRow);
+        return wrapper;
+    }
+
+    createBooleanControl(id, meta) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'mock-control mock-control--boolean';
+        wrapper.dataset.entityId = id;
+
+        const labelRow = document.createElement('div');
+        labelRow.className = 'mock-control__label-row';
+        const nameEl = document.createElement('span');
+        nameEl.className = 'mock-control__name';
+        nameEl.textContent = meta.name || id;
+        nameEl.title = id;
+        const hintEl = document.createElement('span');
+        hintEl.className = 'mock-control__unit';
+        hintEl.textContent = meta.deviceClass || '';
+        labelRow.appendChild(nameEl);
+        labelRow.appendChild(hintEl);
+
+        const toggle = document.createElement('label');
+        toggle.className = 'mock-toggle';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = this.store.get(id) === true;
+        const sliderSpan = document.createElement('span');
+        sliderSpan.className = 'mock-toggle__slider';
+        toggle.appendChild(cb);
+        toggle.appendChild(sliderSpan);
+
+        const label = document.createElement('span');
+        label.className = 'mock-toggle__label';
+        label.textContent = cb.checked ? 'ON' : 'OFF';
+
+        cb.addEventListener('change', e => {
+            this.store.set(id, e.target.checked);
+            label.textContent = e.target.checked ? 'ON' : 'OFF';
+        });
+
+        const row = document.createElement('div');
+        row.className = 'mock-control__toggle-row';
+        row.appendChild(toggle);
+        row.appendChild(label);
+
+        wrapper.appendChild(labelRow);
+        wrapper.appendChild(row);
+        return wrapper;
+    }
+
+    createStringControl(id, meta) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'mock-control mock-control--string';
+        wrapper.dataset.entityId = id;
+
+        const labelRow = document.createElement('div');
+        labelRow.className = 'mock-control__label-row';
+        const nameEl = document.createElement('span');
+        nameEl.className = 'mock-control__name';
+        nameEl.textContent = meta.name || id;
+        nameEl.title = id;
+        labelRow.appendChild(nameEl);
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'mock-control__text';
+        input.value = this.store.get(id) ?? meta.initialValue ?? '';
+        input.placeholder = `${meta.name || id}...`;
+        input.addEventListener('input', e => this.store.set(id, e.target.value));
+
+        wrapper.appendChild(labelRow);
+        wrapper.appendChild(input);
         return wrapper;
     }
 }
