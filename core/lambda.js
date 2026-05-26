@@ -1,27 +1,25 @@
-const _HELPERS = `
-const _sprintf = (fmt, ...args) => {
-  if (typeof fmt !== 'string') return String(fmt ?? '');
-  let i = 0;
-  return fmt.replace(/%(-?0?\\d*\\.?\\d*)?([difsoxX%])/g, (_, spec, type) => {
-    if (type === '%') return '%';
-    const val = args[i++];
-    const width = parseInt(spec) || 0;
-    const prec = spec && spec.includes('.') ? parseInt(spec.split('.')[1]) : undefined;
-    const padCh = spec && spec.startsWith('0') ? '0' : ' ';
-    switch (type) {
-      case 'd': case 'i': { const n = String(Math.round(Number(val) || 0)); return width ? n.padStart(Math.abs(width), padCh) : n; }
-      case 'f': return (Number(val) || 0).toFixed(prec ?? 6);
-      case 's': return String(val ?? '');
-      case 'x': return (Number(val) || 0).toString(16).toLowerCase().padStart(width, '0');
-      case 'X': return (Number(val) || 0).toString(16).toUpperCase().padStart(width, '0');
-      case 'o': return (Number(val) || 0).toString(8);
-      default: return '';
-    }
-  });
-};
-const _constrain = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-const _map = (v, il, ih, ol, oh) => ol + (v - il) * (oh - ol) / (ih - il);
-`;
+function _sprintfImpl(fmt, args) {
+    if (typeof fmt !== 'string') return String(fmt ?? '');
+    let i = 0;
+    return fmt.replace(/%(-?0?\d*\.?\d*)?([difsoxX%])/g, (_, spec, type) => {
+        if (type === '%') return '%';
+        const val = args[i++];
+        const width = parseInt(spec) || 0;
+        const prec = spec && spec.includes('.') ? parseInt(spec.split('.')[1]) : undefined;
+        const padCh = spec && spec.startsWith('0') ? '0' : ' ';
+        switch (type) {
+            case 'd': case 'i': { const n = String(Math.round(Number(val) || 0)); return width ? n.padStart(Math.abs(width), padCh) : n; }
+            case 'f': return (Number(val) || 0).toFixed(prec ?? 6);
+            case 's': return String(val ?? '');
+            case 'x': return (Number(val) || 0).toString(16).toLowerCase().padStart(width, '0');
+            case 'X': return (Number(val) || 0).toString(16).toUpperCase().padStart(width, '0');
+            case 'o': return (Number(val) || 0).toString(8);
+            default: return '';
+        }
+    });
+}
+const _constrainImpl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const _mapImpl = (v, il, ih, ol, oh) => ol + (v - il) * (oh - ol) / (ih - il);
 
 export class LambdaEvaluator {
     constructor(store) {
@@ -35,6 +33,10 @@ export class LambdaEvaluator {
         if (!value.startsWith('__lambda__:')) return value;
         const body = decodeURIComponent(escape(atob(value.slice(11))));
         return this._evaluateBody(body, fallback);
+    }
+
+    sprintf(fmt, ...args) {
+        return _sprintfImpl(fmt, args);
     }
 
     isLambda(value) {
@@ -61,9 +63,12 @@ export class LambdaEvaluator {
         try {
             if (!this._cache.has(body)) {
                 // eslint-disable-next-line no-new-func
-                this._cache.set(body, new Function('__store__', _HELPERS + translated));
+                this._cache.set(body, new Function('__store__', '_sprintf', '_constrain', '_map', translated));
             }
-            const result = this._cache.get(body)(this.store);
+            const result = this._cache.get(body)(this.store,
+                (fmt, ...a) => _sprintfImpl(fmt, a),
+                _constrainImpl,
+                _mapImpl);
             return result ?? fallback;
         } catch (e) {
             return fallback;
@@ -134,8 +139,6 @@ export class LambdaEvaluator {
         // constrain / map → helper functions
         js = js.replace(/\bconstrain\s*\(/g, '_constrain(');
         js = js.replace(/\bmap\s*\(/g, '_map(');
-
-        // C++ true/false are already valid JS — no change needed
 
         return js;
     }

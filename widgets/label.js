@@ -19,6 +19,14 @@ export function renderLabel(config, parent) {
                 if (body) indicator.dataset.lambda = body.trim();
                 el.appendChild(indicator);
             }
+        } else if (typeof raw === 'object') {
+            if (raw.time_format) {
+                el.textContent = this._formatTime(raw.time_format);
+            } else if (raw.format) {
+                el.textContent = this._evalFormatArgs(raw.format, raw.args || []);
+            } else {
+                el.textContent = '[format?]';
+            }
         } else {
             el.textContent = String(raw);
         }
