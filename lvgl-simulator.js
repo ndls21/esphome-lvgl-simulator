@@ -1,5 +1,6 @@
 import { SimulatorStateStore } from './core/store.js';
 import { preprocessYAML } from './core/preprocessor.js';
+import { resolveIncludes } from './core/resolver.js';
 import { renderObj } from './widgets/obj.js';
 import { renderLabel } from './widgets/label.js';
 import { renderButton } from './widgets/button.js';
@@ -20,6 +21,7 @@ class ESPHomeLVGLSimulator {
         this.config = null;
         this.styleDefinitions = {};
         this.substitutions = {};
+        this.fileMap = {};
         this.store = new SimulatorStateStore();
         this.theme = {};
         this.currentWidgetType = '';
@@ -48,6 +50,22 @@ class ESPHomeLVGLSimulator {
             input.type = 'file';
             input.accept = '.yaml,.yml';
             input.onchange = (e) => this.loadConfigFile(e.target.files[0]);
+            input.click();
+        });
+
+        document.getElementById('loadZip').addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.zip';
+            input.onchange = (e) => this.loadZipFile(e.target.files[0]);
+            input.click();
+        });
+
+        document.getElementById('loadFolder').addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.webkitdirectory = true;
+            input.onchange = (e) => this.loadFolder(e.target.files);
             input.click();
         });
 
@@ -86,12 +104,79 @@ class ESPHomeLVGLSimulator {
     async loadConfigFile(file) {
         try {
             const text = await file.text();
+            this.fileMap = {};
             this.yamlEditor.value = text;
             this.renderFromEditor();
         } catch (error) {
             console.error('Error loading config file:', error);
             alert('Error loading config file: ' + error.message);
         }
+    }
+
+    async loadZipFile(file) {
+        try {
+            if (typeof JSZip === 'undefined') {
+                alert('JSZip not loaded — check your internet connection.');
+                return;
+            }
+            const zip = await JSZip.loadAsync(file);
+            const map = {};
+            const loads = [];
+            zip.forEach((relPath, entry) => {
+                if (!entry.dir) {
+                    loads.push(
+                        entry.async('string').then(content => { map[relPath] = content; })
+                    );
+                }
+            });
+            await Promise.all(loads);
+            this.fileMap = map;
+
+            const root = this._detectRootYaml(map);
+            if (!root) { alert('No YAML file found in ZIP.'); return; }
+            this.yamlEditor.value = map[root];
+            this.renderFromEditor();
+        } catch (error) {
+            console.error('Error loading ZIP:', error);
+            alert('Error loading ZIP: ' + error.message);
+        }
+    }
+
+    async loadFolder(files) {
+        try {
+            const map = {};
+            const loads = Array.from(files).map(f =>
+                f.text().then(content => {
+                    // webkitRelativePath is "foldername/path/to/file.yaml"
+                    // strip the top-level folder prefix so paths match !include references
+                    const rel = f.webkitRelativePath || f.name;
+                    const key = rel.includes('/') ? rel.slice(rel.indexOf('/') + 1) : rel;
+                    map[key] = content;
+                })
+            );
+            await Promise.all(loads);
+            this.fileMap = map;
+
+            const root = this._detectRootYaml(map);
+            if (!root) { alert('No YAML file found in folder.'); return; }
+            this.yamlEditor.value = map[root];
+            this.renderFromEditor();
+        } catch (error) {
+            console.error('Error loading folder:', error);
+            alert('Error loading folder: ' + error.message);
+        }
+    }
+
+    _detectRootYaml(map) {
+        const yamls = Object.keys(map).filter(k => /\.(yaml|yml)$/i.test(k));
+        if (yamls.length === 0) return null;
+        // Prefer root-level files (no slash in path)
+        const rootLevel = yamls.filter(k => !k.includes('/'));
+        const pool = rootLevel.length > 0 ? rootLevel : yamls;
+        // Prefer the one containing lvgl: or display:
+        const withLvgl = pool.filter(k => /^(lvgl|display)\s*:/m.test(map[k]));
+        if (withLvgl.length > 0) return withLvgl[0];
+        return pool.sort()[0];
     }
 
     loadExampleConfig() {
@@ -130,11 +215,12 @@ lvgl:
             });
     }
 
-    renderFromEditor() {
+    async renderFromEditor() {
         try {
             this.store.clear();
             const raw = this.yamlEditor.value;
-            const { text: preprocessed, substitutions } = preprocessYAML(raw);
+            const resolved = await resolveIncludes(raw, this.fileMap);
+            const { text: preprocessed, substitutions } = preprocessYAML(resolved);
             this.substitutions = substitutions;
             this.config = jsyaml.load(preprocessed);
             this.currentPageIndex = 0;

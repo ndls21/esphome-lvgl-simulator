@@ -14,7 +14,11 @@
         <div class="editor-panel">
             <div class="panel-header">
                 <h3>ESPHome LVGL Configuration</h3>
-                <button id="loadConfig" class="btn">Load Config</button>
+                <div class="load-buttons">
+                    <button id="loadConfig" class="btn">Load Config</button>
+                    <button id="loadZip" class="btn">Load ZIP</button>
+                    <button id="loadFolder" class="btn">Load Folder</button>
+                </div>
             </div>
             <textarea id="yamlEditor" placeholder="Paste your ESPHome LVGL YAML configuration here..."></textarea>
             <div class="controls">
@@ -52,6 +56,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script type="module" src="lvgl-simulator.js"></script>
 </body>
 </html>
