@@ -15,6 +15,7 @@ import { renderSwitch } from './widgets/switch.js';
 import { renderDropdown } from './widgets/dropdown.js';
 import { renderLine } from './widgets/line.js';
 import { renderLed } from './widgets/led.js';
+import { renderMeter } from './widgets/meter.js';
 
 class ESPHomeLVGLSimulator {
     constructor() {
@@ -532,7 +533,7 @@ lvgl:
             case 'dropdown': el = this.renderDropdown(cfg, parent); break;
             case 'line':     el = this.renderLine(cfg, parent);     break;
             case 'led':      el = this.renderLed(cfg, parent);      break;
-            case 'meter':    el = this.renderMeter?.(cfg, parent);  break;
+            case 'meter':    el = this.renderMeter(cfg, parent);    break;
             default:
                 console.warn(`Unsupported widget: ${type}`);
                 el = this.renderUnsupported(type, cfg, parent);
@@ -888,6 +889,7 @@ Object.assign(ESPHomeLVGLSimulator.prototype, {
     renderSwitch,
     renderDropdown,
     renderLine,
+    renderMeter,
 });
 
 document.addEventListener('DOMContentLoaded', () => {

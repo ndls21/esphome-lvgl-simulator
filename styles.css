@@ -506,3 +506,8 @@ body {
         border-bottom: 1px solid #444;
     }
 }
+
+.lvgl-meter {
+    position: absolute;
+    box-sizing: border-box;
+}
