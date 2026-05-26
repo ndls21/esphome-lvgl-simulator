@@ -21,6 +21,8 @@ class ESPHomeLVGLSimulator {
         this.styleDefinitions = {};
         this.substitutions = {};
         this.store = new SimulatorStateStore();
+        this.theme = {};
+        this.currentWidgetType = '';
         this.pages = [];
         this.currentPageIndex = 0;
         this.displayElement = document.getElementById('lvglDisplay');
@@ -201,6 +203,12 @@ lvgl:
                 }
             });
 
+            this.theme = {};
+            const themeCfg = this.config.lvgl.theme || {};
+            Object.keys(themeCfg).forEach(type => {
+                this.theme[type] = themeCfg[type];
+            });
+
             this.parseGlobals();
             this.parseSensorComponents();
             this.setupDisplay();
@@ -339,7 +347,7 @@ lvgl:
     renderWidget(widget, parent) {
         const type = Object.keys(widget)[0];
         const cfg = widget[type];
-
+        this.currentWidgetType = type;
         switch (type) {
             case 'obj':      return this.renderObj(cfg, parent);
             case 'label':    return this.renderLabel(cfg, parent);
@@ -362,15 +370,27 @@ lvgl:
     }
 
     resolveStyles(config) {
+        const themeDefaults = (this.theme || {})[this.currentWidgetType] || {};
         const ids = config.styles
             ? (Array.isArray(config.styles) ? config.styles : [config.styles])
             : [];
-        const base = {};
+        const base = Object.assign({}, themeDefaults);
         ids.forEach(id => {
             const s = this.styleDefinitions[id];
-            if (s) Object.assign(base, s);
+            if (s) this._deepMerge(base, s);
         });
         return Object.assign(base, config);
+    }
+
+    _deepMerge(target, source) {
+        Object.keys(source || {}).forEach(key => {
+            if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+                target[key] = this._deepMerge(target[key] || {}, source[key]);
+            } else {
+                target[key] = source[key];
+            }
+        });
+        return target;
     }
 
     renderUnsupported(type, config, parent) {
