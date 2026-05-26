@@ -19,6 +19,7 @@ class ESPHomeLVGLSimulator {
     constructor() {
         this.config = null;
         this.styleDefinitions = {};
+        this.substitutions = {};
         this.store = new SimulatorStateStore();
         this.pages = [];
         this.currentPageIndex = 0;
@@ -121,7 +122,8 @@ lvgl:
         try {
             this.store.clear();
             const raw = this.yamlEditor.value;
-            const preprocessed = preprocessYAML(raw);
+            const { text: preprocessed, substitutions } = preprocessYAML(raw);
+            this.substitutions = substitutions;
             this.config = jsyaml.load(preprocessed);
             this.currentPageIndex = 0;
             this.render();

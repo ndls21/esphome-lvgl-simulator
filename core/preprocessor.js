@@ -1,4 +1,17 @@
 export function preprocessYAML(text) {
+    const substitutions = {};
+    const subsMatch = text.match(/^substitutions\s*:\s*\n((?:[ \t]+.+\n?)*)/m);
+    if (subsMatch) {
+        try {
+            const subsYaml = 'substitutions:\n' + subsMatch[1];
+            const parsed = jsyaml.load(subsYaml);
+            Object.assign(substitutions, parsed.substitutions || {});
+        } catch (e) {}
+    }
+    Object.keys(substitutions).forEach(key => {
+        text = text.split('${' + key + '}').join(String(substitutions[key]));
+    });
+
     const lines = text.split('\n');
     const result = [];
     let inLambdaBlock = false;
@@ -43,5 +56,5 @@ export function preprocessYAML(text) {
 
         result.push(line);
     }
-    return result.join('\n');
+    return { text: result.join('\n'), substitutions };
 }
