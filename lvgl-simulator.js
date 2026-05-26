@@ -142,6 +142,8 @@ lvgl:
         } catch (error) {
             console.error('Error parsing YAML:', error);
             this.displayError('YAML Parse Error: ' + error.message);
+            const summaryEl = document.getElementById('entitySummary');
+            if (summaryEl) summaryEl.style.display = 'none';
         }
     }
 
@@ -221,6 +223,7 @@ lvgl:
 
             this.populatePageSelect();
             this.renderCurrentPage();
+            this.updateEntitySummary();
         } catch (error) {
             console.error('Error rendering:', error);
             this.displayError('Render Error: ' + error.message);
@@ -612,6 +615,36 @@ lvgl:
 
     extractPartStyles(cfg, part) {
         return cfg[part] || {};
+    }
+
+    updateEntitySummary() {
+        const el = document.getElementById('entitySummary');
+        const badges = document.getElementById('entityBadges');
+        if (!el || !badges) return;
+        const entries = this.store.getAllEntries();
+
+        const counts = { sensor: 0, binary_sensor: 0, text_sensor: 0, number: 0, global: 0 };
+        Object.values(entries).forEach(e => {
+            if (counts[e.entityType] !== undefined) counts[e.entityType]++;
+        });
+
+        const subCount = Object.keys(this.substitutions || {}).length;
+        const parts = [];
+
+        if (counts.sensor > 0) parts.push(`${counts.sensor} sensor${counts.sensor > 1 ? 's' : ''}`);
+        if (counts.binary_sensor > 0) parts.push(`${counts.binary_sensor} binary`);
+        if (counts.text_sensor > 0) parts.push(`${counts.text_sensor} text sensor${counts.text_sensor > 1 ? 's' : ''}`);
+        if (counts.number > 0) parts.push(`${counts.number} number${counts.number > 1 ? 's' : ''}`);
+        if (counts.global > 0) parts.push(`${counts.global} global${counts.global > 1 ? 's' : ''}`);
+        if (subCount > 0) parts.push(`${subCount} substitution${subCount > 1 ? 's' : ''}`);
+
+        if (parts.length === 0) {
+            el.style.display = 'none';
+            return;
+        }
+
+        badges.innerHTML = parts.map(p => `<span class="entity-badge">${p}</span>`).join('');
+        el.style.display = 'flex';
     }
 }
 
