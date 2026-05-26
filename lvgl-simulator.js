@@ -300,6 +300,9 @@ lvgl:
             return;
         }
 
+        if (this._storeUnsub) { this._storeUnsub(); this._storeUnsub = null; }
+        if (this._rerenderTimer) { clearTimeout(this._rerenderTimer); this._rerenderTimer = null; }
+
         try {
             this.styleDefinitions = {};
             (this.config.lvgl.style_definitions || []).forEach(def => {
@@ -329,6 +332,7 @@ lvgl:
             this.renderCurrentPage();
             this.updateEntitySummary();
             this.populateMockPanel();
+            this._storeUnsub = this.store.subscribeAll(() => this._scheduleRerender());
         } catch (error) {
             console.error('Error rendering:', error);
             this.displayError('Render Error: ' + error.message);
@@ -426,6 +430,20 @@ lvgl:
         this.pageInfo.textContent = `${this.currentPageIndex + 1} / ${this.pages.length}`;
         document.getElementById('prevPage').disabled = this.currentPageIndex === 0;
         document.getElementById('nextPage').disabled = this.currentPageIndex === this.pages.length - 1;
+    }
+
+    _scheduleRerender() {
+        if (this._rerenderTimer) clearTimeout(this._rerenderTimer);
+        this._rerenderTimer = setTimeout(() => {
+            this._rerenderTimer = null;
+            this._rerenderCurrentPage();
+        }, 50);
+    }
+
+    _rerenderCurrentPage() {
+        this.displayElement.innerHTML = '';
+        const page = this.pages[this.currentPageIndex];
+        if (page) this.renderPage(page);
     }
 
     renderCurrentPage() {
