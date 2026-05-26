@@ -531,9 +531,35 @@ lvgl:
         if (config.clip_corner || config.scrollable === false) {
             el.style.overflow = 'hidden';
         }
+
+        // Grid child placement
+        if (config.grid_cell_column_pos !== undefined) {
+            el.style.gridColumnStart = config.grid_cell_column_pos + 1; // CSS is 1-based
+        }
+        if (config.grid_cell_row_pos !== undefined) {
+            el.style.gridRowStart = config.grid_cell_row_pos + 1;
+        }
+        if (config.grid_cell_column_span !== undefined && config.grid_cell_column_span > 1) {
+            el.style.gridColumnEnd = `span ${config.grid_cell_column_span}`;
+        }
+        if (config.grid_cell_row_span !== undefined && config.grid_cell_row_span > 1) {
+            el.style.gridRowEnd = `span ${config.grid_cell_row_span}`;
+        }
+        if (config.grid_cell_x_align) {
+            const a = config.grid_cell_x_align.toUpperCase();
+            el.style.justifySelf = a === 'CENTER' ? 'center' : a === 'STRETCH' ? 'stretch' : a === 'END' ? 'end' : 'start';
+        }
+        if (config.grid_cell_y_align) {
+            const a = config.grid_cell_y_align.toUpperCase();
+            el.style.alignSelf = a === 'CENTER' ? 'center' : a === 'STRETCH' ? 'stretch' : a === 'END' ? 'end' : 'start';
+        }
     }
 
     applyPosition(el, config) {
+        // Grid children use flow positioning — absolute would break grid placement
+        if (config.grid_cell_column_pos !== undefined || config.grid_cell_row_pos !== undefined) {
+            return;
+        }
         const align = (config.align || '').toUpperCase();
         if (!align && config.x === undefined && config.y === undefined) return;
 
@@ -617,7 +643,31 @@ lvgl:
             if (layout.pad_row !== undefined || layout.pad_column !== undefined) {
                 el.style.gap = `${layout.pad_row ?? 0}px ${layout.pad_column ?? 0}px`;
             }
+        } else if (layout.type === 'GRID') {
+            el.style.display = 'grid';
+            if (layout.grid_columns) {
+                el.style.gridTemplateColumns = this.parseLvglGridTrack(layout.grid_columns);
+            }
+            if (layout.grid_rows) {
+                el.style.gridTemplateRows = this.parseLvglGridTrack(layout.grid_rows);
+            }
+            if (layout.pad_column !== undefined) el.style.columnGap = layout.pad_column + 'px';
+            if (layout.pad_row    !== undefined) el.style.rowGap    = layout.pad_row    + 'px';
         }
+    }
+
+    parseLvglGridTrack(trackStr) {
+        const parts = Array.isArray(trackStr)
+            ? trackStr.map(String)
+            : String(trackStr).trim().split(/\s+/);
+        return parts.map(part => {
+            const frMatch = part.match(/^FR\((\d+(?:\.\d+)?)\)$/i);
+            if (frMatch) return frMatch[1] + 'fr';
+            if (part.toUpperCase() === 'CONTENT') return 'auto';
+            const num = parseFloat(part);
+            if (!isNaN(num)) return num + 'px';
+            return 'auto';
+        }).join(' ');
     }
 
     flexAlign(val) {
