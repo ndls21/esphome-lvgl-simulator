@@ -1,4 +1,4 @@
-const _SPRINTF_HELPER = `
+const _HELPERS = `
 const _sprintf = (fmt, ...args) => {
   if (typeof fmt !== 'string') return String(fmt ?? '');
   let i = 0;
@@ -19,6 +19,8 @@ const _sprintf = (fmt, ...args) => {
     }
   });
 };
+const _constrain = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const _map = (v, il, ih, ol, oh) => ol + (v - il) * (oh - ol) / (ih - il);
 `;
 
 export class LambdaEvaluator {
@@ -41,7 +43,7 @@ export class LambdaEvaluator {
         try {
             if (!this._cache.has(body)) {
                 // eslint-disable-next-line no-new-func
-                this._cache.set(body, new Function('__store__', _SPRINTF_HELPER + translated));
+                this._cache.set(body, new Function('__store__', _HELPERS + translated));
             }
             const result = this._cache.get(body)(this.store);
             return result ?? fallback;
@@ -61,6 +63,7 @@ export class LambdaEvaluator {
         js = this._translateIdState(js);
         js = this._translateIdGlobal(js);
         js = this._translateStrings(js);
+        js = this._translateArith(js);
 
         if (this._isUntranslatable(js)) return null;
         return `return (${js});`;
@@ -102,6 +105,19 @@ export class LambdaEvaluator {
         js = js.replace(/\(int\)\s*([^\s;,)]+)/g, 'Math.round($1)');
         js = js.replace(/\(float\)\s*/g, '');
         js = js.replace(/\(double\)\s*/g, '');
+
+        return js;
+    }
+
+    _translateArith(js) {
+        // C++ type declarations → let declarations
+        js = js.replace(/\b(int|float|double|bool|uint8_t|uint16_t|uint32_t|std::string)\s+(\w+)\s*=/g, 'let $2 =');
+
+        // constrain / map → helper functions
+        js = js.replace(/\bconstrain\s*\(/g, '_constrain(');
+        js = js.replace(/\bmap\s*\(/g, '_map(');
+
+        // C++ true/false are already valid JS — no change needed
 
         return js;
     }
