@@ -25,6 +25,8 @@ class ESPHomeLVGLSimulator {
         this.store = new SimulatorStateStore();
         this.theme = {};
         this.currentWidgetType = '';
+        this._renderedElements = {};
+        this._deferredAlignments = [];
         this.pages = [];
         this.currentPageIndex = 0;
         this.displayElement = document.getElementById('lvglDisplay');
@@ -417,6 +419,9 @@ lvgl:
     }
 
     renderPage(page) {
+        this._renderedElements = {};
+        this._deferredAlignments = [];
+
         const pageEl = document.createElement('div');
         pageEl.className = 'lvgl-page';
         pageEl.style.cssText = 'position:absolute;width:100%;height:100%;top:0;left:0;';
@@ -431,31 +436,113 @@ lvgl:
         }
 
         this.displayElement.appendChild(pageEl);
+        this._resolveAlignments();
+    }
+
+    _resolveAlignments() {
+        for (const { el, alignTo } of this._deferredAlignments) {
+            const targetEl = this._renderedElements[alignTo.id];
+            if (!targetEl) continue;
+
+            const tl = targetEl.offsetLeft;
+            const tt = targetEl.offsetTop;
+            const tw = targetEl.offsetWidth;
+            const th = targetEl.offsetHeight;
+            const ew = el.offsetWidth;
+            const eh = el.offsetHeight;
+            const ox = alignTo.x ?? 0;
+            const oy = alignTo.y ?? 0;
+
+            el.style.position = 'absolute';
+
+            switch ((alignTo.align || '').toUpperCase()) {
+                case 'OUT_TOP_LEFT':
+                    el.style.left = (tl + ox) + 'px';
+                    el.style.top  = (tt - eh + oy) + 'px';
+                    break;
+                case 'OUT_TOP_MID':
+                    el.style.left = (tl + tw/2 - ew/2 + ox) + 'px';
+                    el.style.top  = (tt - eh + oy) + 'px';
+                    break;
+                case 'OUT_TOP_RIGHT':
+                    el.style.left = (tl + tw - ew + ox) + 'px';
+                    el.style.top  = (tt - eh + oy) + 'px';
+                    break;
+                case 'OUT_BOTTOM_LEFT':
+                    el.style.left = (tl + ox) + 'px';
+                    el.style.top  = (tt + th + oy) + 'px';
+                    break;
+                case 'OUT_BOTTOM_MID':
+                    el.style.left = (tl + tw/2 - ew/2 + ox) + 'px';
+                    el.style.top  = (tt + th + oy) + 'px';
+                    break;
+                case 'OUT_BOTTOM_RIGHT':
+                    el.style.left = (tl + tw - ew + ox) + 'px';
+                    el.style.top  = (tt + th + oy) + 'px';
+                    break;
+                case 'OUT_LEFT_TOP':
+                    el.style.left = (tl - ew + ox) + 'px';
+                    el.style.top  = (tt + oy) + 'px';
+                    break;
+                case 'OUT_LEFT_MID':
+                    el.style.left = (tl - ew + ox) + 'px';
+                    el.style.top  = (tt + th/2 - eh/2 + oy) + 'px';
+                    break;
+                case 'OUT_LEFT_BOTTOM':
+                    el.style.left = (tl - ew + ox) + 'px';
+                    el.style.top  = (tt + th - eh + oy) + 'px';
+                    break;
+                case 'OUT_RIGHT_TOP':
+                    el.style.left = (tl + tw + ox) + 'px';
+                    el.style.top  = (tt + oy) + 'px';
+                    break;
+                case 'OUT_RIGHT_MID':
+                    el.style.left = (tl + tw + ox) + 'px';
+                    el.style.top  = (tt + th/2 - eh/2 + oy) + 'px';
+                    break;
+                case 'OUT_RIGHT_BOTTOM':
+                    el.style.left = (tl + tw + ox) + 'px';
+                    el.style.top  = (tt + th - eh + oy) + 'px';
+                    break;
+                default:
+                    el.style.left = ox + 'px';
+                    el.style.top  = oy + 'px';
+            }
+        }
     }
 
     renderWidget(widget, parent) {
         const type = Object.keys(widget)[0];
         const cfg = widget[type];
         this.currentWidgetType = type;
+
+        let el;
         switch (type) {
-            case 'obj':      return this.renderObj(cfg, parent);
-            case 'label':    return this.renderLabel(cfg, parent);
-            case 'arc':      return this.renderArc(cfg, parent);
-            case 'button':   return this.renderButton(cfg, parent);
-            case 'bar':      return this.renderBar(cfg, parent);
-            case 'slider':   return this.renderSlider(cfg, parent);
-            case 'checkbox': return this.renderCheckbox(cfg, parent);
-            case 'img':      return this.renderImg(cfg, parent);
-            case 'roller':   return this.renderRoller(cfg, parent);
-            case 'spinner':  return this.renderSpinner(cfg, parent);
-            case 'switch':   return this.renderSwitch(cfg, parent);
-            case 'dropdown': return this.renderDropdown(cfg, parent);
-            case 'line':     return this.renderLine(cfg, parent);
-            case 'led':      return this.renderLed(cfg, parent);
+            case 'obj':      el = this.renderObj(cfg, parent);      break;
+            case 'label':    el = this.renderLabel(cfg, parent);    break;
+            case 'arc':      el = this.renderArc(cfg, parent);      break;
+            case 'button':   el = this.renderButton(cfg, parent);   break;
+            case 'bar':      el = this.renderBar(cfg, parent);      break;
+            case 'slider':   el = this.renderSlider(cfg, parent);   break;
+            case 'checkbox': el = this.renderCheckbox(cfg, parent); break;
+            case 'img':      el = this.renderImg(cfg, parent);      break;
+            case 'roller':   el = this.renderRoller(cfg, parent);   break;
+            case 'spinner':  el = this.renderSpinner(cfg, parent);  break;
+            case 'switch':   el = this.renderSwitch(cfg, parent);   break;
+            case 'dropdown': el = this.renderDropdown(cfg, parent); break;
+            case 'line':     el = this.renderLine(cfg, parent);     break;
+            case 'led':      el = this.renderLed(cfg, parent);      break;
+            case 'meter':    el = this.renderMeter?.(cfg, parent);  break;
             default:
                 console.warn(`Unsupported widget: ${type}`);
-                return this.renderUnsupported(type, cfg, parent);
+                el = this.renderUnsupported(type, cfg, parent);
         }
+
+        if (el) {
+            if (cfg && cfg.id) this._renderedElements[cfg.id] = el;
+            if (cfg && cfg.align_to) this._deferredAlignments.push({ el, alignTo: cfg.align_to });
+        }
+        return el;
     }
 
     resolveStyles(config) {
