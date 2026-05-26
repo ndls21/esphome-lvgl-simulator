@@ -37,6 +37,24 @@ export class LambdaEvaluator {
         return this._evaluateBody(body, fallback);
     }
 
+    isLambda(value) {
+        return typeof value === 'string' && (value === '__lambda__' || value.startsWith('__lambda__:'));
+    }
+
+    getRawBody(value) {
+        if (typeof value !== 'string') return null;
+        if (value === '__lambda__') return null;
+        if (!value.startsWith('__lambda__:')) return null;
+        return decodeURIComponent(escape(atob(value.slice(11))));
+    }
+
+    isTranslatable(value) {
+        if (!this.isLambda(value)) return false;
+        const body = this.getRawBody(value);
+        if (body === null) return false;
+        return this._translate(body) !== null;
+    }
+
     _evaluateBody(body, fallback) {
         const translated = this._translate(body);
         if (translated === null) return fallback;

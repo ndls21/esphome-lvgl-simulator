@@ -511,3 +511,36 @@ body {
     position: absolute;
     box-sizing: border-box;
 }
+
+.lvgl-lambda-indicator {
+    color: #FF8C00;
+    font-size: 10px;
+    font-weight: bold;
+    cursor: help;
+    border: 1px solid #664400;
+    border-radius: 2px;
+    padding: 1px 3px;
+    background: #1A1000;
+    position: relative;
+}
+
+.lvgl-lambda-indicator[data-lambda]:hover::after {
+    content: attr(data-lambda);
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1E1E1E;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 10px;
+    color: #ccc;
+    font-family: monospace;
+    white-space: pre;
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    z-index: 1000;
+    pointer-events: none;
+}

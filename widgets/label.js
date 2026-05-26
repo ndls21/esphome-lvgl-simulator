@@ -4,9 +4,24 @@ export function renderLabel(config, parent) {
     el.className = 'lvgl-label';
     this.applyCommonStyles(el, cfg);
 
-    if (cfg.text !== undefined) {
-        const txt = String(cfg.text);
-        el.textContent = txt.includes('__lambda__') ? '---' : txt;
+    const raw = cfg.text;
+    if (raw !== undefined && raw !== null) {
+        if (this.lambda.isLambda(raw)) {
+            const result = this.lambda.evaluate(raw, null);
+            if (result !== null) {
+                el.textContent = String(result);
+            } else {
+                const body = this.lambda.getRawBody(raw);
+                const indicator = document.createElement('span');
+                indicator.className = 'lvgl-lambda-indicator';
+                indicator.textContent = '[λ]';
+                indicator.title = body ? body.trim() : 'Lambda (body not available)';
+                if (body) indicator.dataset.lambda = body.trim();
+                el.appendChild(indicator);
+            }
+        } else {
+            el.textContent = String(raw);
+        }
     }
 
     if (cfg.text_color) el.style.color = this.parseColor(cfg.text_color);
