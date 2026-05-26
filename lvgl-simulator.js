@@ -1,4 +1,5 @@
 import { SimulatorStateStore } from './core/store.js';
+import { LambdaEvaluator } from './core/lambda.js';
 import { preprocessYAML } from './core/preprocessor.js';
 import { resolveIncludes } from './core/resolver.js';
 import { renderObj } from './widgets/obj.js';
@@ -24,6 +25,7 @@ class ESPHomeLVGLSimulator {
         this.substitutions = {};
         this.fileMap = {};
         this.store = new SimulatorStateStore();
+        this.lambda = new LambdaEvaluator(this.store);
         this.theme = {};
         this.currentWidgetType = '';
         this._renderedElements = {};
@@ -101,6 +103,19 @@ class ESPHomeLVGLSimulator {
                 btn.textContent = 'Copied!';
                 setTimeout(() => { btn.textContent = orig; }, 1500);
             });
+        });
+
+        document.getElementById('toggleMockPanel').addEventListener('click', () => {
+            const panel = document.getElementById('mockPanel');
+            const btn = document.getElementById('toggleMockPanel');
+            const isVisible = panel.classList.contains('mock-panel--visible');
+            panel.classList.toggle('mock-panel--visible', !isVisible);
+            btn.innerHTML = isVisible ? '&#9654;' : '&#9664;';
+        });
+
+        document.getElementById('resetMockData').addEventListener('click', () => {
+            this.store.reset();
+            this.renderFromEditor();
         });
     }
 
@@ -288,6 +303,9 @@ lvgl:
             return;
         }
 
+        if (this._storeUnsub) { this._storeUnsub(); this._storeUnsub = null; }
+        if (this._rerenderTimer) { clearTimeout(this._rerenderTimer); this._rerenderTimer = null; }
+
         try {
             this.styleDefinitions = {};
             (this.config.lvgl.style_definitions || []).forEach(def => {
@@ -316,6 +334,8 @@ lvgl:
             this.populatePageSelect();
             this.renderCurrentPage();
             this.updateEntitySummary();
+            this.populateMockPanel();
+            this._storeUnsub = this.store.subscribeAll(() => this._scheduleRerender());
         } catch (error) {
             console.error('Error rendering:', error);
             this.displayError('Render Error: ' + error.message);
@@ -413,6 +433,20 @@ lvgl:
         this.pageInfo.textContent = `${this.currentPageIndex + 1} / ${this.pages.length}`;
         document.getElementById('prevPage').disabled = this.currentPageIndex === 0;
         document.getElementById('nextPage').disabled = this.currentPageIndex === this.pages.length - 1;
+    }
+
+    _scheduleRerender() {
+        if (this._rerenderTimer) clearTimeout(this._rerenderTimer);
+        this._rerenderTimer = setTimeout(() => {
+            this._rerenderTimer = null;
+            this._rerenderCurrentPage();
+        }, 50);
+    }
+
+    _rerenderCurrentPage() {
+        this.displayElement.innerHTML = '';
+        const page = this.pages[this.currentPageIndex];
+        if (page) this.renderPage(page);
     }
 
     renderCurrentPage() {
@@ -920,6 +954,228 @@ lvgl:
 
         badges.innerHTML = parts.map(p => `<span class="entity-badge">${p}</span>`).join('');
         el.style.display = 'flex';
+    }
+
+    populateMockPanel() {
+        const container = document.getElementById('mockControls');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const entries = this.store.getAllEntries();
+        const groups = { sensor: [], binary_sensor: [], text_sensor: [], number: [], global: [] };
+        Object.entries(entries).forEach(([id, meta]) => {
+            if (groups[meta.entityType] !== undefined) groups[meta.entityType].push({ id, ...meta });
+        });
+
+        const sectionTitles = {
+            sensor: 'Sensors', binary_sensor: 'Binary Sensors',
+            text_sensor: 'Text Sensors', number: 'Numbers', global: 'Globals'
+        };
+
+        let hasAny = false;
+        Object.entries(groups).forEach(([type, items]) => {
+            if (items.length === 0) return;
+            hasAny = true;
+            container.appendChild(this.createMockSection(sectionTitles[type], items, type));
+        });
+
+        if (!hasAny) {
+            container.innerHTML = '<div class="mock-empty">No sensors or globals detected.</div>';
+            document.getElementById('mockPanel').classList.remove('mock-panel--visible');
+            return;
+        }
+        document.getElementById('mockPanel').classList.add('mock-panel--visible');
+    }
+
+    createMockSection(title, items, type) {
+        const section = document.createElement('div');
+        section.className = 'mock-section';
+
+        const header = document.createElement('div');
+        header.className = 'mock-section-header';
+        header.innerHTML = `<span class="mock-section-icon">&#9660;</span><span>${title} (${items.length})</span>`;
+        header.addEventListener('click', () => section.classList.toggle('mock-section--collapsed'));
+
+        const body = document.createElement('div');
+        body.className = 'mock-section-body';
+
+        const numericTypes = new Set(['sensor', 'number', 'global']);
+        items.forEach(item => {
+            const isNumeric = numericTypes.has(type) && item.type !== 'boolean' && item.type !== 'string';
+            const isBoolean = item.type === 'boolean' || type === 'binary_sensor';
+            const isString = item.type === 'string' || type === 'text_sensor';
+            if (isNumeric) {
+                body.appendChild(this.createNumericControl(item.id, item));
+            } else if (isBoolean) {
+                body.appendChild(this.createBooleanControl(item.id, item));
+            } else if (isString) {
+                body.appendChild(this.createStringControl(item.id, item));
+            } else {
+                const row = document.createElement('div');
+                row.className = 'mock-item';
+                row.dataset.entityId = item.id;
+                row.innerHTML = `
+                    <span class="mock-item-id">${item.id}</span>
+                    <span class="mock-item-type">${item.type || type}</span>
+                `;
+                body.appendChild(row);
+            }
+        });
+
+        section.appendChild(header);
+        section.appendChild(body);
+        return section;
+    }
+
+    _smartRange(meta) {
+        if (meta.min !== undefined && meta.max !== undefined) {
+            return { min: meta.min, max: meta.max };
+        }
+        const unit = (meta.unit || '').toLowerCase();
+        if (unit === '%') return { min: 0, max: 100 };
+        if (unit === '°c' || unit === 'c') return { min: -20, max: 60 };
+        if (unit === '°f' || unit === 'f') return { min: 0, max: 150 };
+        if (unit === 'v') return { min: 0, max: 60 };
+        if (unit === 'a') return { min: 0, max: 50 };
+        if (unit === 'mph' || unit === 'km/h') return { min: 0, max: 200 };
+        return { min: meta.min ?? 0, max: meta.max ?? 100 };
+    }
+
+    createNumericControl(id, meta) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'mock-control mock-control--numeric';
+        wrapper.dataset.entityId = id;
+
+        const labelRow = document.createElement('div');
+        labelRow.className = 'mock-control__label-row';
+        const nameEl = document.createElement('span');
+        nameEl.className = 'mock-control__name';
+        nameEl.textContent = meta.name || id;
+        nameEl.title = id;
+        const unitEl = document.createElement('span');
+        unitEl.className = 'mock-control__unit';
+        unitEl.textContent = meta.unit || '';
+        labelRow.appendChild(nameEl);
+        labelRow.appendChild(unitEl);
+
+        const { min, max } = this._smartRange(meta);
+        const isInt = meta.type === 'integer';
+        const decimals = meta.accuracy_decimals ?? meta.decimals ?? (isInt ? 0 : 1);
+        const step = meta.step ?? (isInt ? 1 : Math.pow(10, -decimals));
+        const currentVal = this.store.get(id) ?? meta.initialValue ?? min;
+
+        const sliderRow = document.createElement('div');
+        sliderRow.className = 'mock-control__slider-row';
+
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = min;
+        slider.max = max;
+        slider.step = step;
+        slider.value = currentVal;
+        slider.className = 'mock-control__slider';
+
+        const numInput = document.createElement('input');
+        numInput.type = 'number';
+        numInput.min = min;
+        numInput.max = max;
+        numInput.step = step;
+        numInput.value = isInt ? Math.round(currentVal) : Number(currentVal).toFixed(decimals);
+        numInput.className = 'mock-control__number';
+
+        const update = (val) => {
+            const parsed = parseFloat(val);
+            if (isNaN(parsed)) return;
+            const clamped = Math.min(max, Math.max(min, parsed));
+            const display = isInt ? Math.round(clamped) : clamped.toFixed(decimals);
+            slider.value = clamped;
+            numInput.value = display;
+            this.store.set(id, isInt ? Math.round(clamped) : clamped);
+        };
+        slider.addEventListener('input', e => update(e.target.value));
+        numInput.addEventListener('change', e => update(e.target.value));
+
+        const rangeRow = document.createElement('div');
+        rangeRow.className = 'mock-control__range-row';
+        rangeRow.innerHTML = `<span>${min}</span><span>${max}</span>`;
+
+        sliderRow.appendChild(slider);
+        sliderRow.appendChild(numInput);
+        wrapper.appendChild(labelRow);
+        wrapper.appendChild(sliderRow);
+        wrapper.appendChild(rangeRow);
+        return wrapper;
+    }
+
+    createBooleanControl(id, meta) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'mock-control mock-control--boolean';
+        wrapper.dataset.entityId = id;
+
+        const labelRow = document.createElement('div');
+        labelRow.className = 'mock-control__label-row';
+        const nameEl = document.createElement('span');
+        nameEl.className = 'mock-control__name';
+        nameEl.textContent = meta.name || id;
+        nameEl.title = id;
+        const hintEl = document.createElement('span');
+        hintEl.className = 'mock-control__unit';
+        hintEl.textContent = meta.deviceClass || '';
+        labelRow.appendChild(nameEl);
+        labelRow.appendChild(hintEl);
+
+        const toggle = document.createElement('label');
+        toggle.className = 'mock-toggle';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = this.store.get(id) === true;
+        const sliderSpan = document.createElement('span');
+        sliderSpan.className = 'mock-toggle__slider';
+        toggle.appendChild(cb);
+        toggle.appendChild(sliderSpan);
+
+        const label = document.createElement('span');
+        label.className = 'mock-toggle__label';
+        label.textContent = cb.checked ? 'ON' : 'OFF';
+
+        cb.addEventListener('change', e => {
+            this.store.set(id, e.target.checked);
+            label.textContent = e.target.checked ? 'ON' : 'OFF';
+        });
+
+        const row = document.createElement('div');
+        row.className = 'mock-control__toggle-row';
+        row.appendChild(toggle);
+        row.appendChild(label);
+
+        wrapper.appendChild(labelRow);
+        wrapper.appendChild(row);
+        return wrapper;
+    }
+
+    createStringControl(id, meta) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'mock-control mock-control--string';
+        wrapper.dataset.entityId = id;
+
+        const labelRow = document.createElement('div');
+        labelRow.className = 'mock-control__label-row';
+        const nameEl = document.createElement('span');
+        nameEl.className = 'mock-control__name';
+        nameEl.textContent = meta.name || id;
+        nameEl.title = id;
+        labelRow.appendChild(nameEl);
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'mock-control__text';
+        input.value = this.store.get(id) ?? meta.initialValue ?? '';
+        input.placeholder = `${meta.name || id}...`;
+        input.addEventListener('input', e => this.store.set(id, e.target.value));
+
+        wrapper.appendChild(labelRow);
+        wrapper.appendChild(input);
+        return wrapper;
     }
 }
 
