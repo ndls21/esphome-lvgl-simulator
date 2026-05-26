@@ -219,9 +219,10 @@ lvgl:
     }
 
     async renderFromEditor() {
+        let raw = '';
         try {
             this.store.clear();
-            const raw = this.yamlEditor.value;
+            raw = this.yamlEditor.value;
             const resolved = await resolveIncludes(raw, this.fileMap);
             const { text: preprocessed, substitutions } = preprocessYAML(resolved);
             this.substitutions = substitutions;
@@ -230,9 +231,11 @@ lvgl:
             this.render();
         } catch (error) {
             console.error('Error parsing YAML:', error);
-            this.displayError('YAML Parse Error: ' + error.message);
+            this.displayYAMLError(error, raw);
             const summaryEl = document.getElementById('entitySummary');
             if (summaryEl) summaryEl.style.display = 'none';
+            const mockPanel = document.getElementById('mockPanel');
+            if (mockPanel) mockPanel.classList.remove('mock-panel--visible');
         }
     }
 
@@ -835,6 +838,54 @@ lvgl:
             <div class="placeholder" style="color:#ff4444;padding:1rem;text-align:center;">
                 <p>Error: ${message}</p>
             </div>`;
+    }
+
+    displayYAMLError(error, yamlText) {
+        const line = error.mark?.line ?? null;
+        const col  = error.mark?.column ?? null;
+
+        let html = '<div class="error-panel">';
+        html += `<div class="error-title">&#10060; ${error.name || 'Error'}</div>`;
+
+        if (line !== null) {
+            html += `<div class="error-location">at line ${line + 1}${col !== null ? ', column ' + (col + 1) : ''}</div>`;
+            const lines = yamlText.split('\n');
+            const start = Math.max(0, line - 2);
+            const end   = Math.min(lines.length - 1, line + 2);
+            html += '<div class="error-context">';
+            for (let i = start; i <= end; i++) {
+                const num     = String(i + 1).padStart(4);
+                const escaped = lines[i].replace(/&/g, '&amp;').replace(/</g, '&lt;');
+                if (i === line) {
+                    html += `<div class="error-line error-line--highlight">${num} │ ${escaped}</div>`;
+                    if (col !== null) {
+                        html += `<div class="error-pointer">${' '.repeat(num.length + 3 + col)}^</div>`;
+                    }
+                } else {
+                    html += `<div class="error-line">${num} │ ${escaped}</div>`;
+                }
+            }
+            html += '</div>';
+        }
+
+        const hints = [
+            [/unexpected/i,                 'Check for incorrect indentation or missing YAML structure.'],
+            [/duplicate key/i,              'The same key is defined twice in one block.'],
+            [/end of the stream/i,          'The file may end abruptly or have an unclosed quote or block.'],
+            [/tab character/i,              'YAML does not allow tab characters for indentation — use spaces.'],
+            [/cannot read property/i,       'The YAML parsed but produced unexpected structure — check nesting.'],
+        ];
+        for (const [pattern, hint] of hints) {
+            if (pattern.test(error.message)) {
+                html += `<div class="error-hint">&#128161; Hint: ${hint}</div>`;
+                break;
+            }
+        }
+
+        html += `<div class="error-raw">${error.message.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</div>`;
+        html += '</div>';
+
+        this.displayElement.innerHTML = html;
     }
 
     extractPartStyles(cfg, part) {
