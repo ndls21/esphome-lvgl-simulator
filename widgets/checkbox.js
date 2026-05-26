@@ -5,7 +5,7 @@ export function renderCheckbox(config, parent) {
     el.style.display = 'flex';
     el.style.alignItems = 'center';
     el.style.gap = '8px';
-    this.applyPosition(el, cfg);
+    this.applyCommonStyles(el, cfg);
 
     // The checkbox box (indicator)
     const box = document.createElement('div');
