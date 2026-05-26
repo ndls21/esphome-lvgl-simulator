@@ -451,6 +451,12 @@ body {
     border-radius: 50%;
     width: 16px;
     height: 16px;
+.load-buttons {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
 #shareBtn {
     font-size: 0.8rem;
     padding: 0.3rem 0.6rem;
