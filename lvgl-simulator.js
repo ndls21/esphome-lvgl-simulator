@@ -1,4 +1,5 @@
 import { SimulatorStateStore } from './core/store.js';
+import { LambdaEvaluator } from './core/lambda.js';
 import { preprocessYAML } from './core/preprocessor.js';
 import { resolveIncludes } from './core/resolver.js';
 import { renderObj } from './widgets/obj.js';
@@ -24,6 +25,7 @@ class ESPHomeLVGLSimulator {
         this.substitutions = {};
         this.fileMap = {};
         this.store = new SimulatorStateStore();
+        this.lambda = new LambdaEvaluator(this.store);
         this.theme = {};
         this.currentWidgetType = '';
         this._renderedElements = {};
@@ -101,6 +103,19 @@ class ESPHomeLVGLSimulator {
                 btn.textContent = 'Copied!';
                 setTimeout(() => { btn.textContent = orig; }, 1500);
             });
+        });
+
+        document.getElementById('toggleMockPanel').addEventListener('click', () => {
+            const panel = document.getElementById('mockPanel');
+            const btn = document.getElementById('toggleMockPanel');
+            const isVisible = panel.classList.contains('mock-panel--visible');
+            panel.classList.toggle('mock-panel--visible', !isVisible);
+            btn.innerHTML = isVisible ? '&#9654;' : '&#9664;';
+        });
+
+        document.getElementById('resetMockData').addEventListener('click', () => {
+            this.store.reset();
+            this.renderFromEditor();
         });
     }
 
@@ -313,6 +328,7 @@ lvgl:
             this.populatePageSelect();
             this.renderCurrentPage();
             this.updateEntitySummary();
+            this.populateMockPanel();
         } catch (error) {
             console.error('Error rendering:', error);
             this.displayError('Render Error: ' + error.message);
@@ -869,6 +885,65 @@ lvgl:
 
         badges.innerHTML = parts.map(p => `<span class="entity-badge">${p}</span>`).join('');
         el.style.display = 'flex';
+    }
+
+    populateMockPanel() {
+        const container = document.getElementById('mockControls');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const entries = this.store.getAllEntries();
+        const groups = { sensor: [], binary_sensor: [], text_sensor: [], number: [], global: [] };
+        Object.entries(entries).forEach(([id, meta]) => {
+            if (groups[meta.entityType] !== undefined) groups[meta.entityType].push({ id, ...meta });
+        });
+
+        const sectionTitles = {
+            sensor: 'Sensors', binary_sensor: 'Binary Sensors',
+            text_sensor: 'Text Sensors', number: 'Numbers', global: 'Globals'
+        };
+
+        let hasAny = false;
+        Object.entries(groups).forEach(([type, items]) => {
+            if (items.length === 0) return;
+            hasAny = true;
+            container.appendChild(this.createMockSection(sectionTitles[type], items, type));
+        });
+
+        if (!hasAny) {
+            container.innerHTML = '<div class="mock-empty">No sensors or globals detected.</div>';
+            document.getElementById('mockPanel').classList.remove('mock-panel--visible');
+            return;
+        }
+        document.getElementById('mockPanel').classList.add('mock-panel--visible');
+    }
+
+    createMockSection(title, items, type) {
+        const section = document.createElement('div');
+        section.className = 'mock-section';
+
+        const header = document.createElement('div');
+        header.className = 'mock-section-header';
+        header.innerHTML = `<span class="mock-section-icon">&#9660;</span><span>${title} (${items.length})</span>`;
+        header.addEventListener('click', () => section.classList.toggle('mock-section--collapsed'));
+
+        const body = document.createElement('div');
+        body.className = 'mock-section-body';
+
+        items.forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'mock-item';
+            row.dataset.entityId = item.id;
+            row.innerHTML = `
+                <span class="mock-item-id">${item.id}</span>
+                <span class="mock-item-type">${item.type || type}</span>
+            `;
+            body.appendChild(row);
+        });
+
+        section.appendChild(header);
+        section.appendChild(body);
+        return section;
     }
 }
 

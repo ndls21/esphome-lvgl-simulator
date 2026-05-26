@@ -511,3 +511,103 @@ body {
     position: absolute;
     box-sizing: border-box;
 }
+
+.mock-panel {
+    width: 0;
+    overflow: hidden;
+    transition: width 0.2s ease;
+    background: #2d2d2d;
+    border-left: 1px solid #444;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.mock-panel--visible {
+    width: 240px;
+    min-width: 200px;
+    max-width: 300px;
+}
+
+.mock-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+}
+
+.mock-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.mock-section {
+    margin-bottom: 8px;
+}
+
+.mock-section-header {
+    cursor: pointer;
+    padding: 6px 4px;
+    font-size: 12px;
+    font-weight: bold;
+    color: #aaa;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+    border-bottom: 1px solid #3a3a3a;
+}
+
+.mock-section-header:hover {
+    color: white;
+}
+
+.mock-section-icon {
+    font-size: 10px;
+    transition: transform 0.15s;
+}
+
+.mock-section--collapsed .mock-section-icon {
+    transform: rotate(-90deg);
+}
+
+.mock-section--collapsed .mock-section-body {
+    display: none;
+}
+
+.mock-section-body {
+    padding: 4px 0;
+}
+
+.mock-item {
+    padding: 4px 8px;
+    font-size: 12px;
+    color: #ccc;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.mock-item-id {
+    color: #88aaff;
+    font-family: monospace;
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+}
+
+.mock-item-type {
+    color: #666;
+    font-size: 10px;
+    flex-shrink: 0;
+}
+
+.mock-empty {
+    color: #666;
+    font-size: 12px;
+    padding: 12px 4px;
+    font-style: italic;
+}
