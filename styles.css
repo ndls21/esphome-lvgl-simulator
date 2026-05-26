@@ -451,6 +451,17 @@ body {
     border-radius: 50%;
     width: 16px;
     height: 16px;
+#shareBtn {
+    font-size: 0.8rem;
+    padding: 0.3rem 0.6rem;
+    background: #3a4a3a;
+    border-color: #5a7a5a;
+    color: #aaddaa;
+}
+
+#shareBtn:hover {
+    background: #4a5a4a;
+    border-color: #6a8a6a;
 }
 
 /* Responsive design */

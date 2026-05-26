@@ -29,7 +29,7 @@ class ESPHomeLVGLSimulator {
         this.pageInfo = document.getElementById('pageInfo');
 
         this.init();
-        this.loadExampleConfig();
+        if (!this.loadFromHash()) this.loadExampleConfig();
     }
 
     init() {
@@ -68,6 +68,16 @@ class ESPHomeLVGLSimulator {
         this.pageSelect.addEventListener('change', () => {
             this.currentPageIndex = parseInt(this.pageSelect.value);
             this.renderCurrentPage();
+        });
+
+        document.getElementById('shareBtn').addEventListener('click', () => {
+            const url = this.getShareURL();
+            navigator.clipboard.writeText(url).then(() => {
+                const btn = document.getElementById('shareBtn');
+                const orig = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => { btn.textContent = orig; }, 1500);
+            });
         });
     }
 
@@ -554,6 +564,25 @@ lvgl:
         if (f.includes('roboto'))     return "'Roboto', Arial, sans-serif";
         if (f.includes('mono'))       return 'monospace';
         return 'Arial, sans-serif';
+    }
+
+    getShareURL() {
+        const yaml = this.yamlEditor.value;
+        const encoded = btoa(unescape(encodeURIComponent(yaml)));
+        return `${location.origin}${location.pathname}#yaml=${encoded}`;
+    }
+
+    loadFromHash() {
+        const hash = location.hash;
+        if (!hash.startsWith('#yaml=')) return false;
+        try {
+            const yaml = decodeURIComponent(escape(atob(hash.slice(6))));
+            this.yamlEditor.value = yaml;
+            this.renderFromEditor();
+            return true;
+        } catch (e) {
+            return false;
+        }
     }
 
     displayError(message) {
