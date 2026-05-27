@@ -88,6 +88,25 @@
               <div class="mock-empty">Load a config with sensors or globals to see controls here.</div>
             </div>
           </div>
+          <div class="live-device-section" id="liveDeviceSection">
+            <div class="live-device-header">
+              Live Device
+              <span class="live-dot live-dot--off" id="liveDot"></span>
+              <span id="liveStatusText">Not connected</span>
+            </div>
+            <div class="live-device-body" id="liveDeviceBody">
+              <label class="live-field-label">Device IP</label>
+              <input type="text" id="liveHost" placeholder="192.168.1.100" />
+              <label class="live-field-label">Proxy WebSocket</label>
+              <input type="text" id="liveProxyUrl" placeholder="ws://localhost:6054" />
+              <div class="live-btn-row">
+                <button id="liveConnect" class="mock-btn">Connect</button>
+                <button id="liveDisconnect" class="mock-btn" disabled>Disconnect</button>
+              </div>
+              <div id="liveError" class="live-error" style="display:none"></div>
+              <div id="liveInfo" class="live-info" style="display:none"></div>
+            </div>
+          </div>
         </div>
     </div>
 
