@@ -154,6 +154,25 @@ class ESPHomeLVGLSimulator {
             document.getElementById('displayPreset').value = savedPreset;
             document.getElementById('displayPreset').dispatchEvent(new Event('change'));
         }
+
+        document.getElementById('savePreset')?.addEventListener('click', () => {
+            const name = prompt('Preset name:');
+            if (name && name.trim()) this.savePreset(name.trim());
+        });
+        document.getElementById('deletePreset')?.addEventListener('click', () => {
+            const sel = document.getElementById('presetSelect');
+            if (sel && sel.value && sel.value !== '__default__') {
+                const all = this._loadAllPresets();
+                delete all[sel.value];
+                localStorage.setItem('esphome-lvgl-sim-presets', JSON.stringify(all));
+                this._refreshPresetDropdown();
+            }
+        });
+        document.getElementById('presetSelect')?.addEventListener('change', e => {
+            this.loadPreset(e.target.value);
+        });
+
+        this._refreshPresetDropdown();
     }
 
     async loadConfigFile(file) {
@@ -1246,6 +1265,51 @@ lvgl:
         wrapper.appendChild(labelRow);
         wrapper.appendChild(input);
         return wrapper;
+    }
+
+    savePreset(name) {
+        const entries = this.store.getAllEntries();
+        const snapshot = {};
+        Object.entries(entries).forEach(([id, meta]) => {
+            if (meta.hasValue) snapshot[id] = meta.value;
+        });
+        const all = this._loadAllPresets();
+        all[name] = snapshot;
+        localStorage.setItem('esphome-lvgl-sim-presets', JSON.stringify(all));
+        this._refreshPresetDropdown();
+    }
+
+    loadPreset(name) {
+        if (name === '__default__') {
+            this.store.reset();
+            return;
+        }
+        const all = this._loadAllPresets();
+        const preset = all[name];
+        if (!preset) return;
+        Object.entries(preset).forEach(([id, value]) => {
+            if (this.store.getMeta(id)) this.store.set(id, value);
+        });
+    }
+
+    _loadAllPresets() {
+        try {
+            return JSON.parse(localStorage.getItem('esphome-lvgl-sim-presets') || '{}');
+        } catch { return {}; }
+    }
+
+    _refreshPresetDropdown() {
+        const sel = document.getElementById('presetSelect');
+        if (!sel) return;
+        const all = this._loadAllPresets();
+        // Keep __default__ option, replace the rest
+        sel.innerHTML = '<option value="__default__">Default</option>';
+        Object.keys(all).forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            sel.appendChild(opt);
+        });
     }
 }
 
