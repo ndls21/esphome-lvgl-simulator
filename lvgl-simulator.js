@@ -18,6 +18,72 @@ import { renderLine } from './widgets/line.js';
 import { renderLed } from './widgets/led.js';
 import { renderMeter } from './widgets/meter.js';
 
+class LiveDeviceClient {
+  constructor(store, onStatusChange) {
+    this.store = store;
+    this.onStatusChange = onStatusChange;
+    this.ws = null;
+    this.status = 'disconnected';
+    this.entityKeyMap = {};
+  }
+
+  connect(wsUrl) {
+    this.setStatus('connecting');
+    this.ws = new WebSocket(wsUrl);
+
+    this.ws.onopen = () => {
+      this.setStatus('connected');
+    };
+
+    this.ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'entities') {
+          this._handleEntities(msg.entities);
+        } else if (msg.type === 'state') {
+          this._handleState(msg);
+        }
+      } catch (e) {
+        console.warn('Failed to parse proxy message:', e);
+      }
+    };
+
+    this.ws.onerror = () => {
+      this.setStatus('error', 'Could not connect to proxy. Is esphome_proxy.py running?');
+    };
+
+    this.ws.onclose = () => {
+      if (this.status !== 'error') this.setStatus('disconnected');
+    };
+  }
+
+  disconnect() {
+    if (this.ws) this.ws.close();
+    this.ws = null;
+    this.setStatus('disconnected');
+  }
+
+  _handleEntities(entities) {
+    entities.forEach(e => {
+      this.entityKeyMap[e.key] = e.object_id;
+    });
+    this.setStatus('live');
+    this.onStatusChange('live', entities.length);
+  }
+
+  _handleState(msg) {
+    const id = this.entityKeyMap[msg.key];
+    if (id && this.store.getMeta(id)) {
+      this.store.set(id, msg.value);
+    }
+  }
+
+  setStatus(status, errorMsg) {
+    this.status = status;
+    this.onStatusChange(status, null, errorMsg);
+  }
+}
+
 class ESPHomeLVGLSimulator {
     constructor() {
         this.config = null;
@@ -173,6 +239,69 @@ class ESPHomeLVGLSimulator {
         });
 
         this._refreshPresetDropdown();
+
+        this.liveClient = new LiveDeviceClient(this.store, (status, entityCount, errorMsg) => {
+          const dot = document.getElementById('liveDot');
+          const statusText = document.getElementById('liveStatusText');
+          const errorEl = document.getElementById('liveError');
+          const infoEl = document.getElementById('liveInfo');
+          const connectBtn = document.getElementById('liveConnect');
+          const disconnectBtn = document.getElementById('liveDisconnect');
+
+          dot.className = 'live-dot';
+          errorEl.style.display = 'none';
+          infoEl.style.display = 'none';
+
+          switch (status) {
+            case 'connecting':
+              dot.classList.add('live-dot--connecting');
+              statusText.textContent = 'Connecting...';
+              connectBtn.disabled = true;
+              disconnectBtn.disabled = false;
+              break;
+            case 'connected':
+              dot.classList.add('live-dot--connecting');
+              statusText.textContent = 'Connected';
+              break;
+            case 'live':
+              dot.classList.add('live-dot--live');
+              statusText.textContent = 'LIVE';
+              infoEl.style.display = 'block';
+              infoEl.textContent = `✓ ${entityCount} entities discovered`;
+              break;
+            case 'disconnected':
+              dot.classList.add('live-dot--off');
+              statusText.textContent = 'Not connected';
+              connectBtn.disabled = false;
+              disconnectBtn.disabled = true;
+              break;
+            case 'error':
+              dot.classList.add('live-dot--error');
+              statusText.textContent = 'Error';
+              errorEl.style.display = 'block';
+              errorEl.textContent = errorMsg;
+              connectBtn.disabled = false;
+              disconnectBtn.disabled = true;
+              break;
+          }
+        });
+
+        document.getElementById('liveConnect')?.addEventListener('click', () => {
+          const url = document.getElementById('liveProxyUrl').value || 'ws://localhost:6054';
+          localStorage.setItem('esphome-sim-last-host', document.getElementById('liveHost').value);
+          localStorage.setItem('esphome-sim-proxy-url', url);
+          this.liveClient.connect(url);
+        });
+
+        document.getElementById('liveDisconnect')?.addEventListener('click', () => {
+          this.liveClient.disconnect();
+        });
+
+        // Restore from localStorage
+        const savedHost = localStorage.getItem('esphome-sim-last-host');
+        const savedProxy = localStorage.getItem('esphome-sim-proxy-url');
+        if (savedHost) document.getElementById('liveHost').value = savedHost;
+        if (savedProxy) document.getElementById('liveProxyUrl').value = savedProxy;
     }
 
     async loadConfigFile(file) {
