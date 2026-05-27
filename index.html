@@ -33,6 +33,20 @@
                 <div class="display-info">
                     <span id="displaySize">466x466</span>
                     <span id="colorDepth">16-bit</span>
+                    <select id="displayPreset">
+                      <option value="">Auto (from YAML)</option>
+                      <option value="466x466">Waveshare 1.75" Round — 466×466</option>
+                      <option value="480x480">Waveshare 2.1" Round — 480×480</option>
+                      <option value="320x240">ESP32 2.8" / CYD / M5Stack — 320×240</option>
+                      <option value="320x170">T-Display S3 — 320×170</option>
+                      <option value="450x600">Lilygo T4 S3 — 450×600</option>
+                      <option value="custom">Custom...</option>
+                    </select>
+                    <span id="customSizeInputs" style="display:none">
+                      <input type="number" id="customWidth" placeholder="W" style="width:50px">
+                      ×
+                      <input type="number" id="customHeight" placeholder="H" style="width:50px">
+                    </span>
                     <button id="shareBtn" class="btn" title="Copy shareable link to clipboard">&#9138; Share</button>
                 </div>
             </div>

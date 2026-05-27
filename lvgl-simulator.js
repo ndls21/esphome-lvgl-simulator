@@ -32,6 +32,7 @@ class ESPHomeLVGLSimulator {
         this._deferredAlignments = [];
         this.pages = [];
         this.currentPageIndex = 0;
+        this.displayOverride = null;
         this.displayElement = document.getElementById('lvglDisplay');
         this.yamlEditor = document.getElementById('yamlEditor');
         this.pageSelect = document.getElementById('pageSelect');
@@ -117,6 +118,42 @@ class ESPHomeLVGLSimulator {
             this.store.reset();
             this.renderFromEditor();
         });
+
+        document.getElementById('displayPreset').addEventListener('change', e => {
+            const val = e.target.value;
+            if (!val) {
+                this.displayOverride = null;
+                document.getElementById('customSizeInputs').style.display = 'none';
+            } else if (val === 'custom') {
+                document.getElementById('customSizeInputs').style.display = 'inline';
+                localStorage.setItem('esphome-sim-display-preset', val);
+                return;
+            } else {
+                const [w, h] = val.split('x').map(Number);
+                this.displayOverride = { width: w, height: h };
+                document.getElementById('customSizeInputs').style.display = 'none';
+            }
+            localStorage.setItem('esphome-sim-display-preset', val);
+            this._rerenderCurrentPage();
+        });
+
+        ['customWidth', 'customHeight'].forEach(id => {
+            document.getElementById(id).addEventListener('change', () => {
+                const w = parseInt(document.getElementById('customWidth').value);
+                const h = parseInt(document.getElementById('customHeight').value);
+                if (w > 0 && h > 0) {
+                    this.displayOverride = { width: w, height: h };
+                    this._rerenderCurrentPage();
+                }
+            });
+        });
+
+        // Restore from localStorage
+        const savedPreset = localStorage.getItem('esphome-sim-display-preset');
+        if (savedPreset) {
+            document.getElementById('displayPreset').value = savedPreset;
+            document.getElementById('displayPreset').dispatchEvent(new Event('change'));
+        }
     }
 
     async loadConfigFile(file) {
@@ -403,9 +440,15 @@ lvgl:
         const lvgl = this.config.lvgl;
 
         // Default to 466x466 for Waveshare 1.75" AMOLED
-        const width = display?.dimensions?.width || 466;
-        const height = display?.dimensions?.height || 466;
+        let width = display?.dimensions?.width || 466;
+        let height = display?.dimensions?.height || 466;
         const colorDepth = lvgl?.color_depth || 16;
+
+        // Override with user-selected preset if set
+        if (this.displayOverride) {
+            width = this.displayOverride.width;
+            height = this.displayOverride.height;
+        }
 
         this.displayWidth = width;
         this.displayHeight = height;
@@ -444,6 +487,7 @@ lvgl:
     }
 
     _rerenderCurrentPage() {
+        if (this.config) this.setupDisplay();
         this.displayElement.innerHTML = '';
         const page = this.pages[this.currentPageIndex];
         if (page) this.renderPage(page);
