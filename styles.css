@@ -895,6 +895,7 @@ body {
 @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
 .live-error { color: #FF6666; font-size: 11px; padding: 4px 0; }
 .live-info { color: #88BB88; font-size: 11px; padding: 4px 0; }
+.live-warn { color: #FFAA55; font-size: 11px; padding: 4px 0; }
 .live-btn-row { display: flex; gap: 6px; margin-top: 6px; }
 .live-field-label { font-size: 10px; color: #888; display: block; margin-top: 6px; }
 .live-device-body input[type="text"] {

@@ -25,6 +25,7 @@ class LiveDeviceClient {
     this.ws = null;
     this.status = 'disconnected';
     this.entityKeyMap = {};
+    this.entityInfoMap = {};
   }
 
   connect(wsUrl) {
@@ -64,18 +65,46 @@ class LiveDeviceClient {
   }
 
   _handleEntities(entities) {
+    this.entityKeyMap = {};
+    this.entityInfoMap = {};
+
     entities.forEach(e => {
       this.entityKeyMap[e.key] = e.object_id;
+      this.entityInfoMap[e.object_id] = {
+        key: e.key,
+        name: e.name,
+        type: e.type,
+        unit: e.unit,
+      };
     });
-    this.setStatus('live');
-    this.onStatusChange('live', entities.length);
+
+    this.status = 'live';
+    const allYamlIds = Object.keys(this.store.getAllEntries());
+    const sensorTypes = new Set(['sensor', 'binary_sensor', 'text_sensor', 'number']);
+    const yamlSensorIds = allYamlIds.filter(id => {
+      const meta = this.store.getMeta(id);
+      return meta && sensorTypes.has(meta.entityType);
+    });
+    const deviceYamlIds = new Set(Object.values(this.entityKeyMap));
+    const matchedCount = [...deviceYamlIds].filter(id => allYamlIds.includes(id)).length;
+    const unmatchedYaml = yamlSensorIds.filter(id => !deviceYamlIds.has(id)).length;
+
+    console.info(`Live: ${entities.length} device entities, ${matchedCount} matched to YAML IDs`);
+    this.onStatusChange('live', entities.length, null, matchedCount, unmatchedYaml);
   }
 
   _handleState(msg) {
-    const id = this.entityKeyMap[msg.key];
-    if (id && this.store.getMeta(id)) {
-      this.store.set(id, msg.value);
+    const yamlId = this.entityKeyMap[msg.key];
+    if (!yamlId || !this.store.getMeta(yamlId)) return;
+
+    const info = this.entityInfoMap[yamlId];
+    let value = msg.value;
+    if (info) {
+      if (info.type === 'SensorInfo' || info.type === 'NumberInfo') value = parseFloat(value);
+      else if (info.type === 'BinarySensorInfo') value = Boolean(value);
+      else if (info.type === 'TextSensorInfo') value = String(value);
     }
+    this.store.set(yamlId, value);
   }
 
   setStatus(status, errorMsg) {
@@ -240,17 +269,19 @@ class ESPHomeLVGLSimulator {
 
         this._refreshPresetDropdown();
 
-        this.liveClient = new LiveDeviceClient(this.store, (status, entityCount, errorMsg) => {
+        this.liveClient = new LiveDeviceClient(this.store, (status, entityCount, errorMsg, matchedCount, unmatchedYaml) => {
           const dot = document.getElementById('liveDot');
           const statusText = document.getElementById('liveStatusText');
           const errorEl = document.getElementById('liveError');
           const infoEl = document.getElementById('liveInfo');
+          const warnEl = document.getElementById('liveWarn');
           const connectBtn = document.getElementById('liveConnect');
           const disconnectBtn = document.getElementById('liveDisconnect');
 
           dot.className = 'live-dot';
           errorEl.style.display = 'none';
           infoEl.style.display = 'none';
+          if (warnEl) warnEl.style.display = 'none';
 
           switch (status) {
             case 'connecting':
@@ -267,7 +298,11 @@ class ESPHomeLVGLSimulator {
               dot.classList.add('live-dot--live');
               statusText.textContent = 'LIVE';
               infoEl.style.display = 'block';
-              infoEl.textContent = `✓ ${entityCount} entities discovered`;
+              infoEl.textContent = `✓ ${matchedCount}/${entityCount} entities matched to YAML`;
+              if (warnEl && unmatchedYaml > 0) {
+                warnEl.style.display = 'block';
+                warnEl.textContent = `⚠ ${unmatchedYaml} YAML sensor${unmatchedYaml === 1 ? '' : 's'} not found on device (may be template sensors)`;
+              }
               break;
             case 'disconnected':
               dot.classList.add('live-dot--off');
