@@ -5,6 +5,19 @@ It contains project-specific instructions, Notion pages, guardrails, and workflo
 
 ---
 
+## How this file works — new project setup
+
+`CLAUDE.md` is a hardlink in every project pointing to the master in `claude-config/CLAUDE.md`. All projects share identical global instructions. Project-specific content lives in `PROJECT.md` only — never in `CLAUDE.md`.
+
+To wire up a new project:
+```powershell
+Remove-Item "<project>\CLAUDE.md"   # if one exists
+New-Item -ItemType HardLink -Path "<project>\CLAUDE.md" -Target "C:\Users\Mario\Code\claude-config\CLAUDE.md"
+```
+Then create `<project>/PROJECT.md` with: project overview, architecture, Notion pages, and any project-specific additions to the workflow sections below.
+
+---
+
 ## Documentation policy
 
 All documentation (phase plans, design notes, decision records) lives in **Notion only**. Do not create `.md` files in the repo — `CLAUDE.md` and `PROJECT.md` are the only exceptions.
@@ -76,7 +89,7 @@ Subagents work on separate issues simultaneously using **git worktrees**. Each a
 
 ### File ownership rule
 
-Two issues can run in parallel if and only if they do not write to the same file. If two issues only add new code (new files, appended blocks) without modifying the same existing function body, they are safe to parallelise.
+Two issues can run in parallel if and only if they do not write to the same file. If two issues only add new code (new files, appended blocks) without modifying the same existing function body, they are safe to parallelise. *This prevents merge conflicts at the source rather than resolving them after the fact.*
 
 ### How the orchestrating session spawns parallel agents
 
@@ -172,17 +185,24 @@ Subagents finish and exit. When review finds a problem, the main session handles
 2. Read `PROJECT.md` to understand current state
 3. Run `git log --oneline -10` for recent context
 4. Clarify scope before coding if the task is ambiguous
-5. Assign yourself to the issue: `gh issue edit N --add-assignee @me`
-6. Read every file you will touch before editing
 
 ### Planning a multi-step task
 
 Before executing anything non-trivial, decompose the task and create GitHub issues to represent the plan — not just for yourself, but so other agents can see what's in flight and what's available.
 
+**On claims in ticket bodies:** if you write that something is missing, broken, or needs changing — verify it in the file first. You don't need to read every file upfront, but every assertion ("X doesn't exist", "line N needs converting", "this handler is absent") must be grounded in what you've actually read. Unverified claims waste agent time on re-discovery or duplicate work.
+
 ```
 gh issue create --title "short action-oriented title" --body "$(cat <<'EOF'
 What: ...
 Why: ...
+
+Files identified so far (verify before asserting state):
+- path/to/file.ext (lines N–M, briefly what you found there)
+
+Existing state (verified by reading the files):
+- what already exists that's relevant
+- what is confirmed missing
 
 Acceptance:
 - [ ] criterion one
@@ -207,22 +227,28 @@ Do **not** create issues for:
 Do **not** pre-create downstream issues in a dependency chain when the upstream isn't close to done. Create them when they become relevant.
 
 ### While working
+- **First action:** assign yourself to the issue — `gh issue edit N --add-assignee @me` — before writing any code. *This signals in-progress to other agents and prevents two agents picking up the same ticket.*
 - State what you're starting before diving in — so the user can redirect if needed
-- Make small, testable changes; verify before moving to the next step
+- Verify or build after any logical unit of work you'd be frustrated to lose; don't accumulate untested edits
 - Confirm all dependencies are merged before starting dependent work
 
 ### Closing out a ticket
 1. Verify the change works as expected
-2. Commit with a message focused on *why*, not just what changed
-3. Close the issue: `gh issue close N --comment "done — <one line summary>"`
-4. Update Notion and any project documentation to reflect the changed state
+2. For **Moderate or High complexity** changes, post a verification comment before closing — this creates an audit trail that lets regressions be traced to specific commits:
+   ```
+   gh issue comment N --body "Verification: PASS — <brief summary of what was tested/built/verified>"
+   ```
+   If verification fails, post the failure. Low complexity changes can close without a comment.
+3. Commit with a message focused on *why*, not just what changed
+4. Close the issue: `gh issue close N --comment "done — <one line summary>"`
+5. Update Notion and any project documentation to reflect the changed state
 
 ---
 
 ## Git Conventions
 
 - **Branch per issue:** `issue/<number>-short-description`
-- **Commit format:** `[#<number>] What changed and why`
+- **Commit format:** `[#<number>] Why this change was needed` — focus on the reason, not the mechanism
 - One issue per branch, one PR per issue
-- Always create PRs as draft
+- Always create PRs as draft — subagents never mark their own PRs ready; the main session marks them ready after review passes
 - Never push directly to main
