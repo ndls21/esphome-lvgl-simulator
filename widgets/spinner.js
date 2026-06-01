@@ -1,6 +1,4 @@
 // Spinner widget renderer for ESPHome LVGL Simulator
-// Phase 1: static render only. `spin_time` is silently ignored — no animation.
-// Animation (CSS @keyframes lvgl-spin) can be added in Phase 2 when runtime is in scope.
 
 export function renderSpinner(config, parent) {
     const cfg = this.resolveStyles(config);
@@ -10,9 +8,6 @@ export function renderSpinner(config, parent) {
     const arcWidth = cfg.arc_width ?? 4;
     const arcLength = cfg.arc_length ?? 60;  // degrees of the indicator arc segment
 
-    // spin_time is the correct ESPHome property (e.g. "1s", "500ms") — ignored in Phase 1.
-    // cfg.spin_time exists but is intentionally not used here.
-
     const ns = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(ns, 'svg');
     svg.setAttribute('width', w);
@@ -20,6 +15,9 @@ export function renderSpinner(config, parent) {
     svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
     svg.style.overflow = 'visible';
     svg.classList.add('lvgl-spinner');
+
+    const spinMs = parseDuration(cfg.spin_time ?? '1s');
+    svg.style.animation = `lvgl-spin ${spinMs}ms linear infinite`;
 
     // Apply position using the shared arc position helper
     this.applyArcPosition(svg, cfg, w, h);
@@ -44,4 +42,10 @@ export function renderSpinner(config, parent) {
     svg.appendChild(indicator);
 
     return svg;
+}
+
+function parseDuration(val) {
+    const s = String(val ?? '1s').trim();
+    if (s.endsWith('ms')) return parseInt(s);
+    return Math.round(parseFloat(s) * 1000);
 }
