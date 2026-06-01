@@ -122,7 +122,14 @@ class ESPHomeLVGLSimulator {
         this.substitutions = {};
         this.fileMap = {};
         this.store = new SimulatorStateStore();
-        this.lambda = new LambdaEvaluator(this.store);
+        this.store.set('history_ready', true);
+        initSyntheticHistBuffers();
+        const histProxy = {
+            get(name, res) {
+                return getOrCreateHistBuffer(name).get(parseInt(res) || 0);
+            }
+        };
+        this.lambda = new LambdaEvaluator(this.store, null, histProxy);
         this.theme = {};
         this.currentWidgetType = '';
         this._renderedElements = {};

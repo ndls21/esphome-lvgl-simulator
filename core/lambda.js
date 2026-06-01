@@ -22,9 +22,10 @@ const _constrainImpl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const _mapImpl = (v, il, ih, ol, oh) => ol + (v - il) * (oh - ol) / (ih - il);
 
 export class LambdaEvaluator {
-    constructor(store, proxy = null) {
+    constructor(store, proxy = null, histProxy = null) {
         this.store = store;
         this._proxy = proxy;
+        this._histProxy = histProxy;
         this._cache = new Map();
     }
 
@@ -64,13 +65,15 @@ export class LambdaEvaluator {
         try {
             if (!this._cache.has(body)) {
                 // eslint-disable-next-line no-new-func
-                this._cache.set(body, new Function('__store__', '_sprintf', '_constrain', '_map', '__lvgl__', translated));
+                this._cache.set(body, new Function('__store__', '_sprintf', '_constrain', '_map', '__lvgl__', '__hist__', 'history_ready', translated));
             }
             const result = this._cache.get(body)(this.store,
                 (fmt, ...a) => _sprintfImpl(fmt, a),
                 _constrainImpl,
                 _mapImpl,
-                this._proxy || {});
+                this._proxy || {},
+                this._histProxy || { get: () => ({ ordered_value: () => NaN }) },
+                true);
             return result ?? fallback;
         } catch (e) {
             return fallback;
@@ -214,6 +217,16 @@ export class LambdaEvaluator {
         b = b.replace(/id\(\w+\)\s*->\s*set_mirror_x\s*\([^)]*\)\s*;?/g, '/* set_mirror_x */');
         b = b.replace(/id\(\w+\)\s*->\s*set_mirror_y\s*\([^)]*\)\s*;?/g, '/* set_mirror_y */');
         b = b.replace(/id\(\w+\)\s*->\s*set_swap_xy\s*\([^)]*\)\s*;?/g, '/* set_swap_xy */');
+
+        // HistBuffer array access: name[res].ordered_value(i)
+        // Translate to: __hist__.get('name', res).ordered_value(i)
+        b = b.replace(/(\w+_hist)\[(\w+)\]\.ordered_value\s*\(([^)]+)\)/g,
+            (_, name, res, i) => `__hist__.get('${name}', ${res}).ordered_value(${i})`);
+
+        // HistBuffer constants
+        b = b.replace(/\bHIST_SLOTS\b/g, '200');
+        b = b.replace(/\bHIST_RES_COUNT\b/g, '4');
+        b = b.replace(/\bHIST_RES_LABEL\b/g, "['6h','12h','24h','7d']");
 
         // Strip remaining component method calls (prevent ReferenceError)
         b = b.replace(/id\(\w+\)\s*->\s*\w+\s*\([^)]*\)\s*;?/g, '/* component call */');
