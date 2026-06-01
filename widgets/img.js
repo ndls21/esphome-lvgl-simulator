@@ -34,7 +34,13 @@ export function renderImg(config, parent) {
 function _imgPlaceholder(src) {
     const ph = document.createElement('div');
     ph.className = 'lvgl-img__placeholder';
-    const safeSrc = src || '(no src)';
-    ph.innerHTML = `<span class="lvgl-img__icon">\u{1F5BC}</span><span class="lvgl-img__src">${safeSrc}</span>`;
+    const icon = document.createElement('span');
+    icon.className = 'lvgl-img__icon';
+    icon.textContent = '\u{1F5BC}';
+    const label = document.createElement('span');
+    label.className = 'lvgl-img__src';
+    label.textContent = src || '(no src)';
+    ph.appendChild(icon);
+    ph.appendChild(label);
     return ph;
 }
