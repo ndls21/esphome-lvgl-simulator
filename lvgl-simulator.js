@@ -1,6 +1,6 @@
 import { SimulatorStateStore } from './core/store.js';
 import { LambdaEvaluator } from './core/lambda.js';
-import { preprocessYAML } from './core/preprocessor.js';
+import { preprocessYAML, preprocessAndResolve } from './core/preprocessor.js';
 import { resolveIncludes } from './core/resolver.js';
 import { renderObj } from './widgets/obj.js';
 import { renderLabel } from './widgets/label.js';
@@ -504,10 +504,23 @@ lvgl:
         try {
             this.store.clear();
             raw = this.yamlEditor.value;
+
+            // Determine base URL from the config URL input (if present)
+            const urlInputEl = document.getElementById('configFileUrl');
+            const inputUrl = urlInputEl ? urlInputEl.value.trim() : '';
+            const baseUrl = inputUrl ? new URL('.', inputUrl).href : null;
+
+            // If there are locally uploaded files, use the old resolver path first
             const resolved = await resolveIncludes(raw, this.fileMap);
-            const { text: preprocessed, substitutions } = preprocessYAML(resolved);
-            this.substitutions = substitutions;
-            this.config = jsyaml.load(preprocessed);
+
+            // Use the async preprocessor that handles packages: and remote !include
+            const config = await preprocessAndResolve(resolved, baseUrl);
+            this.config = config;
+            this.substitutions = config ? (config.__substitutions || {}) : {};
+
+            // Show package warning if needed
+            this._showPackageWarnings(config && config.__packageWarnings);
+
             this.currentPageIndex = 0;
             this.render();
         } catch (error) {
@@ -517,6 +530,30 @@ lvgl:
             if (summaryEl) summaryEl.style.display = 'none';
             const mockPanel = document.getElementById('mockPanel');
             if (mockPanel) mockPanel.classList.remove('mock-panel--visible');
+        }
+    }
+
+    _showPackageWarnings(warnings) {
+        // Remove any existing warning
+        const existing = document.getElementById('packageWarningBanner');
+        if (existing) existing.remove();
+
+        if (!warnings || warnings.length === 0) return;
+
+        const banner = document.createElement('div');
+        banner.id = 'packageWarningBanner';
+        banner.style.cssText = [
+            'background:#7a3a00', 'color:#ffd580', 'padding:8px 12px',
+            'font-size:13px', 'border-radius:4px', 'margin:4px 0',
+            'white-space:pre-wrap'
+        ].join(';');
+        banner.textContent = '⚠ Some package files could not be loaded. Enter the config file URL above for full resolution.\n'
+            + warnings.map(w => '  • ' + w).join('\n');
+
+        // Insert above the textarea
+        const editor = document.getElementById('yamlEditor');
+        if (editor && editor.parentNode) {
+            editor.parentNode.insertBefore(banner, editor);
         }
     }
 

@@ -25,6 +25,12 @@
                 <button id="renderPreview" class="btn btn-primary">Render Preview</button>
                 <button id="loadExample" class="btn">Load Example</button>
             </div>
+            <div class="url-input-row" style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px;">
+                <label for="configFileUrl" style="white-space:nowrap;color:#aaa;">Config URL (for package resolution):</label>
+                <input type="text" id="configFileUrl"
+                       placeholder="https://raw.githubusercontent.com/you/repo/main/device.yaml"
+                       style="flex:1;background:#1e1e2e;color:#cdd6f4;border:1px solid #45475a;border-radius:4px;padding:4px 8px;font-size:12px;" />
+            </div>
         </div>
 
         <div class="preview-panel">
