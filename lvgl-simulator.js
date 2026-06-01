@@ -869,7 +869,9 @@ lvgl:
             el.style.borderColor = 'transparent';
         }
 
-        if (config.radius !== undefined) el.style.borderRadius = config.radius + 'px';
+        if (config.radius !== undefined) {
+            el.style.borderRadius = config.radius >= 100 ? '50%' : config.radius + 'px';
+        }
 
         if (config.pad_all !== undefined) {
             el.style.padding = config.pad_all + 'px';
@@ -969,11 +971,13 @@ lvgl:
 
     applySize(el, config) {
         if (config.width !== undefined) {
-            el.style.width = typeof config.width === 'string' && config.width.includes('%')
+            if (config.width === 'SIZE_CONTENT') el.style.width = 'max-content';
+            else el.style.width = typeof config.width === 'string' && config.width.includes('%')
                 ? config.width : config.width + 'px';
         }
         if (config.height !== undefined) {
-            el.style.height = typeof config.height === 'string' && config.height.includes('%')
+            if (config.height === 'SIZE_CONTENT') el.style.height = 'max-content';
+            else el.style.height = typeof config.height === 'string' && config.height.includes('%')
                 ? config.height : config.height + 'px';
         }
     }
@@ -1059,7 +1063,7 @@ lvgl:
     }
 
     parseFontSize(font) {
-        const match = String(font).match(/_(\d+)$/);
+        const match = String(font).match(/_?(\d+)$/);
         if (match) {
             const size = parseInt(match[1]);
             return (size > 100 ? Math.round(size * 0.5) : size) + 'px';
@@ -1290,6 +1294,10 @@ lvgl:
         if (unit === '°f' || unit === 'f') return { min: 0, max: 150 };
         if (unit === 'v') return { min: 0, max: 60 };
         if (unit === 'a') return { min: 0, max: 50 };
+        if (unit === 'w') return { min: 0, max: 400 };
+        if (unit === 'kw') return { min: 0, max: 10 };
+        if (unit === 'wh' || unit === 'kwh') return { min: 0, max: 1000 };
+        if (unit === 'mah') return { min: 0, max: 200000 };
         if (unit === 'mph' || unit === 'km/h') return { min: 0, max: 200 };
         return { min: meta.min ?? 0, max: meta.max ?? 100 };
     }
