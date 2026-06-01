@@ -392,10 +392,9 @@ body {
 .lvgl-spinner {
     position: absolute;
     box-sizing: border-box;
-    /* Phase 1: static render only — no animation */
-    /* Phase 2: animation: lvgl-spin 1s linear infinite; */
+    transform-origin: center center;
 }
-/* @keyframes lvgl-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } */
+@keyframes lvgl-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 .lvgl-roller {
     position: absolute;
