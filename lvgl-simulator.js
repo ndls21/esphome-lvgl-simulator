@@ -370,10 +370,14 @@ class ESPHomeLVGLSimulator {
             await Promise.all(loads);
             this.fileMap = map;
 
-            const root = this._detectRootYaml(map);
-            if (!root) { alert('No YAML file found in ZIP.'); return; }
-            this.yamlEditor.value = map[root];
-            this.renderFromEditor();
+            const candidates = this._detectRootYaml(map);
+            if (candidates.length === 0) { alert('No YAML file found in ZIP.'); return; }
+            if (candidates.length === 1) {
+                this.yamlEditor.value = map[candidates[0]];
+                this.renderFromEditor();
+            } else {
+                this._showDevicePicker(candidates, map);
+            }
         } catch (error) {
             console.error('Error loading ZIP:', error);
             alert('Error loading ZIP: ' + error.message);
@@ -395,10 +399,14 @@ class ESPHomeLVGLSimulator {
             await Promise.all(loads);
             this.fileMap = map;
 
-            const root = this._detectRootYaml(map);
-            if (!root) { alert('No YAML file found in folder.'); return; }
-            this.yamlEditor.value = map[root];
-            this.renderFromEditor();
+            const candidates = this._detectRootYaml(map);
+            if (candidates.length === 0) { alert('No YAML file found in folder.'); return; }
+            if (candidates.length === 1) {
+                this.yamlEditor.value = map[candidates[0]];
+                this.renderFromEditor();
+            } else {
+                this._showDevicePicker(candidates, map);
+            }
         } catch (error) {
             console.error('Error loading folder:', error);
             alert('Error loading folder: ' + error.message);
@@ -407,14 +415,54 @@ class ESPHomeLVGLSimulator {
 
     _detectRootYaml(map) {
         const yamls = Object.keys(map).filter(k => /\.(yaml|yml)$/i.test(k));
-        if (yamls.length === 0) return null;
-        // Prefer root-level files (no slash in path)
+        if (yamls.length === 0) return [];
         const rootLevel = yamls.filter(k => !k.includes('/'));
         const pool = rootLevel.length > 0 ? rootLevel : yamls;
-        // Prefer the one containing lvgl: or display:
-        const withLvgl = pool.filter(k => /^(lvgl|display)\s*:/m.test(map[k]));
-        if (withLvgl.length > 0) return withLvgl[0];
-        return pool.sort()[0];
+        const withEsphome = pool.filter(k => /^esphome\s*:/m.test(map[k]));
+        if (withEsphome.length > 0) return withEsphome;
+        // Fallback: no esphome: key found — return all candidates
+        return pool.sort();
+    }
+
+    _showDevicePicker(candidates, map) {
+        const existing = document.getElementById('lvgl-device-picker-modal');
+        if (existing) existing.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'lvgl-device-picker-modal';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:9999;';
+
+        const box = document.createElement('div');
+        box.style.cssText = 'background:#1e1e2e;border:1px solid #444;border-radius:8px;padding:24px;min-width:280px;max-width:480px;';
+
+        const title = document.createElement('div');
+        title.textContent = 'Select device config';
+        title.style.cssText = 'font-size:14px;font-weight:600;color:#ccc;margin-bottom:16px;';
+        box.appendChild(title);
+
+        const select = document.createElement('select');
+        select.style.cssText = 'width:100%;padding:8px;background:#2a2a3e;color:#ddd;border:1px solid #555;border-radius:4px;font-size:13px;';
+        candidates.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c;
+            opt.textContent = c.split('/').pop();
+            select.appendChild(opt);
+        });
+        box.appendChild(select);
+
+        const btn = document.createElement('button');
+        btn.textContent = 'Load';
+        btn.style.cssText = 'margin-top:16px;width:100%;padding:8px;background:#4a9eff;color:#fff;border:none;border-radius:4px;font-size:13px;cursor:pointer;';
+        btn.onclick = () => {
+            this.yamlEditor.value = map[select.value];
+            this.renderFromEditor();
+            modal.remove();
+        };
+        box.appendChild(btn);
+
+        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+        modal.appendChild(box);
+        document.body.appendChild(modal);
     }
 
     loadExampleConfig() {
@@ -812,10 +860,11 @@ lvgl:
 
     resolveStyles(config) {
         const themeDefaults = (this.theme || {})[this.currentWidgetType] || {};
+        const mainPart = (typeof config.main === 'object' && !Array.isArray(config.main)) ? config.main : {};
         const ids = config.styles
             ? (Array.isArray(config.styles) ? config.styles : [config.styles])
             : [];
-        const base = Object.assign({}, themeDefaults);
+        const base = Object.assign({}, themeDefaults, mainPart);
         ids.forEach(id => {
             const s = this.styleDefinitions[id];
             if (s) this._deepMerge(base, s);
