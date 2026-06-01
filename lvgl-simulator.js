@@ -130,6 +130,7 @@ class ESPHomeLVGLSimulator {
         this.pages = [];
         this.currentPageIndex = 0;
         this.displayOverride = null;
+        this._currentRotation = 0;
         this.displayElement = document.getElementById('lvglDisplay');
         this.yamlEditor = document.getElementById('yamlEditor');
         this.pageSelect = document.getElementById('pageSelect');
@@ -189,6 +190,11 @@ class ESPHomeLVGLSimulator {
         this.pageSelect.addEventListener('change', () => {
             this.currentPageIndex = parseInt(this.pageSelect.value);
             this.renderCurrentPage('NONE');
+        });
+
+        document.getElementById('rotationSelect')?.addEventListener('change', (e) => {
+            this._currentRotation = parseInt(e.target.value);
+            this._applyRotation();
         });
 
         document.getElementById('shareBtn').addEventListener('click', () => {
@@ -788,6 +794,38 @@ lvgl:
 
         document.getElementById('displaySize').textContent = `${width}x${height}`;
         document.getElementById('colorDepth').textContent = `${colorDepth}-bit`;
+
+        // Re-apply rotation after display size changes
+        this._applyRotation();
+    }
+
+    _applyRotation() {
+        const display = this.displayElement;
+        const rot = this._currentRotation;
+        const baseW = this.displayWidth || 466;
+        const baseH = this.displayHeight || 466;
+
+        if (rot === 90 || rot === 270) {
+            display.style.width = baseH + 'px';
+            display.style.height = baseW + 'px';
+            display.style.transform = `rotate(${rot}deg)`;
+            const offset = (baseW - baseH) / 2;
+            display.style.marginLeft = offset + 'px';
+            display.style.marginRight = offset + 'px';
+        } else {
+            display.style.width = baseW + 'px';
+            display.style.height = baseH + 'px';
+            display.style.transform = `rotate(${rot}deg)`;
+            display.style.marginLeft = '';
+            display.style.marginRight = '';
+        }
+    }
+
+    setRotation(deg) {
+        this._currentRotation = deg;
+        const select = document.getElementById('rotationSelect');
+        if (select) select.value = String(deg);
+        this._applyRotation();
     }
 
     populatePageSelect() {
@@ -831,7 +869,7 @@ lvgl:
                 this.syncPageSelect();
                 this.renderCurrentPage('NONE');
             }
-        });
+        }, this);
     }
 
     renderCurrentPage(animType = 'NONE') {

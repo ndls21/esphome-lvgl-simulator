@@ -155,6 +155,7 @@ body {
     overflow: hidden;
     min-width: 400px;
     min-height: 240px;
+    transition: transform 300ms ease-in-out, width 300ms ease-in-out, height 300ms ease-in-out, margin 300ms ease-in-out;
 }
 
 /* Page transition animation wrappers */

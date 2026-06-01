@@ -74,7 +74,7 @@ function _drawChartInternal(c) {
   });
 }
 
-export function buildLVGLProxy(elements, navigateFn) {
+export function buildLVGLProxy(elements, navigateFn, simulator) {
   function getEl(id) {
     const el = elements[id];
     if (!el) { console.warn(`[lvgl] element not found: ${id}`); return null; }
@@ -231,6 +231,16 @@ export function buildLVGLProxy(elements, navigateFn) {
       canvas.height = canvas.offsetHeight || c.el.offsetHeight || 310;
       _drawChartInternal(c);
     },
+
+    // Display rotation
+    setDisplayRotation(deg) {
+      if (simulator && simulator.setRotation) simulator.setRotation(deg);
+    },
+
+    // Touch mirror/swap — no-ops (coordinate remapping not supported in simulator)
+    setMirrorX(v) { /* no-op */ },
+    setMirrorY(v) { /* no-op */ },
+    setSwapXY(v)  { /* no-op */ },
 
     // No-ops (must exist to avoid ReferenceError)
     noop() {},

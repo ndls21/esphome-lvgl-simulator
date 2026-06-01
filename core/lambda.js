@@ -206,6 +206,15 @@ export class LambdaEvaluator {
         b = b.replace(/\bid\((\w+(?:_chart|_hist)\w*)\)/g,
             (_, id) => `(__store__.get('${id}') || 0)`);
 
+        // Display rotation: id(xxx)->set_rotation(DISPLAY_ROTATION_N_DEGREES)
+        b = b.replace(/id\(\w+\)\s*->\s*set_rotation\s*\(\s*[^)]*ROTATION_(\d+)_DEGREES[^)]*\)\s*;?/g,
+            (_, deg) => `__lvgl__.setDisplayRotation(${deg})`);
+
+        // Touch mirror/swap — no-ops
+        b = b.replace(/id\(\w+\)\s*->\s*set_mirror_x\s*\([^)]*\)\s*;?/g, '/* set_mirror_x */');
+        b = b.replace(/id\(\w+\)\s*->\s*set_mirror_y\s*\([^)]*\)\s*;?/g, '/* set_mirror_y */');
+        b = b.replace(/id\(\w+\)\s*->\s*set_swap_xy\s*\([^)]*\)\s*;?/g, '/* set_swap_xy */');
+
         // Strip remaining component method calls (prevent ReferenceError)
         b = b.replace(/id\(\w+\)\s*->\s*\w+\s*\([^)]*\)\s*;?/g, '/* component call */');
 
