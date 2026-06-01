@@ -173,22 +173,20 @@ class ESPHomeLVGLSimulator {
         document.getElementById('prevPage').addEventListener('click', () => {
             if (this.currentPageIndex > 0) {
                 this.currentPageIndex--;
-                this.syncPageSelect();
-                this.renderCurrentPage();
+                this.renderCurrentPage('MOVE_RIGHT');
             }
         });
 
         document.getElementById('nextPage').addEventListener('click', () => {
             if (this.currentPageIndex < this.pages.length - 1) {
                 this.currentPageIndex++;
-                this.syncPageSelect();
-                this.renderCurrentPage();
+                this.renderCurrentPage('MOVE_LEFT');
             }
         });
 
         this.pageSelect.addEventListener('change', () => {
             this.currentPageIndex = parseInt(this.pageSelect.value);
-            this.renderCurrentPage();
+            this.renderCurrentPage('NONE');
         });
 
         document.getElementById('shareBtn').addEventListener('click', () => {
@@ -724,14 +722,67 @@ lvgl:
         if (page) this.renderPage(page);
     }
 
-    renderCurrentPage() {
-        this.displayElement.innerHTML = '';
+    renderCurrentPage(animType = 'NONE') {
         const page = this.pages[this.currentPageIndex];
-        if (page) this.renderPage(page);
+        if (!page) { this.syncPageSelect(); return; }
+
+        if (animType === 'NONE') {
+            this.displayElement.innerHTML = '';
+            this.renderPage(page);
+            this.syncPageSelect();
+            return;
+        }
+
+        // Directional slide animation
+        const enterClassMap = {
+            MOVE_LEFT:   'page-enter-right',
+            MOVE_RIGHT:  'page-enter-left',
+            MOVE_TOP:    'page-enter-bottom',
+            MOVE_BOTTOM: 'page-enter-top',
+        };
+        const exitClassMap = {
+            MOVE_LEFT:   'page-exit-left',
+            MOVE_RIGHT:  'page-exit-right',
+            MOVE_TOP:    'page-exit-top',
+            MOVE_BOTTOM: 'page-exit-bottom',
+        };
+
+        const enterClass = enterClassMap[animType] || 'page-enter-right';
+        const exitClass  = exitClassMap[animType]  || 'page-exit-left';
+
+        // Wrap existing content in a wrapper div (old page)
+        const oldWrapper = document.createElement('div');
+        oldWrapper.className = 'lvgl-page-wrapper';
+        while (this.displayElement.firstChild) {
+            oldWrapper.appendChild(this.displayElement.firstChild);
+        }
+        this.displayElement.appendChild(oldWrapper);
+
+        // Build new page content in a wrapper div
+        const newWrapper = document.createElement('div');
+        newWrapper.className = `lvgl-page-wrapper ${enterClass}`;
+        this.renderPageInto(page, newWrapper);
+        this.displayElement.appendChild(newWrapper);
+
+        // Double-rAF to ensure initial classes are painted before transition starts
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                oldWrapper.classList.add(exitClass);
+                newWrapper.classList.remove(enterClass);
+                setTimeout(() => {
+                    oldWrapper.remove();
+                }, 210);
+            });
+        });
+
         this.syncPageSelect();
     }
 
     renderPage(page) {
+        this.renderPageInto(page, this.displayElement);
+    }
+
+    renderPageInto(page, container) {
         this._renderedElements = {};
         this._deferredAlignments = [];
 
@@ -741,6 +792,11 @@ lvgl:
 
         if (page.bg_color) pageEl.style.backgroundColor = this.parseColor(page.bg_color);
 
+        if (page.scrollable === true) {
+            pageEl.style.overflowY = 'auto';
+            pageEl.style.overflowX = 'hidden';
+        }
+
         if (page.widgets) {
             page.widgets.forEach(w => {
                 const el = this.renderWidget(w, pageEl);
@@ -748,7 +804,7 @@ lvgl:
             });
         }
 
-        this.displayElement.appendChild(pageEl);
+        container.appendChild(pageEl);
         this._resolveAlignments();
     }
 

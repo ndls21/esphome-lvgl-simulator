@@ -5,6 +5,13 @@ export function renderObj(config, parent) {
     this.applyCommonStyles(el, cfg);
     this.applyLayout(el, cfg);
 
+    if (cfg.scrollable === true) {
+        el.style.overflowY = 'auto';
+        el.style.overflowX = 'hidden';
+    } else {
+        el.style.overflow = 'hidden';
+    }
+
     if (cfg.widgets) {
         cfg.widgets.forEach(child => {
             const childEl = this.renderWidget(child, el);
