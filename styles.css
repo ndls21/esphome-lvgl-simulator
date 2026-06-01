@@ -148,6 +148,8 @@ body {
 .lvgl-display {
     background: #000000;
     border: 2px solid #333;
+    user-select: none;
+    touch-action: none;
     border-radius: 8px;
     position: relative;
     overflow: hidden;

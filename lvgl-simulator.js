@@ -336,6 +336,68 @@ class ESPHomeLVGLSimulator {
         const savedProxy = localStorage.getItem('esphome-sim-proxy-url');
         if (savedHost) document.getElementById('liveHost').value = savedHost;
         if (savedProxy) document.getElementById('liveProxyUrl').value = savedProxy;
+
+        this._initSwipeHandlers();
+
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+            const map = { ArrowLeft: 'right', ArrowRight: 'left', ArrowUp: 'down', ArrowDown: 'up' };
+            if (map[e.key]) { e.preventDefault(); this._handleSwipe(map[e.key]); }
+        });
+    }
+
+    _initSwipeHandlers() {
+        const display = document.getElementById('lvglDisplay');
+        if (!display) return;
+
+        let startX = 0, startY = 0, startTime = 0;
+        const MIN_SWIPE_DIST = 50;
+        const MAX_SWIPE_TIME = 500;
+        const MAX_CROSS = 80;
+
+        display.addEventListener('pointerdown', (e) => {
+            startX = e.clientX; startY = e.clientY; startTime = Date.now();
+        });
+
+        display.addEventListener('pointerup', (e) => {
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            const dt = Date.now() - startTime;
+            if (dt > MAX_SWIPE_TIME) return;
+
+            const absDx = Math.abs(dx), absDy = Math.abs(dy);
+            if (absDx < MIN_SWIPE_DIST && absDy < MIN_SWIPE_DIST) return;
+
+            let dir;
+            if (absDx > absDy && absDx > MIN_SWIPE_DIST && absDy < MAX_CROSS) {
+                dir = dx < 0 ? 'left' : 'right';
+            } else if (absDy > absDx && absDy > MIN_SWIPE_DIST && absDx < MAX_CROSS) {
+                dir = dy < 0 ? 'up' : 'down';
+            }
+            if (dir) this._handleSwipe(dir);
+        });
+    }
+
+    _handleSwipe(dir) {
+        const page = this.pages[this.currentPageIndex];
+        if (!page) return;
+
+        const handlerKey = `on_swipe_${dir}`;
+        const animMap = { left: 'MOVE_LEFT', right: 'MOVE_RIGHT', up: 'MOVE_TOP', down: 'MOVE_BOTTOM' };
+
+        if (page[handlerKey]) {
+            this.lambda.evaluate(page[handlerKey], null);
+        } else {
+            if (dir === 'left' && this.currentPageIndex < this.pages.length - 1) {
+                this.currentPageIndex++;
+                this.syncPageSelect();
+                this.renderCurrentPage(animMap[dir]);
+            } else if (dir === 'right' && this.currentPageIndex > 0) {
+                this.currentPageIndex--;
+                this.syncPageSelect();
+                this.renderCurrentPage(animMap[dir]);
+            }
+        }
     }
 
     async loadConfigFile(file) {
