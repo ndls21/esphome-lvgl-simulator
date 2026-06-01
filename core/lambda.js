@@ -153,6 +153,59 @@ export class LambdaEvaluator {
         b = b.replace(/id\(\w+\)\s*->\s*show_page\s*\(\s*id\((\w+)\)[^)]*\)/g,
             (_, pageId) => `__lvgl__.showPage('${pageId}')`);
 
+        // Chart API — must come BEFORE the catch-all lv_* stripper
+
+        // LV_CHART_POINT_NONE / type constants
+        b = b.replace(/\bLV_CHART_POINT_NONE\b/g, '-32768');
+        b = b.replace(/\bLV_CHART_TYPE_LINE\b/g, '0');
+        b = b.replace(/\bLV_CHART_TYPE_BAR\b/g,  '1');
+
+        // lv_chart_t *varname = lv_chart_create(parent)
+        b = b.replace(/lv_chart_t\s*\*\s*(\w+)\s*=\s*lv_chart_create\s*\(\s*(?:id\((\w+)\)|[^)]*)\s*\)/g,
+            (_, varname, parentId) => {
+                const store = (varname.includes('_chart') || varname.includes('_hist'))
+                    ? `; __store__.set('${varname}', ${varname})`
+                    : '';
+                return `let ${varname} = __lvgl__.chartCreate('${parentId || ''}')${store}`;
+            });
+
+        // lv_chart_set_type
+        b = b.replace(/lv_chart_set_type\s*\((\w+)\s*,\s*(\w+)\s*\)/g,
+            (_, v, type) => `__lvgl__.chartSetType(${v}, '${type}')`);
+
+        // lv_chart_set_point_count
+        b = b.replace(/lv_chart_set_point_count\s*\((\w+)\s*,\s*([^)]+)\)/g,
+            (_, v, n) => `__lvgl__.chartSetPointCount(${v}, ${n})`);
+
+        // lv_chart_set_range
+        b = b.replace(/lv_chart_set_range\s*\((\w+)\s*,\s*LV_CHART_AXIS_(\w+)\s*,\s*([^,]+),\s*([^)]+)\)/g,
+            (_, v, axis, min, max) => `__lvgl__.chartSetRange(${v}, ${axis === 'PRIMARY_Y' ? 0 : 1}, ${min.trim()}, ${max.trim()})`);
+
+        // lv_chart_series_t *varname = lv_chart_add_series(chart, color, axis)
+        b = b.replace(/lv_chart_series_t\s*\*\s*(\w+)\s*=\s*lv_chart_add_series\s*\((\w+)\s*,\s*([^,]+),\s*LV_CHART_AXIS_(\w+)\s*\)/g,
+            (_, varname, chart, color, axis) =>
+                `let ${varname} = __lvgl__.chartAddSeries(${chart}, ${color.trim()}, ${axis === 'PRIMARY_Y' ? 0 : 1})`);
+
+        // lv_chart_remove_series
+        b = b.replace(/lv_chart_remove_series\s*\((\w+)\s*,\s*(\w+)\s*\)/g,
+            (_, chart, series) => `__lvgl__.chartRemoveSeries(${chart}, ${series})`);
+
+        // lv_chart_get_series_next
+        b = b.replace(/lv_chart_get_series_next\s*\((\w+)\s*,\s*(\w+)\s*\)/g,
+            (_, chart, series) => `__lvgl__.chartGetSeriesNext(${chart}, ${series})`);
+
+        // lv_chart_set_next_value(chart, series, val)
+        b = b.replace(/lv_chart_set_next_value\s*\((\w+)\s*,\s*(\w+)\s*,\s*([^)]+)\)/g,
+            (_, _chart, series, val) => `__lvgl__.chartSetNextValue(${series}, ${val.trim()})`);
+
+        // lv_chart_refresh
+        b = b.replace(/lv_chart_refresh\s*\((\w+)\s*\)/g,
+            (_, v) => `__lvgl__.chartRefresh(${v})`);
+
+        // id(xxx_chart) global reads (chart handles stored in __store__)
+        b = b.replace(/\bid\((\w+(?:_chart|_hist)\w*)\)/g,
+            (_, id) => `(__store__.get('${id}') || 0)`);
+
         // Strip remaining component method calls (prevent ReferenceError)
         b = b.replace(/id\(\w+\)\s*->\s*\w+\s*\([^)]*\)\s*;?/g, '/* component call */');
 
