@@ -1,4 +1,5 @@
 import { SimulatorStateStore } from './core/store.js';
+import { SignalGenerator } from './core/signal-generator.js';
 import { LambdaEvaluator } from './core/lambda.js';
 import { buildLVGLProxy } from './core/lvgl-proxy.js';
 import { preprocessYAML, preprocessAndResolve } from './core/preprocessor.js';
@@ -122,6 +123,7 @@ class ESPHomeLVGLSimulator {
         this.substitutions = {};
         this.fileMap = {};
         this.store = new SimulatorStateStore();
+        this.signalGen = new SignalGenerator(this.store);
         this.store.set('history_ready', true);
         initSyntheticHistBuffers();
         const histProxy = {
@@ -1355,21 +1357,41 @@ lvgl:
 
     getShareURL() {
         const yaml = this.yamlEditor.value;
-        const encoded = btoa(unescape(encodeURIComponent(yaml)));
-        return `${location.origin}${location.pathname}#yaml=${encoded}`;
+        const signals = this.signalGen.serialise();
+        const state = { yaml };
+        if (Object.keys(signals).length > 0) state.signals = signals;
+        const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(state))));
+        return `${location.origin}${location.pathname}#state=${encoded}`;
     }
 
     loadFromHash() {
         const hash = location.hash;
-        if (!hash.startsWith('#yaml=')) return false;
-        try {
-            const yaml = decodeURIComponent(escape(atob(hash.slice(6))));
-            this.yamlEditor.value = yaml;
-            this.renderFromEditor();
-            return true;
-        } catch (e) {
-            return false;
+        // Support new #state= format with signal generator state
+        if (hash.startsWith('#state=')) {
+            try {
+                const state = JSON.parse(decodeURIComponent(escape(atob(hash.slice(7)))));
+                if (state.yaml) {
+                    this.yamlEditor.value = state.yaml;
+                    this.renderFromEditor();
+                    if (state.signals) this.signalGen.restore(state.signals);
+                    return true;
+                }
+            } catch (e) {
+                // fall through to legacy format
+            }
         }
+        // Legacy #yaml= format
+        if (hash.startsWith('#yaml=')) {
+            try {
+                const yaml = decodeURIComponent(escape(atob(hash.slice(6))));
+                this.yamlEditor.value = yaml;
+                this.renderFromEditor();
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+        return false;
     }
 
     _evalFormatArgs(format, args) {
@@ -1634,12 +1656,87 @@ lvgl:
         rangeRow.className = 'mock-control__range-row';
         rangeRow.innerHTML = `<span>${min}</span><span>${max}</span>`;
 
+        // Generator toggle button
+        const genBtn = document.createElement('button');
+        genBtn.className = 'mock-gen-btn';
+        genBtn.title = 'Signal generator';
+        genBtn.textContent = '⌇';
+        genBtn.addEventListener('click', () => this._toggleGeneratorPanel(id, meta, sliderRow));
+        if (this.signalGen.isActive(id)) genBtn.classList.add('mock-gen-btn--active');
+
         sliderRow.appendChild(slider);
         sliderRow.appendChild(numInput);
+        sliderRow.appendChild(genBtn);
         wrapper.appendChild(labelRow);
         wrapper.appendChild(sliderRow);
         wrapper.appendChild(rangeRow);
         return wrapper;
+    }
+
+    _toggleGeneratorPanel(id, meta, parentRow) {
+        // Remove existing panel if open
+        const existing = parentRow.nextElementSibling;
+        if (existing && existing.classList.contains('mock-gen-panel')) {
+            existing.remove();
+            return;
+        }
+
+        const { min, max } = this._smartRange(meta);
+        const cfg = this.signalGen.getConfig(id) || {
+            type: 'sine', period: 10, min, max, phase: 0
+        };
+
+        const panel = document.createElement('div');
+        panel.className = 'mock-gen-panel';
+        panel.innerHTML = `
+            <div class="mock-gen-row">
+                <label>Wave</label>
+                <select class="gen-type">
+                    ${['sine','square','sawtooth','triangle','random'].map(t =>
+                        `<option value="${t}" ${cfg.type===t?'selected':''}>${t}</option>`
+                    ).join('')}
+                </select>
+            </div>
+            <div class="mock-gen-row">
+                <label>Period (s)</label>
+                <input type="number" class="gen-period" value="${cfg.period}" min="0.1" step="0.5" style="width:60px">
+            </div>
+            <div class="mock-gen-row">
+                <label>Min</label>
+                <input type="number" class="gen-min" value="${cfg.min}" style="width:60px">
+                <label>Max</label>
+                <input type="number" class="gen-max" value="${cfg.max}" style="width:60px">
+            </div>
+            <div class="mock-gen-row">
+                <label>Phase °</label>
+                <input type="number" class="gen-phase" value="${cfg.phase||0}" min="0" max="360" style="width:60px">
+            </div>
+            <div class="mock-gen-row">
+                <button class="gen-start-btn mock-btn">${this.signalGen.isActive(id) ? 'Stop' : 'Start'}</button>
+            </div>
+        `;
+
+        const startBtn = panel.querySelector('.gen-start-btn');
+        startBtn.addEventListener('click', () => {
+            if (this.signalGen.isActive(id)) {
+                this.signalGen.stop(id);
+                startBtn.textContent = 'Start';
+                parentRow.querySelector('.mock-gen-btn')?.classList.remove('mock-gen-btn--active');
+            } else {
+                const newCfg = {
+                    type: panel.querySelector('.gen-type').value,
+                    period: parseFloat(panel.querySelector('.gen-period').value) || 10,
+                    min: parseFloat(panel.querySelector('.gen-min').value),
+                    max: parseFloat(panel.querySelector('.gen-max').value),
+                    phase: parseFloat(panel.querySelector('.gen-phase').value) || 0,
+                };
+                this.signalGen.start(id, newCfg);
+                startBtn.textContent = 'Stop';
+                parentRow.querySelector('.mock-gen-btn')?.classList.add('mock-gen-btn--active');
+            }
+        });
+
+        parentRow.insertAdjacentElement('afterend', panel);
     }
 
     createBooleanControl(id, meta) {

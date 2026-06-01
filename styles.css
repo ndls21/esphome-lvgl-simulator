@@ -952,3 +952,44 @@ body {
   opacity: 0.4;
   cursor: default;
 }
+/* Signal generator */
+.mock-gen-btn {
+  background: none;
+  border: 1px solid #444;
+  color: #888;
+  border-radius: 3px;
+  padding: 1px 5px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+.mock-gen-btn:hover { border-color: #888; color: #ccc; }
+.mock-gen-btn--active { border-color: #4af; color: #4af; }
+
+.mock-gen-panel {
+  background: #1a1a2e;
+  border: 1px solid #334;
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin: 2px 0 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.mock-gen-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #aaa;
+}
+.mock-gen-row label { min-width: 50px; color: #888; }
+.mock-gen-row select, .mock-gen-row input {
+  background: #222;
+  color: #ccc;
+  border: 1px solid #444;
+  border-radius: 3px;
+  padding: 2px 4px;
+  font-size: 11px;
+}
