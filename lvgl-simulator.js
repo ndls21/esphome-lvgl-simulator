@@ -1,5 +1,6 @@
 import { SimulatorStateStore } from './core/store.js';
 import { LambdaEvaluator } from './core/lambda.js';
+import { buildLVGLProxy } from './core/lvgl-proxy.js';
 import { preprocessYAML, preprocessAndResolve } from './core/preprocessor.js';
 import { resolveIncludes } from './core/resolver.js';
 import { renderObj } from './widgets/obj.js';
@@ -759,6 +760,17 @@ lvgl:
         if (page) this.renderPage(page);
     }
 
+    _buildLVGLProxy() {
+        return buildLVGLProxy(this._renderedElements, (pageId) => {
+            const idx = this.pages.findIndex(p => p.id === pageId);
+            if (idx >= 0) {
+                this.currentPageIndex = idx;
+                this.syncPageSelect();
+                this.renderCurrentPage('NONE');
+            }
+        });
+    }
+
     renderCurrentPage(animType = 'NONE') {
         const page = this.pages[this.currentPageIndex];
         if (!page) { this.syncPageSelect(); return; }
@@ -843,6 +855,17 @@ lvgl:
 
         container.appendChild(pageEl);
         this._resolveAlignments();
+
+        // Wire up the proxy now that _renderedElements is populated
+        this.lambda._proxy = this._buildLVGLProxy();
+
+        // Fire on_load handler if present
+        if (page.on_load) {
+            setTimeout(() => {
+                this.lambda._proxy = this._buildLVGLProxy();
+                this.lambda.evaluate(page.on_load, null);
+            }, 50);
+        }
     }
 
     _resolveAlignments() {
