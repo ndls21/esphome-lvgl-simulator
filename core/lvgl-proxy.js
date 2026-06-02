@@ -307,6 +307,27 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
       };
     },
 
+    // Child element access
+    getChild(parentId, index) {
+      const parent = getEl(parentId);
+      if (!parent) return null;
+      // Filter to direct children that are LVGL widget elements (skip text nodes etc.)
+      const children = Array.from(parent.children);
+      const child = children[index] || null;
+      if (child) {
+        const syntheticId = `__child_${parentId}_${index}`;
+        elements[syntheticId] = child;
+        return syntheticId;
+      }
+      return null;
+    },
+
+    getChildCount(parentId) {
+      const parent = getEl(parentId);
+      if (!parent) return 0;
+      return parent.children.length;
+    },
+
     // No-ops (must exist to avoid ReferenceError)
     noop() {},
   };

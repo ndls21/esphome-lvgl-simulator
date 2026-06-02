@@ -306,6 +306,40 @@ export class LambdaEvaluator {
         b = b.replace(/\bauto\s+(\w+)\s*=\s*\[[^\]]*\]\s*\([^)]*\)\s*(?:->\s*\w+\s*)?\{/g,
             (_, name) => `let ${name} = (..._args) => {`);
 
+        // POSIX/lwIP network API stubs — always fail gracefully in simulator
+        b = b.replace(/\blwip_getaddrinfo\s*\([^)]*\)/g, '(-1)');
+        b = b.replace(/\blwip_freeaddrinfo\s*\([^)]*\)\s*;?/g, '/* lwip_freeaddrinfo */');
+        b = b.replace(/\blwip_socket\s*\([^)]*\)/g, '(-1)');
+        b = b.replace(/\blwip_connect\s*\([^)]*\)/g, '(-1)');
+        b = b.replace(/\blwip_close\s*\([^)]*\)\s*;?/g, '/* lwip_close */');
+        b = b.replace(/\blwip_\w+\s*\([^)]*\)\s*;?/g, '(-1)');
+        b = b.replace(/\bAF_INET\b/g, '2');
+        b = b.replace(/\bSOCK_STREAM\b/g, '1');
+        b = b.replace(/\bIPPROTO_TCP\b/g, '6');
+
+        // struct declarations → stripped (not executable in simulator)
+        b = b.replace(/\bstruct\s+(\w+)\s+(\w+)\b/g, 'let $2');
+
+        // lv_obj_get_child(id(parent), idx) → __lvgl__.getChild('parent', idx)
+        b = b.replace(/lv_obj_get_child\s*\(\s*id\s*\(\s*(\w+)\s*\)\s*,\s*([^)]+)\)/g,
+            (_, parentId, idx) => `__lvgl__.getChild('${parentId}', ${idx.trim()})`);
+
+        // lv_obj_get_child_cnt(id(parent)) → __lvgl__.getChildCount('parent')
+        b = b.replace(/lv_obj_get_child_cnt\s*\(\s*id\s*\(\s*(\w+)\s*\)\s*\)/g,
+            (_, parentId) => `__lvgl__.getChildCount('${parentId}')`);
+
+        // lv_obj_set_style_text_color / bg_color with a plain variable (child from getChild)
+        b = b.replace(/lv_obj_set_style_text_color\s*\(\s*(\w+)\s*,\s*([^,]+),\s*\d+\s*\)/g,
+            (_, varOrId, color) => `__lvgl__.setTextColor(${varOrId}, ${color})`);
+        b = b.replace(/lv_obj_set_style_bg_color\s*\(\s*(\w+)\s*,\s*([^,]+),\s*\d+\s*\)/g,
+            (_, varOrId, color) => `__lvgl__.setBgColor(${varOrId}, ${color})`);
+
+        // lv_obj_add_flag / lv_obj_clear_flag with a plain variable
+        b = b.replace(/lv_obj_add_flag\s*\(\s*(\w+)\s*,\s*LV_OBJ_FLAG_HIDDEN\s*\)/g,
+            (_, v) => `__lvgl__.hide(${v})`);
+        b = b.replace(/lv_obj_clear_flag\s*\(\s*(\w+)\s*,\s*LV_OBJ_FLAG_HIDDEN\s*\)/g,
+            (_, v) => `__lvgl__.show(${v})`);
+
         // Strip remaining component method calls (prevent ReferenceError)
         b = b.replace(/id\(\w+\)\s*->\s*\w+\s*\([^)]*\)\s*;?/g, '/* component call */');
 
@@ -589,7 +623,7 @@ export class LambdaEvaluator {
         // Genuinely untranslatable C++ constructs.
         // Note: nullptr/NULL, for/while/switch/case/break/else-if are now handled earlier.
         if (/\b(goto|typedef)\b/.test(js)) return true;
-        if (/\b(struct|class|namespace|template|virtual)\s+\w/.test(js)) return true;
+        if (/\b(class|namespace|template|virtual)\s+\w/.test(js)) return true;
         if (/#(?:include|define)\b/.test(js)) return true;
         // Remaining std:: after translation pass (e.g. std::vector, std::map)
         if (/\bstd::/.test(js)) return true;
