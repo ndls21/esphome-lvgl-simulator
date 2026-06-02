@@ -1475,3 +1475,30 @@ body {
     color: var(--textFaint);
     font-family: var(--font-mono);
 }
+
+/* ─── WIDGET TREE ───────────────────────────────────────────────────────── */
+.tree-section-header { font-size:10px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--textFaint); padding:10px 8px 4px; }
+.tree-node { display:flex; align-items:center; gap:6px; padding:4px 8px; border-radius:5px; cursor:pointer; font-size:11px; color:var(--textDim); }
+.tree-node:hover { background:var(--surface2); }
+.tree-node--selected { background:var(--accentBg); color:var(--text); }
+.tree-node--hidden { opacity:0.45; }
+.tree-node-icon { width:16px; height:16px; display:grid; place-items:center; font-family:monospace; font-size:11px; color:var(--textFaint); flex-shrink:0; }
+.tree-node--selected .tree-node-icon { color:var(--accent); }
+.tree-node-label { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:monospace; }
+.tree-node-type { font-size:9px; color:var(--textFaint); font-family:monospace; }
+.tree-node-hidden { font-size:9px; color:var(--textFaint); }
+
+/* ─── WIDGET INSPECTOR ──────────────────────────────────────────────────── */
+.inspector-chip { background:var(--surface2); border-radius:8px; padding:8px 10px; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+.inspector-chip-icon { font-family:monospace; font-size:10px; color:var(--textFaint); }
+.inspector-chip-info { flex:1; }
+.inspector-chip-name { font-size:12px; font-weight:600; color:var(--text); }
+.inspector-chip-sub { font-size:10px; color:var(--textFaint); font-family:monospace; }
+.inspector-bound-badge { font-size:10px; padding:2px 6px; background:rgba(0,204,102,0.15); color:#00CC66; border-radius:4px; font-family:monospace; }
+.inspector-section { margin-bottom:14px; }
+.inspector-section-title { font-size:10px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--textFaint); margin-bottom:6px; }
+.inspector-row { display:grid; grid-template-columns:70px 1fr; gap:8px; align-items:center; padding:3px 0; }
+.inspector-key { color:var(--textDim); font-family:monospace; font-size:11px; }
+.inspector-value { background:var(--surface2); border:1px solid var(--borderS); border-radius:5px; padding:3px 8px; font-family:monospace; font-size:11px; color:var(--text); display:flex; align-items:center; gap:4px; overflow:hidden; }
+.inspector-swatch { width:10px; height:10px; border-radius:2px; border:1px solid var(--border); flex-shrink:0; }
+.inspector-driven { font-size:9px; color:var(--accent); }
