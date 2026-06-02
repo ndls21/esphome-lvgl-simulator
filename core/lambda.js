@@ -205,6 +205,24 @@ export class LambdaEvaluator {
         b = b.replace(/id\(\w+\)\s*->\s*show_page\s*\(\s*id\((\w+)\)[^)]*\)/g,
             (_, pageId) => `__lvgl__.showPage('${pageId}')`);
 
+        // nullptr/NULL comparisons — must come BEFORE nullptr→null substitution in _translateStrings
+        // id(x) == nullptr  →  !__store__.get('x')
+        // id(x) != nullptr  →  !!__store__.get('x')
+        b = b.replace(/\bid\s*\(\s*(\w+)\s*\)\s*==\s*(?:nullptr|NULL)\b/g,
+            (_, id) => `!__store__.get('${id}')`);
+        b = b.replace(/\bid\s*\(\s*(\w+)\s*\)\s*!=\s*(?:nullptr|NULL)\b/g,
+            (_, id) => `!!__store__.get('${id}')`);
+        b = b.replace(/\b(?:nullptr|NULL)\s*==\s*id\s*\(\s*(\w+)\s*\)/g,
+            (_, id) => `!__store__.get('${id}')`);
+        b = b.replace(/\b(?:nullptr|NULL)\s*!=\s*id\s*\(\s*(\w+)\s*\)/g,
+            (_, id) => `!!__store__.get('${id}')`);
+
+        // Plain variable nullptr checks (lv_obj_t* local variables like 'chart')
+        b = b.replace(/\b(\w+)\s*==\s*(?:nullptr|NULL)\b/g, (_, v) => `!${v}`);
+        b = b.replace(/\b(\w+)\s*!=\s*(?:nullptr|NULL)\b/g, (_, v) => `!!${v}`);
+        b = b.replace(/\b(?:nullptr|NULL)\s*==\s*(\w+)\b/g, (_, v) => `!${v}`);
+        b = b.replace(/\b(?:nullptr|NULL)\s*!=\s*(\w+)\b/g, (_, v) => `!!${v}`);
+
         // Chart API — must come BEFORE the catch-all lv_* stripper
 
         // LV_CHART_POINT_NONE / type constants
@@ -255,8 +273,9 @@ export class LambdaEvaluator {
             (_, v) => `__lvgl__.chartRefresh(${v})`);
 
         // id(xxx_chart) global reads (chart handles stored in __store__)
+        // No || 0 fallback — null must remain null so nullptr checks work correctly
         b = b.replace(/\bid\((\w+(?:_chart|_hist)\w*)\)/g,
-            (_, id) => `(__store__.get('${id}') || 0)`);
+            (_, id) => `__store__.get('${id}')`);
 
         // Display rotation: id(xxx)->set_rotation(DISPLAY_ROTATION_N_DEGREES)
         b = b.replace(/id\(\w+\)\s*->\s*set_rotation\s*\(\s*[^)]*ROTATION_(\d+)_DEGREES[^)]*\)\s*;?/g,

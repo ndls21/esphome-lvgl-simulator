@@ -763,9 +763,14 @@ lvgl:
             const cppType = (g.type || 'float').trim();
             const simType = this._mapCppType(cppType);
             const rawInitial = g.initial_value !== undefined ? String(g.initial_value) : undefined;
-            const initialValue = rawInitial !== undefined
-                ? this._coerceGlobalValue(rawInitial, simType)
-                : this._defaultForType(simType);
+            let initialValue;
+            if (rawInitial === 'nullptr' || rawInitial === 'NULL') {
+                initialValue = null;
+            } else {
+                initialValue = rawInitial !== undefined
+                    ? this._coerceGlobalValue(rawInitial, simType)
+                    : this._defaultForType(simType);
+            }
 
             this.store.register(g.id, {
                 entityType: 'global',
@@ -778,9 +783,13 @@ lvgl:
     }
 
     _mapCppType(cpp) {
-        if (cpp === 'bool') return 'boolean';
-        if (cpp === 'std::string' || cpp === 'string') return 'string';
-        if (/^(float|double)$/.test(cpp)) return 'float';
+        if (!cpp) return 'integer';
+        const t = String(cpp).trim();
+        if (t === 'bool') return 'boolean';
+        if (t === 'std::string' || t === 'string') return 'string';
+        if (/^(float|double)$/.test(t)) return 'float';
+        // Pointer types (lv_obj_t *, lv_chart_t *, etc.) — stored as handles (numbers or null)
+        if (t.includes('*') || t.includes('_t')) return 'pointer';
         return 'integer'; // int, uint8_t, uint16_t, etc.
     }
 
@@ -1875,10 +1884,17 @@ lvgl:
 
         const numericTypes = new Set(['sensor', 'number', 'global']);
         items.forEach(item => {
-            const isNumeric = numericTypes.has(type) && item.type !== 'boolean' && item.type !== 'string';
+            const isPointer = item.type === 'pointer';
+            const isNumeric = numericTypes.has(type) && item.type !== 'boolean' && item.type !== 'string' && !isPointer;
             const isBoolean = item.type === 'boolean' || type === 'binary_sensor';
             const isString = item.type === 'string' || type === 'text_sensor';
-            if (isNumeric) {
+            if (isPointer) {
+                const row = document.createElement('div');
+                row.className = 'mock-item';
+                row.dataset.entityId = item.id;
+                row.innerHTML = `<span class="mock-item-id">${item.id}</span><span class="mock-item-type" style="opacity:0.4">ptr</span>`;
+                body.appendChild(row);
+            } else if (isNumeric) {
                 body.appendChild(this.createNumericControl(item.id, item));
             } else if (isBoolean) {
                 body.appendChild(this.createBooleanControl(item.id, item));
