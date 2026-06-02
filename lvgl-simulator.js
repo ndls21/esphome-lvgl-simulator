@@ -182,6 +182,7 @@ class ESPHomeLVGLSimulator {
         this._intervalEpoch = 0;
         this._intervalStartReal = 0;
         this._gpioPollInterval = null;
+        this._lastRaw = null;
         this.displayElement = document.getElementById('lvglDisplay');
         this.yamlEditor = document.getElementById('yamlEditor');
         this.pageSelect = document.getElementById('pageSelect');
@@ -796,7 +797,10 @@ lvgl:
             this._showPackageWarnings(config && config.__packageWarnings);
 
             this.currentPageIndex = 0;
+            this._lastRaw = raw;
             this.render();
+            const pageId = this.pages[0]?.id || null;
+            this.buildYamlTabs(raw, pageId);
         } catch (error) {
             console.error('Error parsing YAML:', error);
             this.displayYAMLError(error, raw);
@@ -1214,6 +1218,10 @@ lvgl:
             this.displayElement.innerHTML = '';
             this.renderPage(page);
             this.syncPageSelect();
+            if (this._lastRaw) {
+                const pageId = this.pages[this.currentPageIndex]?.id || null;
+                this.buildYamlTabs(this._lastRaw, pageId);
+            }
             return;
         }
 
@@ -1260,6 +1268,10 @@ lvgl:
         });
 
         this.syncPageSelect();
+        if (this._lastRaw) {
+            const pageId = this.pages[this.currentPageIndex]?.id || null;
+            this.buildYamlTabs(this._lastRaw, pageId);
+        }
     }
 
     renderPage(page) {
@@ -2639,6 +2651,140 @@ lvgl:
                 secEl.appendChild(row);
             }
             el.appendChild(secEl);
+        }
+    }
+
+    // ── YAML Slice Tabs ──────────────────────────────────────────────────────
+
+    extractYamlSlices(raw, pageId) {
+        const lines = raw.split('\n');
+        const result = { page: null, topLayer: null, globals: null };
+
+        // Find page block: look for "  - id: {pageId}" or "- id: {pageId}"
+        if (pageId) {
+            const startRe = new RegExp(`^(\\s*)- id:\\s*${pageId}\\s*$`);
+            let startIdx = -1, indent = '';
+            for (let i = 0; i < lines.length; i++) {
+                const m = lines[i].match(startRe);
+                if (m) { startIdx = i; indent = m[1]; break; }
+            }
+            if (startIdx >= 0) {
+                const nextPageRe = new RegExp(`^${indent}- id:`);
+                let endIdx = lines.length;
+                for (let i = startIdx + 1; i < lines.length; i++) {
+                    if (nextPageRe.test(lines[i])) { endIdx = i; break; }
+                }
+                result.page = lines.slice(startIdx, endIdx).join('\n');
+            }
+        }
+
+        // Find top_layer: block
+        for (let i = 0; i < lines.length; i++) {
+            if (/^top_layer\s*:/.test(lines[i])) {
+                let end = lines.length;
+                for (let j = i + 1; j < lines.length; j++) {
+                    if (/^[a-z_]/.test(lines[j])) { end = j; break; }
+                }
+                result.topLayer = lines.slice(i, end).join('\n');
+                break;
+            }
+        }
+
+        // Find globals: block
+        for (let i = 0; i < lines.length; i++) {
+            if (/^globals\s*:/.test(lines[i])) {
+                let end = lines.length;
+                for (let j = i + 1; j < lines.length; j++) {
+                    if (/^[a-z_]/.test(lines[j])) { end = j; break; }
+                }
+                result.globals = lines.slice(i, end).join('\n');
+                break;
+            }
+        }
+
+        return result;
+    }
+
+    pageDisplayTitle(id) {
+        return (id || '')
+            .replace(/_page$/, '').replace(/_hub$/, ' Hub')
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, c => c.toUpperCase())
+            || '—';
+    }
+
+    renderYamlPane(source, lineOffset = 0) {
+        const pane = document.createElement('div');
+        pane.className = 'yaml-pane';
+        const lines = (source || '').split('\n');
+        lines.forEach((line, i) => {
+            const row = document.createElement('div');
+            row.className = 'yaml-pane-row';
+            const gutter = document.createElement('span');
+            gutter.className = 'yaml-pane-gutter';
+            gutter.textContent = i + 1 + lineOffset;
+            const code = document.createElement('span');
+            code.className = 'yaml-pane-line';
+            code.innerHTML = this._colorYaml(line);
+            row.appendChild(gutter);
+            row.appendChild(code);
+            pane.appendChild(row);
+        });
+        return pane;
+    }
+
+    _colorYaml(line) {
+        const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        let out = esc(line);
+        if (/^\s*#/.test(line)) return `<span class="yaml-comment">${out}</span>`;
+        out = out.replace(/0x([0-9A-Fa-f]{6})\b/g, (_, h) => `<span style="color:#${h}">0x${h}</span>`);
+        out = out.replace(/"([^"]*)"/g, '<span class="yaml-string">"$1"</span>');
+        out = out.replace(/^(\s*-?\s*)([a-z_][a-z0-9_]*)(\s*:)/i, '$1<span class="yaml-key">$2</span>$3');
+        out = out.replace(/\b(\d+\.?\d*)\b/g, '<span class="yaml-number">$1</span>');
+        out = out.replace(/\b([A-Z_]{3,})\b/g, '<span class="yaml-const">$1</span>');
+        return out;
+    }
+
+    buildYamlTabs(raw, pageId) {
+        const slices = this.extractYamlSlices(raw, pageId);
+        const tabsContainer = document.getElementById('yaml-tabs');
+        if (!tabsContainer) return;
+
+        // Clear existing yaml tabs
+        tabsContainer.innerHTML = '';
+
+        const tabDefs = [
+            { id: 'page',    label: this.pageDisplayTitle(pageId), slice: slices.page,     bodyId: 'tab-page'    },
+            { id: 'overlay', label: 'Overlay',                      slice: slices.topLayer, bodyId: 'tab-overlay' },
+            { id: 'globals', label: 'Globals',                      slice: slices.globals,  bodyId: 'tab-globals' },
+        ];
+
+        for (const def of tabDefs) {
+            // Create tab button
+            const btn = document.createElement('button');
+            btn.className = 'console-tab';
+            btn.dataset.tab = def.id;
+            btn.textContent = def.label;
+            tabsContainer.appendChild(btn);
+
+            // Wire click — toggle active, show body
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.console-tab').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-body').forEach(b => b.style.display = 'none');
+                btn.classList.add('active');
+                const body = document.getElementById('tab-' + def.id);
+                if (body) body.style.display = 'flex';
+            });
+
+            // Populate body
+            const body = document.getElementById(def.bodyId);
+            if (!body) continue;
+            body.innerHTML = '';
+            if (def.slice) {
+                body.appendChild(this.renderYamlPane(def.slice));
+            } else {
+                body.innerHTML = '<p class="rail-placeholder">Not found in this config (may be in an included file).</p>';
+            }
         }
     }
 }
