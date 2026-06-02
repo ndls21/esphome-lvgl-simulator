@@ -16,7 +16,7 @@ class HistBuffer {
 
   // ordered_value(i): i=0 is oldest, i=count-1 is newest
   ordered_value(i) {
-    if (i >= this._slots) return NaN;
+    if (i < 0 || i >= this._count) return NaN;
     // Map i to the actual circular buffer index
     const oldest = (this._head - this._count + this._slots) % this._slots;
     return this._data[(oldest + i) % this._slots];

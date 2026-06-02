@@ -140,6 +140,7 @@ class ESPHomeLVGLSimulator {
         this.currentPageIndex = 0;
         this.displayOverride = null;
         this._currentRotation = 0;
+        this._onLoadTimer = null;
         this.displayElement = document.getElementById('lvglDisplay');
         this.yamlEditor = document.getElementById('yamlEditor');
         this.pageSelect = document.getElementById('pageSelect');
@@ -882,6 +883,10 @@ lvgl:
     }
 
     renderCurrentPage(animType = 'NONE') {
+        if (this._onLoadTimer) {
+            clearTimeout(this._onLoadTimer);
+            this._onLoadTimer = null;
+        }
         const page = this.pages[this.currentPageIndex];
         if (!page) { this.syncPageSelect(); return; }
 
@@ -971,7 +976,8 @@ lvgl:
 
         // Fire on_load handler if present
         if (page.on_load) {
-            setTimeout(() => {
+            this._onLoadTimer = setTimeout(() => {
+                this._onLoadTimer = null;
                 this.lambda._proxy = this._buildLVGLProxy();
                 this.lambda.evaluate(page.on_load, null);
             }, 50);

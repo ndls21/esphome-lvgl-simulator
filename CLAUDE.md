@@ -7,12 +7,13 @@ It contains project-specific instructions, Notion pages, guardrails, and workflo
 
 ## How this file works — new project setup
 
-`CLAUDE.md` is a hardlink in every project pointing to the master in `claude-config/CLAUDE.md`. All projects share identical global instructions. Project-specific content lives in `PROJECT.md` only — never in `CLAUDE.md`.
+`claude-config/CLAUDE.md` is the master copy of shared agent instructions. Each project has its own `CLAUDE.md` — copy the master in when setting up a new project, then keep them in sync manually (or ask Claude to sync them when the master changes).
+
+Project-specific content lives in `PROJECT.md` only — never in `CLAUDE.md`.
 
 To wire up a new project:
 ```powershell
-Remove-Item "<project>\CLAUDE.md"   # if one exists
-New-Item -ItemType HardLink -Path "<project>\CLAUDE.md" -Target "C:\Users\Mario\Code\claude-config\CLAUDE.md"
+Copy-Item C:\Users\Mario\Code\claude-config\CLAUDE.md "<project>\CLAUDE.md"
 ```
 Then create `<project>/PROJECT.md` with: project overview, architecture, Notion pages, and any project-specific additions to the workflow sections below.
 
@@ -53,6 +54,14 @@ The Cloudflare WAF on the claude.ai MCP proxy blocks large or command-containing
 
 ---
 
+## Communication
+
+- When listing items in a reply, give every item a unique identifier (`A1`, `A2`, `B1`, etc.) so the user can reference them unambiguously across turns without re-describing them.
+- State what you are starting before diving in — so the user can redirect if needed.
+- When a topic involves a non-obvious design decision, label it clearly and explain the tradeoff rather than burying the choice in the implementation.
+
+---
+
 ## Subagent Autonomy
 
 ### Commit and push autonomously when ALL of these are true
@@ -87,9 +96,11 @@ The Cloudflare WAF on the claude.ai MCP proxy blocks large or command-containing
 
 Subagents work on separate issues simultaneously using **git worktrees**. Each agent runs in a fully isolated working directory — no branch switching, no shared working tree state, no risk of agents interfering with each other.
 
-### File ownership rule
-
-Two issues can run in parallel if and only if they do not write to the same file. If two issues only add new code (new files, appended blocks) without modifying the same existing function body, they are safe to parallelise. *This prevents merge conflicts at the source rather than resolving them after the fact.*
+### Rules
+- **One agent = one ticket.** Never batch multiple tickets into one agent.
+- **Always use `isolation: "worktree"`** when spawning agents via the Agent tool.
+- **File ownership:** two issues can run in parallel only if they don't write to the same file.
+- **Quota probe:** before spawning multiple agents, spawn one minimal probe agent (just `gh issue list`) first. If it hits the weekly limit, bail. Costs ~50 tokens vs hundreds for a full agent that fails immediately.
 
 ### How the orchestrating session spawns parallel agents
 
@@ -104,27 +115,16 @@ Parent session
 
 ### Inside a worktree — what the agent must do
 
-Immediately rename the branch to match the issue convention:
-```bash
-git checkout -b issue/<number>-short-description
-```
+1. `git checkout -b issue/<number>-short-description`
+2. Implement, verify, commit
+3. `git fetch origin main && git rebase origin/main`
+4. `git push -u origin issue/<number>-short-description`
+5. `gh pr create --draft ...`
+6. Comment on the issue with the PR URL, then close the issue
 
-### Finishing work inside a worktree
+### Parallel agent file-claim protocol
 
-1. Verify all Acceptance Criteria are met.
-2. Stage only the files relevant to this issue.
-3. Commit with format: `[#<number>] Description of what and why`
-4. Rebase onto latest main before pushing:
-   ```bash
-   git fetch origin main
-   git rebase origin/main
-   ```
-5. Resolve any conflicts (see Merge Protocol), then push:
-   ```bash
-   git push -u origin issue/<number>-short-description
-   ```
-6. Create a draft PR immediately after pushing — do not skip.
-7. Add a comment to the GitHub issue linking to the PR.
+Before starting work, check all open issues that have an assignee (in-progress issues) and read their "Files touched" list. If your ticket's files overlap with any in-progress ticket, do not start — comment on the conflict and pick a different ticket. No two in-progress issues should claim the same file simultaneously.
 
 ### Merge Protocol — resolving conflicts without human involvement
 
@@ -164,6 +164,7 @@ Before any PR is merged to main, the main chat session reviews each branch for c
 - Bugs introduced
 - Regressions to existing functionality
 - Code style violations
+- **MEMORY-CHECK and NOTION-CHECK fields present** in the PR body — if missing, request them before merging
 
 ### Review is NOT a redesign
 
@@ -184,34 +185,27 @@ Subagents finish and exit. When review finds a problem, the main session handles
 1. Check open issues first: `gh issue list --state open` — discover in-flight plans before duplicating work
 2. Read `PROJECT.md` to understand current state
 3. Run `git log --oneline -10` for recent context
-4. Clarify scope before coding if the task is ambiguous
+4. **Before touching any file** — do all three:
+   - Grep for every symbol/ID you're about to change
+   - Run the project's baseline build/verify — if it already fails, post the exact error to the issue and stop; do not absorb a pre-existing failure into your work
+   - If the ticket's "Ground truth verified" date is more than 24 hours old, re-read all files listed in the ticket before implementing
+5. Clarify scope before coding if the task is ambiguous
 
 ### Planning a multi-step task
 
 Before executing anything non-trivial, decompose the task and create GitHub issues to represent the plan — not just for yourself, but so other agents can see what's in flight and what's available.
 
-**On claims in ticket bodies:** if you write that something is missing, broken, or needs changing — verify it in the file first. You don't need to read every file upfront, but every assertion ("X doesn't exist", "line N needs converting", "this handler is absent") must be grounded in what you've actually read. Unverified claims waste agent time on re-discovery or duplicate work.
+**Before writing any ticket:** read every file the ticket will touch. Embed findings directly in the body — what already exists, what is confirmed missing, exact line numbers. A ticket written without reading the files will waste agent time on re-discovery or duplicate work.
 
-```
-gh issue create --title "short action-oriented title" --body "$(cat <<'EOF'
-What: ...
-Why: ...
+**Embed the relevant lines directly in the issue body.** An agent that finds the exact code in the issue body doesn't need to re-read the file. 10–20 lines of embedded context saves 15–20 tool calls per agent.
 
-Files identified so far (verify before asserting state):
-- path/to/file.ext (lines N–M, briefly what you found there)
-
-Existing state (verified by reading the files):
-- what already exists that's relevant
-- what is confirmed missing
-
-Acceptance:
-- [ ] criterion one
-- [ ] criterion two
-
-Blocked by: #N   ← omit if independent
-EOF
-)"
-```
+Every ticket body must include:
+- **Files touched** with line numbers (read first — never guess)
+- **Existing state** verified by reading the file
+- **What is confirmed missing**
+- **Behavioral acceptance criterion** — what the user will see or experience; "builds clean" alone is not sufficient
+- **Ground truth verified** date so agents know when to re-verify
+- **Blocked by: #N** if tightly coupled; omit if independent
 
 **Dependency model:**
 - **Tightly coupled** — B cannot safely start until A is merged/verified: add `Blocked by #A` to B's body. Do not start B until A is closed.
@@ -228,20 +222,49 @@ Do **not** pre-create downstream issues in a dependency chain when the upstream 
 
 ### While working
 - **First action:** assign yourself to the issue — `gh issue edit N --add-assignee @me` — before writing any code. *This signals in-progress to other agents and prevents two agents picking up the same ticket.*
-- State what you're starting before diving in — so the user can redirect if needed
+- **Scope fence:** only touch files explicitly listed in the ticket body. If you discover related work in other files, open a new issue for it — do not bundle it into this session. One ticket = one commit = one PR. Multi-issue commits destroy atomic revert safety.
 - Verify or build after any logical unit of work you'd be frustrated to lose; don't accumulate untested edits
 - Confirm all dependencies are merged before starting dependent work
+- **Knowable facts vs design ambiguities** — if a decision is discoverable from the code (what a function is named, what a variable is called, what already exists), look it up — do not ask. If it is a genuine design ambiguity (which approach to take, how to wire two systems together), surface the options and their tradeoffs to the user rather than choosing silently.
+- **Silent iteration ban** — if a fix fails and your next approach is a fundamentally different strategy, post a brief comment on the issue explaining what failed and what you are trying next before implementing it. Do not silently cycle through multiple strategies.
+- **No-progress escalation** — if the same error persists after three distinct fix strategies, stop. Post a detailed failure report on the issue: exact errors, each approach tried, suspected root cause. Hand off rather than continuing to iterate.
+
+### Execution stage gates
+
+For any non-trivial change, work through these gates in order. Do not skip forward.
+
+- **SG1 Explore** — read every file the ticket touches; run the baseline build; grep for all symbols in scope. Confirm what exists and what is missing before writing any code.
+- **SG2 Implement** — make the smallest coherent change set for this ticket. Stay inside the scope fence.
+- **SG3 Verify** — run the project's build/test and compare against the SG1 baseline. Any new error was introduced by this session — fix it before proceeding.
+- **SG4 Commit** — commit only after SG3 is clean. Run `git diff --cached --name-only` before committing and unstage any file not listed in the ticket body.
+- **SG5 Push/report** — push after SG4, then post the result comment on the issue and close it.
 
 ### Closing out a ticket
-1. Verify the change works as expected
-2. For **Moderate or High complexity** changes, post a verification comment before closing — this creates an audit trail that lets regressions be traced to specific commits:
+1. **Self-critique before final verify** — check:
+   - Did I grep for all references to every symbol I removed or renamed?
+   - Does the behavioral acceptance criterion trace to something real in the codebase?
+   - Am I touching only the files listed in the ticket body?
+   Fix any failures before proceeding.
+2. Verify clean — zero errors in build/test output
+3. **Post verification result as a comment on the issue** (before closing):
    ```
-   gh issue comment N --body "Verification: PASS — <brief summary of what was tested/built/verified>"
+   gh issue comment N --body "Verification: PASS — <brief summary>. Files modified: <list>."
    ```
-   If verification fails, post the failure. Low complexity changes can close without a comment.
-3. Commit with a message focused on *why*, not just what changed
-4. Close the issue: `gh issue close N --comment "done — <one line summary>"`
-5. Update Notion and any project documentation to reflect the changed state
+   If it fails, post the failure with exact error lines.
+4. **Institutional memory check — mandatory, not optional.** Post a comment using the `MEMORY-CHECK:` prefix. You must post this even if there is nothing new to document:
+   ```
+   gh issue comment N --body "MEMORY-CHECK: <either 'Nothing new to add to CLAUDE.md.' or a draft addition — constraint, anti-pattern, or unexpected codebase state this session uncovered that isn't already documented>"
+   ```
+   Agents draft it; the user decides whether to merge it. Closing an issue without a `MEMORY-CHECK:` comment is non-compliant.
+5. **Notion/docs check — mandatory.** Post a comment using the `NOTION-CHECK:` prefix:
+   ```
+   gh issue comment N --body "NOTION-CHECK: <what Notion pages were updated, or 'No Notion changes required.'>"
+   ```
+   Triggers that require a Notion update: page/feature added or removed, data source status changed, development plan item completed, project structure changed. Update `PROJECT.md` too if the project structure changed.
+6. Commit with a message focused on *why*, not just what changed
+7. Close the issue with a structured comment covering: verification result, files modified, **scope deviations** (where implementation differed from the ticket — and why), deferred discoveries, open questions for the next agent.
+
+   **Scope deviation rule:** if you discover that the ticket's stated existing state doesn't match the actual codebase, post a comment immediately documenting what you found vs what the ticket said, note the deviation in the PR body, and include it in the closing comment. Do not silently absorb the mismatch.
 
 ---
 

@@ -108,10 +108,13 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
       if (!el) return;
       const parent = el.parentElement;
       if (!parent) return;
-      const pw = parent.offsetWidth || parseInt(parent.style.width) || 0;
-      const ph = parent.offsetHeight || parseInt(parent.style.height) || 0;
-      const ew = el.offsetWidth || parseInt(el.style.width) || 0;
-      const eh = el.offsetHeight || parseInt(el.style.height) || 0;
+      el.style.position = 'absolute';
+      const pr = parent.getBoundingClientRect();
+      const er = el.getBoundingClientRect();
+      const pw = pr.width || parseInt(parent.style.width) || 0;
+      const ph = pr.height || parseInt(parent.style.height) || 0;
+      const ew = er.width || parseInt(el.style.width) || 0;
+      const eh = er.height || parseInt(el.style.height) || 0;
       dx = dx || 0; dy = dy || 0;
       let left, top;
       switch (alignType) {
@@ -126,7 +129,6 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
         case 'BOTTOM_RIGHT': left = pw-ew + dx;      top = ph-eh + dy;     break;
         default:             left = dx;              top = dy;
       }
-      el.style.position = 'absolute';
       el.style.left = left + 'px';
       el.style.top = top + 'px';
     },
@@ -220,7 +222,15 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
     },
 
     chartSetNextValue(seriesHandle, value) {
-      const s = charts.get(seriesHandle); if (!s || !s.isSeries) return;
+      const s = charts.get(seriesHandle);
+      if (!s) {
+        console.warn(`[lvgl] chartSetNextValue: no entry for handle ${seriesHandle}`);
+        return;
+      }
+      if (!s.isSeries) {
+        console.warn(`[lvgl] chartSetNextValue: handle ${seriesHandle} is a chart, not a series`);
+        return;
+      }
       s.series.data.push(value);
     },
 

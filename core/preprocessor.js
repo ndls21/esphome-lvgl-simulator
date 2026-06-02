@@ -124,7 +124,7 @@ function _resolveUrl(baseUrl, relativePath) {
     }
 }
 
-async function _resolveTextIncludes(text, baseUrl) {
+async function _resolveTextIncludes(text, baseUrl, visited = new Set()) {
     // Replace "__include__:path" strings inline
     // We do a line-by-line pass so we can handle indentation
     const lines = text.split('\n');
@@ -142,13 +142,17 @@ async function _resolveTextIncludes(text, baseUrl) {
         const url = _resolveUrl(baseUrl, inclPath);
         if (!url) { output.push(line); continue; }
 
+        // Guard against circular includes
+        if (visited.has(url)) { output.push(line); continue; }
+        visited.add(url);
+
         const fetched = await _fetchYaml(url);
         if (!fetched) { output.push(line); continue; }
 
         // Recurse into fetched content
         const newBase = new URL('.', url).href;
         const { text: preprocessedFetched } = preprocessYAML(fetched);
-        const resolvedFetched = await _resolveTextIncludes(preprocessedFetched, newBase);
+        const resolvedFetched = await _resolveTextIncludes(preprocessedFetched, newBase, visited);
 
         const innerLines = resolvedFetched.split('\n');
         const nonEmpty = innerLines.filter(l => l.trim().length > 0);
@@ -167,7 +171,7 @@ async function _resolveTextIncludes(text, baseUrl) {
     return output.join('\n');
 }
 
-async function _resolvePackages(config, baseUrl, warnings) {
+async function _resolvePackages(config, baseUrl, warnings, visited = new Set()) {
     const packages = config.packages;
     const merged = Object.assign({}, config);
     delete merged.packages;
@@ -196,6 +200,13 @@ async function _resolvePackages(config, baseUrl, warnings) {
 
         if (!url) continue;
 
+        // Guard against circular package includes
+        if (visited.has(url)) {
+            warnings.push(`Package "${name}" skipped — circular include detected for ${url}.`);
+            continue;
+        }
+        visited.add(url);
+
         const text = await _fetchYaml(url);
         if (!text) {
             warnings.push(`Package "${name}" could not be fetched from ${url}.`);
@@ -206,7 +217,7 @@ async function _resolvePackages(config, baseUrl, warnings) {
         let pkgConfig;
         try {
             const { text: pre } = preprocessYAML(text);
-            const withInc = await _resolveTextIncludes(pre, newBase);
+            const withInc = await _resolveTextIncludes(pre, newBase, new Set(visited));
             pkgConfig = jsyaml.load(withInc);
         } catch (e) {
             warnings.push(`Package "${name}" failed to parse: ${e.message}`);
@@ -224,7 +235,16 @@ async function _resolvePackages(config, baseUrl, warnings) {
 function _deepMergeInto(target, source) {
     for (const [key, val] of Object.entries(source)) {
         if (Array.isArray(val) && Array.isArray(target[key])) {
-            target[key] = target[key].concat(val);
+            const merged = target[key].concat(val);
+            // Deduplicate items that have an 'id' field
+            const seen = new Set();
+            target[key] = merged.filter(item => {
+                if (item && typeof item === 'object' && item.id !== undefined) {
+                    if (seen.has(item.id)) return false;
+                    seen.add(item.id);
+                }
+                return true;
+            });
         } else if (val && typeof val === 'object' && !Array.isArray(val)
                    && target[key] && typeof target[key] === 'object' && !Array.isArray(target[key])) {
             _deepMergeInto(target[key], val);

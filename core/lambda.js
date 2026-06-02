@@ -231,8 +231,9 @@ export class LambdaEvaluator {
         // Strip remaining component method calls (prevent ReferenceError)
         b = b.replace(/id\(\w+\)\s*->\s*\w+\s*\([^)]*\)\s*;?/g, '/* component call */');
 
-        // Strip remaining lv_* calls that we don't handle (prevent ReferenceError)
-        b = b.replace(/\blv_\w+\s*\([^;]*\)\s*;?/g, (match) => `/* unhandled: ${match.trim()} */`);
+        // Strip remaining unhandled lv_* function *calls* (standalone statements only)
+        b = b.replace(/(^|\n)([ \t]*)(lv_\w+\s*\([^)]*\)\s*;)/g,
+            (_, nl, indent, call) => `${nl}${indent}/* unhandled: ${call} */`);
 
         return b;
     }
