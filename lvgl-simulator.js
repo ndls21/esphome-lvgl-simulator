@@ -267,14 +267,6 @@ class ESPHomeLVGLSimulator {
             });
         });
 
-        document.getElementById('toggleMockPanel').addEventListener('click', () => {
-            const panel = document.getElementById('mockPanel');
-            const btn = document.getElementById('toggleMockPanel');
-            const isVisible = panel.classList.contains('mock-panel--visible');
-            panel.classList.toggle('mock-panel--visible', !isVisible);
-            btn.innerHTML = isVisible ? '&#9654;' : '&#9664;';
-        });
-
         document.getElementById('resetMockData').addEventListener('click', () => {
             this.store.reset();
             this.renderFromEditor();
@@ -809,8 +801,6 @@ lvgl:
             this.displayYAMLError(error, raw);
             const summaryEl = document.getElementById('entitySummary');
             if (summaryEl) summaryEl.style.display = 'none';
-            const mockPanel = document.getElementById('mockPanel');
-            if (mockPanel) mockPanel.classList.remove('mock-panel--visible');
         }
     }
 
@@ -1973,10 +1963,8 @@ lvgl:
 
         if (!hasAny) {
             container.innerHTML = '<div class="mock-empty">No sensors or globals detected.</div>';
-            document.getElementById('mockPanel').classList.remove('mock-panel--visible');
             return;
         }
-        document.getElementById('mockPanel').classList.add('mock-panel--visible');
 
         // Apply any pending mock restore from loadFromHash (deferred to here so controls exist)
         if (this._pendingMockRestore) {
