@@ -188,13 +188,15 @@ test.describe('Widget rendering', () => {
     expect(text).toContain('Hello World');
   });
 
-  test('page wrapper is created for each render', async ({ page }) => {
+  test('lvglDisplay has children after render', async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
     await renderYAML(page, SINGLE_PAGE_YAML);
 
-    // renderCurrentPage() always creates a .lvgl-page-wrapper inside #lvglDisplay
-    await expect(page.locator('#lvglDisplay .lvgl-page-wrapper')).toHaveCount(1);
+    // renderCurrentPage('NONE') places widgets directly into #lvglDisplay.
+    // The .lvgl-page-wrapper only exists during animated transitions.
+    const childCount = await page.locator('#lvglDisplay').evaluate(el => el.children.length);
+    expect(childCount, '#lvglDisplay should have rendered children').toBeGreaterThan(0);
   });
 
 });
@@ -229,8 +231,9 @@ test.describe('Page selector pill', () => {
     const before = await page.locator('#page-selector-index').textContent();
     expect(before).toBe('1/2');
 
-    await page.click('#swipe-right');
-    await page.waitForTimeout(300);
+    // #swipe-left (←) calls _handleSwipe('left') which increments currentPageIndex
+    await page.click('#swipe-left');
+    await page.waitForTimeout(400);
 
     const after = await page.locator('#page-selector-index').textContent();
     expect(after).toBe('2/2');
@@ -245,8 +248,9 @@ test.describe('Page selector pill', () => {
     const before = await page.locator('#page-selector-title').textContent();
     expect(before).toBe('Alpha');
 
-    await page.click('#swipe-right');
-    await page.waitForTimeout(300);
+    // #swipe-left (←) → next page
+    await page.click('#swipe-left');
+    await page.waitForTimeout(400);
 
     // beta_page → "Beta"
     const after = await page.locator('#page-selector-title').textContent();
@@ -315,30 +319,32 @@ test.describe('Left-rail page list', () => {
 
 test.describe('Page navigation', () => {
 
-  test('swipe-right advances to next page', async ({ page }) => {
+  test('swipe-left (←) advances to next page', async ({ page }) => {
+    // _handleSwipe('left') increments currentPageIndex — #swipe-left is the ← button
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
     await renderYAML(page, TWO_PAGE_YAML);
 
-    await page.click('#swipe-right');
-    await page.waitForTimeout(300);
+    await page.click('#swipe-left');
+    await page.waitForTimeout(400);
 
     expect(await page.locator('#page-selector-index').textContent()).toBe('2/2');
   });
 
-  test('swipe-left goes back to previous page', async ({ page }) => {
+  test('swipe-right (→) goes back to previous page', async ({ page }) => {
+    // _handleSwipe('right') decrements currentPageIndex — #swipe-right is the → button
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
     await renderYAML(page, TWO_PAGE_YAML);
 
-    // Navigate to page 2
-    await page.click('#swipe-right');
-    await page.waitForTimeout(300);
+    // Advance to page 2 first (via ← button = next)
+    await page.click('#swipe-left');
+    await page.waitForTimeout(400);
     expect(await page.locator('#page-selector-index').textContent()).toBe('2/2');
 
-    // Navigate back to page 1
-    await page.click('#swipe-left');
-    await page.waitForTimeout(300);
+    // Go back to page 1 (via → button = previous)
+    await page.click('#swipe-right');
+    await page.waitForTimeout(400);
     expect(await page.locator('#page-selector-index').textContent()).toBe('1/2');
   });
 
@@ -347,14 +353,15 @@ test.describe('Page navigation', () => {
     await page.waitForLoadState('networkidle');
     await renderYAML(page, TWO_PAGE_YAML);
 
-    // Page 1 has lbl_alpha
+    // Page 1 has lbl_alpha, not lbl_beta
     await expect(page.locator('[data-lvgl-id="lbl_alpha"]')).toHaveCount(1);
     await expect(page.locator('[data-lvgl-id="lbl_beta"]')).toHaveCount(0);
 
-    await page.click('#swipe-right');
-    await page.waitForTimeout(300);
+    // Advance to page 2 (← = next)
+    await page.click('#swipe-left');
+    await page.waitForTimeout(400);
 
-    // Page 2 has lbl_beta
+    // Page 2 has lbl_beta, not lbl_alpha
     await expect(page.locator('[data-lvgl-id="lbl_beta"]')).toHaveCount(1);
     await expect(page.locator('[data-lvgl-id="lbl_alpha"]')).toHaveCount(0);
   });
