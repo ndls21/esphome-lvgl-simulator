@@ -238,6 +238,10 @@ export class LambdaEvaluator {
         b = b.replace(/id\(\w+\)\s*->\s*set_paused\s*\(([^,)]+)[^)]*\)\s*;?/g,
             (_, paused) => `__lvgl__.setPaused(${paused.trim()});`);
 
+        // Display brightness
+        b = b.replace(/id\(\w+\)\s*\.\s*set_brightness\s*\(([^)]+)\)/g,
+          (_, val) => `__lvgl__.setDisplayBrightness(${val.trim()})`);
+
         // Strip remaining component method calls (prevent ReferenceError)
         b = b.replace(/id\(\w+\)\s*->\s*\w+\s*\([^)]*\)\s*;?/g, '/* component call */');
 

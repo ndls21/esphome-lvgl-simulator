@@ -245,6 +245,19 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
       _drawChartInternal(c);
     },
 
+    // Display brightness
+    setDisplayBrightness(n) {
+      if (!simulator) return;
+      const display = document.getElementById(simulator._displayElId || 'lvglDisplay');
+      if (!display) return;
+      const pct = Math.max(0, Math.min(255, Number(n) || 0)) / 255;
+      // Keep screensaver filter if active — only override if not in screensaver state
+      if (simulator._screensaver && simulator._screensaver._state !== 0) return;
+      display.style.filter = pct < 0.005
+        ? 'brightness(0)'
+        : `brightness(${(0.08 + pct * 0.92).toFixed(3)})`;
+    },
+
     // Display rotation
     setDisplayRotation(deg) {
       if (simulator && simulator.setRotation) simulator.setRotation(deg);
