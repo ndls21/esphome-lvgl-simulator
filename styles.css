@@ -139,7 +139,8 @@ body {
     white-space: nowrap;
 }
 
-.theme-toggle-btn {
+.theme-toggle-btn,
+.rail-toggle-btn {
     width: 28px;
     height: 28px;
     border-radius: 50%;
@@ -156,7 +157,8 @@ body {
     transition: background 0.12s;
 }
 
-.theme-toggle-btn:hover {
+.theme-toggle-btn:hover,
+.rail-toggle-btn:hover {
     background: var(--pill);
     color: var(--text);
 }
@@ -1543,3 +1545,52 @@ body {
 .yaml-key     { color:var(--accent); }
 .yaml-number  { color:#FFAA55; }
 .yaml-const   { color:#FFCC66; }
+
+/* ─── MOBILE LAYOUT ─────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    /* Single-column: hero fills width, console below, rails hidden by default */
+    #app-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr 200px;
+        grid-template-areas:
+            "hero"
+            "console";
+    }
+
+    #left-rail,
+    #right-rail {
+        display: none;
+        position: fixed;
+        top: 44px;
+        bottom: 0;
+        z-index: 100;
+        width: 260px;
+    }
+
+    #left-rail  { left: 0;  border-right: 1px solid var(--border); }
+    #right-rail { right: 0; border-left:  1px solid var(--border); }
+
+    #left-rail.rail-open,
+    #right-rail.rail-open {
+        display: flex;
+    }
+
+    /* Remove min-size constraints so display fits narrow screens */
+    .lvgl-display {
+        min-width: 0;
+        min-height: 0;
+    }
+
+    /* Shrink top bar items that clip on small screens */
+    #top-bar-caption { display: none; }
+    #swipe-up { display: none; }
+
+    /* Show rail-toggle buttons injected by JS */
+    .rail-toggle-btn {
+        display: flex !important;
+    }
+
+    /* Console: hide bottom tabs text labels to save space */
+    .tab-btn span { display: none; }
+    .tab-btn::before { font-size: 14px; }
+}

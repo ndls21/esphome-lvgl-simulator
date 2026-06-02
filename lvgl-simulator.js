@@ -468,6 +468,19 @@ class ESPHomeLVGLSimulator {
         document.getElementById('swipe-right')?.addEventListener('click', () => this._handleSwipe('right'));
         document.getElementById('swipe-up')?.addEventListener('click',    () => this._handleSwipe('up'));
 
+        // Mobile rail toggles
+        document.getElementById('toggle-left-rail')?.addEventListener('click', () => {
+            document.getElementById('left-rail')?.classList.toggle('rail-open');
+        });
+        document.getElementById('toggle-right-rail')?.addEventListener('click', () => {
+            document.getElementById('right-rail')?.classList.toggle('rail-open');
+        });
+        // Tap outside an open rail to close it
+        document.getElementById('hero-canvas')?.addEventListener('click', () => {
+            document.getElementById('left-rail')?.classList.remove('rail-open');
+            document.getElementById('right-rail')?.classList.remove('rail-open');
+        });
+
         document.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
             const map = { ArrowLeft: 'right', ArrowRight: 'left', ArrowUp: 'down', ArrowDown: 'up' };

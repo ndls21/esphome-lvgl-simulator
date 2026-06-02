@@ -7,6 +7,8 @@ module.exports = defineConfig({
   use: {
     baseURL: process.env.TEST_URL || 'http://localhost:8765',
     headless: true,
+    screenshot: 'on',
+    viewport: { width: 1400, height: 900 },
   },
   webServer: process.env.TEST_URL ? undefined : {
     command: 'python3 -m http.server 8765',
