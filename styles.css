@@ -1088,11 +1088,41 @@ body {
 }
 
 /* ─── MOCK CONTROLS ─────────────────────────────────────────────────────── */
+
+/* Drive section stack — scrollable column that fills available tab height */
+#mockControls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+
 .mock-controls {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    flex-shrink: 0;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* Feature sections (screensaver, gpio, sd_card, network, top-layer) */
+.drive-feature-section {
+    border: 1px solid var(--borderS);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.drive-feature-section .mock-section-header {
+    background: var(--surface2);
+    padding: 6px 8px;
+}
+
+.drive-feature-section .drive-row {
+    border-bottom: none;
 }
 
 .mock-section {

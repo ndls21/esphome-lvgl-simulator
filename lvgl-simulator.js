@@ -267,6 +267,17 @@ class ESPHomeLVGLSimulator {
             });
         });
 
+        // toggleMockPanel only existed in the old layout shell; guard for new shell
+        document.getElementById('toggleMockPanel')?.addEventListener('click', () => {
+            const panel = document.getElementById('mockPanel');
+            const btn = document.getElementById('toggleMockPanel');
+            if (!panel || !btn) return;
+            const isVisible = panel.classList.contains('mock-panel--visible');
+            panel.classList.toggle('mock-panel--visible', !isVisible);
+            btn.innerHTML = isVisible ? '&#9654;' : '&#9664;';
+        });
+
+
         document.getElementById('resetMockData').addEventListener('click', () => {
             this.store.reset();
             this.renderFromEditor();
@@ -1021,7 +1032,7 @@ lvgl:
             this.populatePageSelect();
             this.renderCurrentPage();
             this.updateEntitySummary();
-            this.populateMockPanel();
+            this.buildDrivePanel();
             this._maybeShowSupabasePanel();
             this._storeUnsub = this.store.subscribeAll(() => this._scheduleRerender());
         } catch (error) {
@@ -1938,7 +1949,7 @@ lvgl:
         el.style.display = 'flex';
     }
 
-    populateMockPanel() {
+    buildDrivePanel() {
         const container = document.getElementById('mockControls');
         if (!container) return;
         container.innerHTML = '';
@@ -1963,8 +1974,17 @@ lvgl:
 
         if (!hasAny) {
             container.innerHTML = '<div class="mock-empty">No sensors or globals detected.</div>';
-            return;
+            document.getElementById('mockPanel')?.classList.remove('mock-panel--visible');
+        } else {
+            document.getElementById('mockPanel')?.classList.add('mock-panel--visible');
         }
+
+        // Top Layer section (always rendered when config has top_layer widgets with ids)
+        const topLayerSection = this._buildTopLayerSection();
+        if (topLayerSection) container.appendChild(topLayerSection);
+
+        // Feature-detected sections (screensaver, gpio, audio, sd_card, network)
+        this._buildFeatureSections(container);
 
         // Apply any pending mock restore from loadFromHash (deferred to here so controls exist)
         if (this._pendingMockRestore) {
@@ -1976,6 +1996,139 @@ lvgl:
                 }
             }, 0);
         }
+    }
+
+    // Backward-compat alias — other code that calls populateMockPanel() still works
+    populateMockPanel() {
+        return this.buildDrivePanel();
+    }
+
+    _buildFeatureSections(container) {
+        const features = this._detectedFeatures || [];
+        const sectionMap = {
+            screensaver: () => this._buildScreensaverSection(),
+            gpio:        () => this._buildGPIOSection(),
+            audio:       () => this._buildAudioSection(),
+            sd_card:     () => this._buildSDSection(),
+            network:     () => this._buildNetworkSection(),
+        };
+        for (const id of features) {
+            const builder = sectionMap[id];
+            if (builder) {
+                const el = builder();
+                if (el) container.appendChild(el);
+            }
+        }
+    }
+
+    _buildSectionWrapper(title, contentEl) {
+        if (!contentEl) return null;
+        const section = document.createElement('div');
+        section.className = 'mock-section drive-feature-section';
+        const header = document.createElement('div');
+        header.className = 'mock-section-header';
+        header.innerHTML = `<span class="mock-section-icon">&#9660;</span><span>${title}</span>`;
+        header.addEventListener('click', () => section.classList.toggle('mock-section--collapsed'));
+        section.appendChild(header);
+        section.appendChild(contentEl);
+        return section;
+    }
+
+    _buildScreensaverSection() {
+        const el = document.getElementById('screensaverControls');
+        if (!el) return null;
+        return this._buildSectionWrapper('Screensaver', el);
+    }
+
+    _buildGPIOSection() {
+        const el = document.getElementById('gpioControls');
+        if (!el) return null;
+        return this._buildSectionWrapper('GPIO', el);
+    }
+
+    _buildAudioSection() {
+        // Audio mute checkbox lives inside screensaverControls; wrap a clone here
+        // to avoid removing the element from screensaverControls when both are shown.
+        // When screensaver is also detected, the mute control is accessible there too.
+        // For audio-only (no screensaver feature), move the audioMute row into Audio section.
+        const features = this._detectedFeatures || [];
+        if (features.includes('screensaver')) {
+            // Already in the Screensaver section — don't duplicate
+            return null;
+        }
+        const muteEl = document.getElementById('audioMute');
+        if (!muteEl) return null;
+        const row = muteEl.closest('.drive-row') || muteEl.parentElement;
+        return this._buildSectionWrapper('Audio', row);
+    }
+
+    _buildSDSection() {
+        const el = document.getElementById('sdCardControls');
+        if (!el) return null;
+        return this._buildSectionWrapper('SD Card', el);
+    }
+
+    _buildNetworkSection() {
+        const el = document.getElementById('networkControls');
+        if (!el) return null;
+        return this._buildSectionWrapper('Network', el);
+    }
+
+    _buildTopLayerSection() {
+        const widgets = this.config?.lvgl?.top_layer?.widgets || [];
+        const withIds = widgets.filter(w => {
+            const cfg = Object.values(w)[0];
+            return cfg && cfg.id;
+        });
+        if (withIds.length === 0) return null;
+
+        const section = document.createElement('div');
+        section.className = 'mock-section drive-feature-section';
+        const header = document.createElement('div');
+        header.className = 'mock-section-header';
+        header.innerHTML = `<span class="mock-section-icon">&#9660;</span><span>Top Layer</span>`;
+        header.addEventListener('click', () => section.classList.toggle('mock-section--collapsed'));
+        section.appendChild(header);
+
+        const body = document.createElement('div');
+        body.className = 'mock-section-body';
+
+        withIds.forEach(w => {
+            const cfg = Object.values(w)[0];
+            const widgetId = cfg.id;
+            const row = document.createElement('div');
+            row.className = 'mock-item';
+            const lbl = document.createElement('span');
+            lbl.className = 'mock-item-id';
+            lbl.textContent = widgetId;
+            const btnWrap = document.createElement('span');
+            btnWrap.style.cssText = 'display:flex;gap:4px;';
+
+            const showBtn = document.createElement('button');
+            showBtn.className = 'mock-btn';
+            showBtn.textContent = 'Show';
+            showBtn.addEventListener('click', () => {
+                const entry = this._renderedElements?.[widgetId];
+                if (entry?.el) entry.el.style.display = '';
+            });
+
+            const hideBtn = document.createElement('button');
+            hideBtn.className = 'mock-btn';
+            hideBtn.textContent = 'Hide';
+            hideBtn.addEventListener('click', () => {
+                const entry = this._renderedElements?.[widgetId];
+                if (entry?.el) entry.el.style.display = 'none';
+            });
+
+            btnWrap.appendChild(showBtn);
+            btnWrap.appendChild(hideBtn);
+            row.appendChild(lbl);
+            row.appendChild(btnWrap);
+            body.appendChild(row);
+        });
+
+        section.appendChild(body);
+        return section;
     }
 
     _initSDLogging() {
