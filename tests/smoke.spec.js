@@ -23,7 +23,10 @@ async function renderYAML(page, yaml) {
   await expect(page.locator('#lvglDisplay .placeholder')).toHaveCount(0, { timeout: 10000 });
 }
 
-/** Minimal 2-page config for navigation tests. */
+/** Minimal 2-page config for navigation tests.
+ *  Explicit on_swipe handlers so navigation is driven by YAML, not hardcoded fallbacks.
+ *  alpha_page swipe-left → beta_page; beta_page swipe-right → alpha_page.
+ */
 const TWO_PAGE_YAML = `
 display:
   - platform: custom
@@ -34,12 +37,14 @@ lvgl:
   color_depth: 16
   pages:
     - id: alpha_page
+      on_swipe_left: !lambda "id(lvgl_comp)->show_page(id(beta_page)->index, LV_SCR_LOAD_ANIM_MOVE_LEFT, 200);"
       widgets:
         - label:
             id: lbl_alpha
             text: "Alpha"
             align: CENTER
     - id: beta_page
+      on_swipe_right: !lambda "id(lvgl_comp)->show_page(id(alpha_page)->index, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 200);"
       widgets:
         - label:
             id: lbl_beta
@@ -319,8 +324,9 @@ test.describe('Left-rail page list', () => {
 
 test.describe('Page navigation', () => {
 
-  test('swipe-left (←) advances to next page', async ({ page }) => {
-    // _handleSwipe('left') increments currentPageIndex — #swipe-left is the ← button
+  test('swipe-left triggers on_swipe_left lambda → navigates to beta_page', async ({ page }) => {
+    // alpha_page has on_swipe_left: show_page(id(beta_page)->index, ...)
+    // The simulator parses the lambda body and navigates to beta_page.
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
     await renderYAML(page, TWO_PAGE_YAML);
@@ -331,18 +337,18 @@ test.describe('Page navigation', () => {
     expect(await page.locator('#page-selector-index').textContent()).toBe('2/2');
   });
 
-  test('swipe-right (→) goes back to previous page', async ({ page }) => {
-    // _handleSwipe('right') decrements currentPageIndex — #swipe-right is the → button
+  test('swipe-right triggers on_swipe_right lambda → navigates back to alpha_page', async ({ page }) => {
+    // beta_page has on_swipe_right: show_page(id(alpha_page)->index, ...)
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
     await renderYAML(page, TWO_PAGE_YAML);
 
-    // Advance to page 2 first (via ← button = next)
+    // Go to beta_page first
     await page.click('#swipe-left');
     await page.waitForTimeout(400);
     expect(await page.locator('#page-selector-index').textContent()).toBe('2/2');
 
-    // Go back to page 1 (via → button = previous)
+    // Then swipe-right: should go back to alpha_page via YAML handler
     await page.click('#swipe-right');
     await page.waitForTimeout(400);
     expect(await page.locator('#page-selector-index').textContent()).toBe('1/2');

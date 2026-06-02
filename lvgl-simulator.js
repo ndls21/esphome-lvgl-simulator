@@ -622,18 +622,63 @@ class ESPHomeLVGLSimulator {
         const animMap = { left: 'MOVE_LEFT', right: 'MOVE_RIGHT', up: 'MOVE_TOP', down: 'MOVE_BOTTOM' };
 
         if (page[handlerKey]) {
-            this.lambda.evaluate(page[handlerKey], null);
-        } else {
-            if (dir === 'left' && this.currentPageIndex < this.pages.length - 1) {
-                this.currentPageIndex++;
-                this.syncPageSelect();
-                this.renderCurrentPage(animMap[dir]);
-            } else if (dir === 'right' && this.currentPageIndex > 0) {
-                this.currentPageIndex--;
-                this.syncPageSelect();
-                this.renderCurrentPage(animMap[dir]);
+            // Try to parse a show_page(id(X)->index, ...) call from the lambda body.
+            // This lets us honour the YAML author's navigation intent without executing C++.
+            const nav = this._parseShowPageNav(page[handlerKey]);
+            if (nav !== null) {
+                const targetIdx = this.pages.findIndex(p => p.id === nav.pageId);
+                if (targetIdx !== -1) {
+                    this.currentPageIndex = targetIdx;
+                    this.syncPageSelect();
+                    this.renderCurrentPage(nav.anim || animMap[dir]);
+                }
+            } else {
+                // Lambda exists but doesn't contain a show_page call — evaluate as-is
+                this.lambda.evaluate(page[handlerKey], null);
             }
         }
+        // No handler → no navigation. The YAML author decides what swipes do;
+        // we don't assume a default direction mapping.
+    }
+
+    /**
+     * Extract the decoded body from a preprocessed lambda value.
+     * Handles both inline string ("__lambda__:BASE64") and action-list
+     * ([{lambda: "__lambda__:BASE64"}, ...]) forms.
+     */
+    _extractLambdaBody(handler) {
+        let encoded = null;
+        if (typeof handler === 'string' && handler.startsWith('__lambda__:')) {
+            encoded = handler.slice(11);
+        } else if (Array.isArray(handler)) {
+            for (const item of handler) {
+                if (item && typeof item.lambda === 'string' && item.lambda.startsWith('__lambda__:')) {
+                    encoded = item.lambda.slice(11);
+                    break;
+                }
+            }
+        }
+        if (!encoded) return null;
+        try {
+            return decodeURIComponent(escape(atob(encoded)));
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * If the lambda body contains a show_page(id(PAGE_ID)->index, ...) call,
+     * return { pageId, anim } so _handleSwipe can navigate directly.
+     * Returns null if no navigable show_page call is found.
+     */
+    _parseShowPageNav(handler) {
+        const body = this._extractLambdaBody(handler);
+        if (!body) return null;
+        const pageMatch = body.match(/show_page\s*\(\s*id\s*\(\s*(\w+)\s*\)\s*->\s*index/);
+        if (!pageMatch) return null;
+        const animMatch = body.match(/LV_SCR_LOAD_ANIM_MOVE_(\w+)/);
+        const anim = animMatch ? `MOVE_${animMatch[1]}` : null;
+        return { pageId: pageMatch[1], anim };
     }
 
     async loadConfigFile(file) {
