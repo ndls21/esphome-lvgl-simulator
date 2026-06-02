@@ -90,7 +90,15 @@ export class LambdaEvaluator {
         // Translate LVGL C API calls first (before stripping return/semicolons)
         js = this._translateLVGLCalls(js);
 
-        js = js.replace(/^return\s+/, '').replace(/;+$/, '').trim();
+        // Detect multi-statement bodies: contains a semicolon not at the very end,
+        // or contains block-control keywords that imply multiple statements.
+        const isMultiStatement = /;[^'"\n]*\S/.test(js) ||
+            /\b(for|while|if|switch)\s*\(/.test(js) ||
+            /\belse\b/.test(js);
+
+        if (!isMultiStatement) {
+            js = js.replace(/^return\s+/, '').replace(/;+$/, '').trim();
+        }
 
         // Global writes must come before read translations to avoid reads consuming id(x) first
         js = this._translateGlobalWrites(js);
@@ -104,6 +112,11 @@ export class LambdaEvaluator {
         js = this._translateArith(js);
 
         if (this._isUntranslatable(js)) return null;
+
+        if (isMultiStatement) {
+            // Multi-statement: emit as a statement block (no return wrapper)
+            return js;
+        }
         return `return (${js});`;
     }
 
@@ -306,7 +319,16 @@ export class LambdaEvaluator {
     }
 
     _translateStrings(js) {
+        // NULL / nullptr → null
+        js = js.replace(/\bNULL\b/g, 'null');
+        js = js.replace(/\bnullptr\b/g, 'null');
+
+        // C++ integer type casts: (uint32_t)expr etc → strip
+        js = js.replace(/\((?:u?int(?:8|16|32|64)_t|size_t)\)\s*/g, '');
+
         // std:: math functions → Math.*
+        js = js.replace(/\bstd::isnan\s*\(/g, 'isNaN(');
+        js = js.replace(/\bstd::isinf\s*\(/g, 'isFinite(!(');
         js = js.replace(/\bstd::abs\s*\(/g, 'Math.abs(');
         js = js.replace(/\bstd::ceil\s*\(/g, 'Math.ceil(');
         js = js.replace(/\bstd::floor\s*\(/g, 'Math.floor(');
@@ -414,6 +436,17 @@ export class LambdaEvaluator {
     }
 
     _isUntranslatable(js) {
-        return /\b(const\s|std::|new\s|delete\s|nullptr|->(?!>)|::)\b/.test(js);
+        // Genuinely untranslatable C++ constructs.
+        // Note: nullptr/NULL, for/while/switch/case/break/else-if are now handled earlier.
+        if (/\b(goto|sizeof|typedef)\b/.test(js)) return true;
+        if (/\b(struct|class|namespace|template|virtual)\s+\w/.test(js)) return true;
+        if (/#(?:include|define)\b/.test(js)) return true;
+        // Remaining std:: after translation pass (e.g. std::vector, std::map)
+        if (/\bstd::/.test(js)) return true;
+        // new / delete operators
+        if (/\bnew\s+\w|\bdelete\s+/.test(js)) return true;
+        // Remaining :: scope resolution (not part of a translated call)
+        if (/::/.test(js)) return true;
+        return false;
     }
 }
