@@ -140,16 +140,6 @@ class ESPHomeLVGLSimulator {
         this.signalGen = new SignalGenerator(this.store);
         this.store.set('history_ready', true);
         initSyntheticHistBuffers();
-        // Load persisted SD card CSV from localStorage if present
-        const _savedCSV = localStorage.getItem('d5os_sensors_csv');
-        if (_savedCSV) {
-            // Defer until after DOM is ready so csvStatus element exists
-            setTimeout(() => {
-                this._importCSVToHistBuffers(_savedCSV);
-                const csvStatusEl = document.getElementById('csvStatus');
-                if (csvStatusEl) csvStatusEl.textContent = 'Loaded from cache';
-            }, 0);
-        }
         const histProxy = {
             get(name, res) {
                 return getOrCreateHistBuffer(name).get(parseInt(res) || 0);
@@ -473,19 +463,60 @@ class ESPHomeLVGLSimulator {
             if (map[e.key]) { e.preventDefault(); this._handleSwipe(map[e.key]); }
         });
 
-        // SD card CSV import via localStorage
-        document.getElementById('csvImport')?.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const text = await file.text();
-            this._importCSVToHistBuffers(text);
-            document.getElementById('csvStatus').textContent = `Loaded ${file.name}`;
+        // SD card logging
+        this._initSDLogging();
+
+        document.getElementById('sdDownload')?.addEventListener('click', () => {
+            if (!this._sdBuffer?.length) return;
+            const header = 'timestamp,sensor_id,value\n';
+            const rows = this._sdBuffer.map(r => `${r.ts},${r.id},${r.value}`).join('\n');
+            const blob = new Blob([header + rows], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'd5os_sensors.csv'; a.click();
+            URL.revokeObjectURL(url);
         });
 
-        document.getElementById('csvClear')?.addEventListener('click', () => {
-            localStorage.removeItem('d5os_sensors_csv');
-            document.getElementById('csvStatus').textContent = 'Cleared';
-            if (typeof initSyntheticHistBuffers !== 'undefined') initSyntheticHistBuffers();
+        document.getElementById('sdClear')?.addEventListener('click', () => {
+            this._sdBuffer = [];
+            document.getElementById('sdRowCount').textContent = '';
+        });
+
+        this.store.subscribe('sd_logging_enabled', (val) => {
+            this._sdEnabled = !!val;
+            const statusEl = document.getElementById('sdStatus');
+            if (statusEl) statusEl.textContent = val ? 'logging' : 'idle';
+            if (statusEl) statusEl.style.color = val ? '#4f4' : '';
+            document.getElementById('sdDownload').disabled = !this._sdBuffer?.length;
+        });
+
+        setInterval(() => {
+            const count = this._sdBuffer?.length || 0;
+            const el = document.getElementById('sdRowCount');
+            if (el) el.textContent = count > 0 ? `${count} rows` : '';
+            const dlBtn = document.getElementById('sdDownload');
+            if (dlBtn) dlBtn.disabled = count === 0;
+        }, 1000);
+
+        // Online status
+        const updateOnline = () => {
+            const el = document.getElementById('netOnline');
+            if (el) { el.textContent = navigator.onLine ? '● Online' : '○ Offline'; el.style.color = navigator.onLine ? '#4f4' : '#f44'; }
+        };
+        updateOnline();
+        window.addEventListener('online', updateOnline);
+        window.addEventListener('offline', updateOnline);
+
+        // Ping test
+        document.getElementById('netPingBtn')?.addEventListener('click', () => {
+            const host = document.getElementById('netPingHost')?.value?.trim();
+            if (!host) return;
+            const resultEl = document.getElementById('netPingResult');
+            if (resultEl) resultEl.textContent = 'pinging...';
+            const start = Date.now();
+            fetch(`https://${host}`, { method: 'HEAD', mode: 'no-cors', cache: 'no-cache' })
+                .then(() => { if (resultEl) resultEl.textContent = `${Date.now()-start}ms`; })
+                .catch(() => { if (resultEl) resultEl.textContent = 'unreachable'; });
         });
 
         // Supabase test connection
@@ -1957,42 +1988,16 @@ lvgl:
         }
     }
 
-    _importCSVToHistBuffers(csvText) {
-        if (typeof getOrCreateHistBuffer === 'undefined') return;
-        // Store in localStorage for persistence
-        try { localStorage.setItem('d5os_sensors_csv', csvText); } catch(e) {}
+    _initSDLogging() {
+        this._sdBuffer = [];
+        this._sdEnabled = false;
 
-        // Parse CSV: header row with column names matching hist buffer names
-        // Format: timestamp,batt_v,batt_i,batt_soc,solar_pv,...
-        const lines = csvText.trim().split('\n');
-        if (lines.length < 2) return;
-        const headers = lines[0].split(',').map(h => h.trim());
-
-        const bufferMap = {
-            'batt_v': 'batt_v_hist', 'batt_i': 'batt_i_hist', 'batt_soc': 'batt_soc_hist',
-            'solar_pv': 'solar_pv_hist', 'solar_charge': 'solar_charge_hist',
-            'mains_power': 'mains_power_hist', 'mains_current': 'mains_current_hist',
-            'dcdc_in_v': 'dcdc_in_v_hist', 'dcdc_out_v': 'dcdc_out_v_hist',
-            'dcdc_in_a': 'dcdc_in_a_hist', 'dcdc_out_a': 'dcdc_out_a_hist',
-            'dcdc_pwr': 'dcdc_pwr_hist',
-            'fridge': 'fridge_hist', 'van': 'van_hist', 'outside': 'outside_hist',
-            'battery': 'battery_hist'
-        };
-
-        for (let i = 1; i < lines.length; i++) {
-            const vals = lines[i].split(',');
-            headers.forEach((h, idx) => {
-                const bufName = bufferMap[h];
-                if (!bufName) return;
-                const v = parseFloat(vals[idx]);
-                if (!isNaN(v)) {
-                    // Push to all 4 resolution buffers
-                    for (let r = 0; r < 4; r++) {
-                        getOrCreateHistBuffer(bufName).get(r).push(v);
-                    }
-                }
-            });
-        }
+        this._sdUnsubAll = this.store.subscribeAll((value, id) => {
+            if (!this._sdEnabled) return;
+            if (!id || id.startsWith('__')) return;
+            this._sdBuffer.push({ ts: Date.now(), id, value });
+            if (this._sdBuffer.length > 10000) this._sdBuffer.shift();
+        });
     }
 
     _maybeShowSupabasePanel() {

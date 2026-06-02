@@ -397,5 +397,44 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
 
     // No-ops (must exist to avoid ReferenceError)
     noop() {},
+
+    // Network test bridge
+    pingHost(host, callback_store_key) {
+      const start = Date.now();
+      fetch(`https://${host}`, { method: 'HEAD', mode: 'no-cors', cache: 'no-cache' })
+        .then(() => {
+          const ms = Date.now() - start;
+          if (simulator) {
+            simulator.store.set(callback_store_key || 'ping_result', `${ms}ms`);
+            simulator.store.set('ping_success', true);
+          }
+        })
+        .catch(() => {
+          if (simulator) {
+            simulator.store.set(callback_store_key || 'ping_result', 'timeout');
+            simulator.store.set('ping_success', false);
+          }
+        });
+    },
+
+    dnsResolve(hostname, callback_store_key) {
+      fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=A`, {
+        headers: { 'Accept': 'application/dns-json' }
+      })
+      .then(r => r.json())
+      .then(data => {
+        const answer = data.Answer?.[0]?.data || 'NXDOMAIN';
+        if (simulator) {
+          simulator.store.set(callback_store_key || 'dns_result', answer);
+          simulator.store.set('dns_success', data.Status === 0);
+        }
+      })
+      .catch(() => {
+        if (simulator) {
+          simulator.store.set(callback_store_key || 'dns_result', 'failed');
+          simulator.store.set('dns_success', false);
+        }
+      });
+    },
   };
 }
