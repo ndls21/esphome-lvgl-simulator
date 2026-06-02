@@ -682,7 +682,7 @@ lvgl:
             const resolved = await resolveIncludes(raw, this.fileMap);
 
             // Use the async preprocessor that handles packages: and remote !include
-            const config = await preprocessAndResolve(resolved, baseUrl);
+            const config = await preprocessAndResolve(resolved, baseUrl, this.fileMap || {});
             this.config = config;
             this.substitutions = config ? (config.__substitutions || {}) : {};
 

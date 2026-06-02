@@ -68,12 +68,12 @@ export function preprocessYAML(text) {
  * @param {string|null} baseUrl  Base URL for resolving relative paths (directory, trailing slash)
  * @returns {Promise<object>} Parsed and merged config object
  */
-export async function preprocessAndResolve(yamlText, baseUrl = null) {
+export async function preprocessAndResolve(yamlText, baseUrl = null, fileMap = {}) {
     // Step 1: text-level preprocessing (substitutions, lambda encoding, tag rewriting)
     const { text: preprocessed, substitutions } = preprocessYAML(yamlText);
 
     // Step 2: resolve __include__ placeholders in text
-    const textWithIncludes = await _resolveTextIncludes(preprocessed, baseUrl);
+    const textWithIncludes = await _resolveTextIncludes(preprocessed, baseUrl, new Set(), fileMap);
 
     // Step 3: parse YAML
     let config;
@@ -87,7 +87,7 @@ export async function preprocessAndResolve(yamlText, baseUrl = null) {
     // Step 4: resolve packages:
     const warnings = [];
     if (config.packages) {
-        config = await _resolvePackages(config, baseUrl, warnings);
+        config = await _resolvePackages(config, baseUrl, warnings, new Set(), fileMap);
     }
 
     // Step 5: apply !extend and !remove
@@ -99,7 +99,15 @@ export async function preprocessAndResolve(yamlText, baseUrl = null) {
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
-async function _fetchYaml(url) {
+async function _fetchYaml(url, fileMap = {}) {
+    // Check fileMap first (ZIP/folder-loaded files)
+    if (fileMap && url) {
+        const keys = Object.keys(fileMap);
+        const urlPath = url.replace(/^https?:\/\/[^/]+\//, '').replace(/^\//, '');
+        const match = keys.find(k => k === urlPath || k === url || url.endsWith('/' + k) || url.endsWith(k));
+        if (match) return fileMap[match];
+    }
+    // Fall back to network fetch
     try {
         const resp = await fetch(url);
         if (!resp.ok) {
@@ -124,7 +132,7 @@ function _resolveUrl(baseUrl, relativePath) {
     }
 }
 
-async function _resolveTextIncludes(text, baseUrl, visited = new Set()) {
+async function _resolveTextIncludes(text, baseUrl, visited = new Set(), fileMap = {}) {
     // Replace "__include__:path" strings inline
     // We do a line-by-line pass so we can handle indentation
     const lines = text.split('\n');
@@ -146,13 +154,13 @@ async function _resolveTextIncludes(text, baseUrl, visited = new Set()) {
         if (visited.has(url)) { output.push(line); continue; }
         visited.add(url);
 
-        const fetched = await _fetchYaml(url);
+        const fetched = await _fetchYaml(url, fileMap);
         if (!fetched) { output.push(line); continue; }
 
         // Recurse into fetched content
         const newBase = new URL('.', url).href;
         const { text: preprocessedFetched } = preprocessYAML(fetched);
-        const resolvedFetched = await _resolveTextIncludes(preprocessedFetched, newBase, visited);
+        const resolvedFetched = await _resolveTextIncludes(preprocessedFetched, newBase, visited, fileMap);
 
         const innerLines = resolvedFetched.split('\n');
         const nonEmpty = innerLines.filter(l => l.trim().length > 0);
@@ -171,7 +179,7 @@ async function _resolveTextIncludes(text, baseUrl, visited = new Set()) {
     return output.join('\n');
 }
 
-async function _resolvePackages(config, baseUrl, warnings, visited = new Set()) {
+async function _resolvePackages(config, baseUrl, warnings, visited = new Set(), fileMap = {}) {
     const packages = config.packages;
     const merged = Object.assign({}, config);
     delete merged.packages;
@@ -207,7 +215,7 @@ async function _resolvePackages(config, baseUrl, warnings, visited = new Set()) 
         }
         visited.add(url);
 
-        const text = await _fetchYaml(url);
+        const text = await _fetchYaml(url, fileMap);
         if (!text) {
             warnings.push(`Package "${name}" could not be fetched from ${url}.`);
             continue;
@@ -217,7 +225,7 @@ async function _resolvePackages(config, baseUrl, warnings, visited = new Set()) 
         let pkgConfig;
         try {
             const { text: pre } = preprocessYAML(text);
-            const withInc = await _resolveTextIncludes(pre, newBase, new Set(visited));
+            const withInc = await _resolveTextIncludes(pre, newBase, new Set(visited), fileMap);
             pkgConfig = jsyaml.load(withInc);
         } catch (e) {
             warnings.push(`Package "${name}" failed to parse: ${e.message}`);
