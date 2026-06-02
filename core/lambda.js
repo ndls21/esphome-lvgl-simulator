@@ -175,6 +175,10 @@ export class LambdaEvaluator {
         b = b.replace(new RegExp(`lv_arc_set_value\\s*\\(\\s*${id}\\s*,\\s*([^)]+)\\)`, 'g'),
             (_, wid, val) => `__lvgl__.setArcValue('${wid}', ${val})`);
 
+        // Page index property: id(page_id)->index → store lookup .index
+        b = b.replace(/\bid\s*\(\s*(\w+)\s*\)\s*->\s*index\b/g,
+            (_, pageId) => `(__store__.get('${pageId}') || {}).index`);
+
         // Page navigation: id(lvgl_comp)->show_page(id(PAGE), anim, duration)
         b = b.replace(/id\(\w+\)\s*->\s*show_page\s*\(\s*id\((\w+)\)[^)]*\)/g,
             (_, pageId) => `__lvgl__.showPage('${pageId}')`);
@@ -300,7 +304,7 @@ export class LambdaEvaluator {
 
         // Simple assignment: id(x) = expr  (must not match ==, !=, <=, >=)
         // Use negative lookbehind for !, <, > and lookahead to avoid ==
-        b = b.replace(/\bid\s*\(\s*(\w+)\s*\)\s*=(?![=])\s*([^;,\n]+)/g,
+        b = b.replace(/\bid\s*\(\s*(\w+)\s*\)\s*=(?![=])\s*([^;\n]+)/g,
             (_, id, val) => `__store__.set('${id}', ${val.trim()})`);
 
         return b;

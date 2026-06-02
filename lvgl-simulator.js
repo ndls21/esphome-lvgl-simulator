@@ -869,6 +869,13 @@ lvgl:
             this.pages = this.config.lvgl.pages || [];
             this.pageWrap = this.config?.lvgl?.page_wrap ?? true;
 
+            // Register pages in store so id(page_id)->index works in lambdas
+            if (this.pages) {
+                this.pages.forEach((page, idx) => {
+                    if (page.id) this.store.set(page.id, { index: idx, id: page.id });
+                });
+            }
+
             if (this.pages.length === 0) {
                 this.displayError('No pages found in configuration');
                 return;
@@ -2155,12 +2162,15 @@ lvgl:
             for (const handler of this._intervalHandlers) {
                 if (scaledNow - handler.lastRun >= handler.ms) {
                     handler.lastRun = scaledNow;
+                    const t0 = performance.now();
                     try {
                         this.lambda._proxy = this._buildLVGLProxy();
                         this.lambda.evaluate(handler.lambda, null);
                     } catch(e) {
-                        console.warn('[interval] error:', e.message);
+                        console.warn('[interval] lambda error:', e.message);
                     }
+                    const elapsed = performance.now() - t0;
+                    if (elapsed > 50) console.warn(`[interval] slow lambda (${elapsed.toFixed(0)}ms) — consider reducing interval speed`);
                 }
             }
 
