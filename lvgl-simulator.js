@@ -1123,8 +1123,12 @@ lvgl:
         this.displayElement.style.width = width + 'px';
         this.displayElement.style.height = height + 'px';
 
-        document.getElementById('displaySize').textContent = `${width}x${height}`;
-        document.getElementById('colorDepth').textContent = `${colorDepth}-bit`;
+        const captionEl = document.getElementById('top-bar-caption');
+        if (captionEl) captionEl.textContent = `${width}×${height} · ${colorDepth}-bit`;
+        const displaySizeEl = document.getElementById('displaySize');
+        if (displaySizeEl) displaySizeEl.textContent = `${width}x${height}`;
+        const colorDepthEl = document.getElementById('colorDepth');
+        if (colorDepthEl) colorDepthEl.textContent = `${colorDepth}-bit`;
 
         // Re-apply rotation after display size changes
         this._applyRotation();
