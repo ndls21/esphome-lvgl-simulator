@@ -25,6 +25,12 @@
                 <button id="renderPreview" class="btn btn-primary">Render Preview</button>
                 <button id="loadExample" class="btn">Load Example</button>
             </div>
+            <div class="url-input-row" style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px;">
+                <label for="configFileUrl" style="white-space:nowrap;color:#aaa;">Config URL (for package resolution):</label>
+                <input type="text" id="configFileUrl"
+                       placeholder="https://raw.githubusercontent.com/you/repo/main/device.yaml"
+                       style="flex:1;background:#1e1e2e;color:#cdd6f4;border:1px solid #45475a;border-radius:4px;padding:4px 8px;font-size:12px;" />
+            </div>
         </div>
 
         <div class="preview-panel">
@@ -55,6 +61,15 @@
                 <select id="pageSelect"></select>
                 <button id="nextPage" class="btn" disabled>&#9654;</button>
                 <span id="pageInfo" class="page-info-text">— / —</span>
+                <span style="opacity:0.4;font-size:11px">← → ↑ ↓ or swipe</span>
+                <label style="font-size:12px;opacity:0.7">Rotation:
+                  <select id="rotationSelect" style="font-size:12px;background:#222;color:#ccc;border:1px solid #444;padding:2px 4px;border-radius:3px">
+                    <option value="0">0°</option>
+                    <option value="90">90°</option>
+                    <option value="180">180°</option>
+                    <option value="270">270°</option>
+                  </select>
+                </label>
             </div>
             <div id="entitySummary" class="entity-summary" style="display:none">
                 <div id="entityBadges" class="entity-badges"></div>
@@ -113,6 +128,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="core/hist-buffer.js"></script>
     <script type="module" src="lvgl-simulator.js"></script>
 </body>
 </html>

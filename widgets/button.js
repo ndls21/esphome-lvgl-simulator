@@ -19,6 +19,13 @@ export function renderButton(config, parent) {
     if (cfg.checkable && cfg.checked) {
         el.classList.add('lvgl-button--checked');
     }
+    if (cfg.on_click) {
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.lambda.evaluate(cfg.on_click, null);
+        });
+    }
     if (cfg.widgets) {
         cfg.widgets.forEach(w => {
             const child = this.renderWidget(w, el);

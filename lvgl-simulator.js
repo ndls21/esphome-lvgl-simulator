@@ -1,6 +1,8 @@
 import { SimulatorStateStore } from './core/store.js';
+import { SignalGenerator } from './core/signal-generator.js';
 import { LambdaEvaluator } from './core/lambda.js';
-import { preprocessYAML } from './core/preprocessor.js';
+import { buildLVGLProxy } from './core/lvgl-proxy.js';
+import { preprocessYAML, preprocessAndResolve } from './core/preprocessor.js';
 import { resolveIncludes } from './core/resolver.js';
 import { renderObj } from './widgets/obj.js';
 import { renderLabel } from './widgets/label.js';
@@ -17,6 +19,7 @@ import { renderDropdown } from './widgets/dropdown.js';
 import { renderLine } from './widgets/line.js';
 import { renderLed } from './widgets/led.js';
 import { renderMeter } from './widgets/meter.js';
+import { renderChart, drawChart } from './widgets/chart.js';
 
 class LiveDeviceClient {
   constructor(store, onStatusChange) {
@@ -120,7 +123,15 @@ class ESPHomeLVGLSimulator {
         this.substitutions = {};
         this.fileMap = {};
         this.store = new SimulatorStateStore();
-        this.lambda = new LambdaEvaluator(this.store);
+        this.signalGen = new SignalGenerator(this.store);
+        this.store.set('history_ready', true);
+        initSyntheticHistBuffers();
+        const histProxy = {
+            get(name, res) {
+                return getOrCreateHistBuffer(name).get(parseInt(res) || 0);
+            }
+        };
+        this.lambda = new LambdaEvaluator(this.store, null, histProxy);
         this.theme = {};
         this.currentWidgetType = '';
         this._renderedElements = {};
@@ -128,6 +139,8 @@ class ESPHomeLVGLSimulator {
         this.pages = [];
         this.currentPageIndex = 0;
         this.displayOverride = null;
+        this._currentRotation = 0;
+        this._onLoadTimer = null;
         this.displayElement = document.getElementById('lvglDisplay');
         this.yamlEditor = document.getElementById('yamlEditor');
         this.pageSelect = document.getElementById('pageSelect');
@@ -173,22 +186,25 @@ class ESPHomeLVGLSimulator {
         document.getElementById('prevPage').addEventListener('click', () => {
             if (this.currentPageIndex > 0) {
                 this.currentPageIndex--;
-                this.syncPageSelect();
-                this.renderCurrentPage();
+                this.renderCurrentPage('MOVE_RIGHT');
             }
         });
 
         document.getElementById('nextPage').addEventListener('click', () => {
             if (this.currentPageIndex < this.pages.length - 1) {
                 this.currentPageIndex++;
-                this.syncPageSelect();
-                this.renderCurrentPage();
+                this.renderCurrentPage('MOVE_LEFT');
             }
         });
 
         this.pageSelect.addEventListener('change', () => {
             this.currentPageIndex = parseInt(this.pageSelect.value);
-            this.renderCurrentPage();
+            this.renderCurrentPage('NONE');
+        });
+
+        document.getElementById('rotationSelect')?.addEventListener('change', (e) => {
+            this._currentRotation = parseInt(e.target.value);
+            this._applyRotation();
         });
 
         document.getElementById('shareBtn').addEventListener('click', () => {
@@ -337,6 +353,68 @@ class ESPHomeLVGLSimulator {
         const savedProxy = localStorage.getItem('esphome-sim-proxy-url');
         if (savedHost) document.getElementById('liveHost').value = savedHost;
         if (savedProxy) document.getElementById('liveProxyUrl').value = savedProxy;
+
+        this._initSwipeHandlers();
+
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+            const map = { ArrowLeft: 'right', ArrowRight: 'left', ArrowUp: 'down', ArrowDown: 'up' };
+            if (map[e.key]) { e.preventDefault(); this._handleSwipe(map[e.key]); }
+        });
+    }
+
+    _initSwipeHandlers() {
+        const display = document.getElementById('lvglDisplay');
+        if (!display) return;
+
+        let startX = 0, startY = 0, startTime = 0;
+        const MIN_SWIPE_DIST = 50;
+        const MAX_SWIPE_TIME = 500;
+        const MAX_CROSS = 80;
+
+        display.addEventListener('pointerdown', (e) => {
+            startX = e.clientX; startY = e.clientY; startTime = Date.now();
+        });
+
+        display.addEventListener('pointerup', (e) => {
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            const dt = Date.now() - startTime;
+            if (dt > MAX_SWIPE_TIME) return;
+
+            const absDx = Math.abs(dx), absDy = Math.abs(dy);
+            if (absDx < MIN_SWIPE_DIST && absDy < MIN_SWIPE_DIST) return;
+
+            let dir;
+            if (absDx > absDy && absDx > MIN_SWIPE_DIST && absDy < MAX_CROSS) {
+                dir = dx < 0 ? 'left' : 'right';
+            } else if (absDy > absDx && absDy > MIN_SWIPE_DIST && absDx < MAX_CROSS) {
+                dir = dy < 0 ? 'up' : 'down';
+            }
+            if (dir) this._handleSwipe(dir);
+        });
+    }
+
+    _handleSwipe(dir) {
+        const page = this.pages[this.currentPageIndex];
+        if (!page) return;
+
+        const handlerKey = `on_swipe_${dir}`;
+        const animMap = { left: 'MOVE_LEFT', right: 'MOVE_RIGHT', up: 'MOVE_TOP', down: 'MOVE_BOTTOM' };
+
+        if (page[handlerKey]) {
+            this.lambda.evaluate(page[handlerKey], null);
+        } else {
+            if (dir === 'left' && this.currentPageIndex < this.pages.length - 1) {
+                this.currentPageIndex++;
+                this.syncPageSelect();
+                this.renderCurrentPage(animMap[dir]);
+            } else if (dir === 'right' && this.currentPageIndex > 0) {
+                this.currentPageIndex--;
+                this.syncPageSelect();
+                this.renderCurrentPage(animMap[dir]);
+            }
+        }
     }
 
     async loadConfigFile(file) {
@@ -506,10 +584,23 @@ lvgl:
         try {
             this.store.clear();
             raw = this.yamlEditor.value;
+
+            // Determine base URL from the config URL input (if present)
+            const urlInputEl = document.getElementById('configFileUrl');
+            const inputUrl = urlInputEl ? urlInputEl.value.trim() : '';
+            const baseUrl = inputUrl ? new URL('.', inputUrl).href : null;
+
+            // If there are locally uploaded files, use the old resolver path first
             const resolved = await resolveIncludes(raw, this.fileMap);
-            const { text: preprocessed, substitutions } = preprocessYAML(resolved);
-            this.substitutions = substitutions;
-            this.config = jsyaml.load(preprocessed);
+
+            // Use the async preprocessor that handles packages: and remote !include
+            const config = await preprocessAndResolve(resolved, baseUrl);
+            this.config = config;
+            this.substitutions = config ? (config.__substitutions || {}) : {};
+
+            // Show package warning if needed
+            this._showPackageWarnings(config && config.__packageWarnings);
+
             this.currentPageIndex = 0;
             this.render();
         } catch (error) {
@@ -519,6 +610,30 @@ lvgl:
             if (summaryEl) summaryEl.style.display = 'none';
             const mockPanel = document.getElementById('mockPanel');
             if (mockPanel) mockPanel.classList.remove('mock-panel--visible');
+        }
+    }
+
+    _showPackageWarnings(warnings) {
+        // Remove any existing warning
+        const existing = document.getElementById('packageWarningBanner');
+        if (existing) existing.remove();
+
+        if (!warnings || warnings.length === 0) return;
+
+        const banner = document.createElement('div');
+        banner.id = 'packageWarningBanner';
+        banner.style.cssText = [
+            'background:#7a3a00', 'color:#ffd580', 'padding:8px 12px',
+            'font-size:13px', 'border-radius:4px', 'margin:4px 0',
+            'white-space:pre-wrap'
+        ].join(';');
+        banner.textContent = '⚠ Some package files could not be loaded. Enter the config file URL above for full resolution.\n'
+            + warnings.map(w => '  • ' + w).join('\n');
+
+        // Insert above the textarea
+        const editor = document.getElementById('yamlEditor');
+        if (editor && editor.parentNode) {
+            editor.parentNode.insertBefore(banner, editor);
         }
     }
 
@@ -689,6 +804,38 @@ lvgl:
 
         document.getElementById('displaySize').textContent = `${width}x${height}`;
         document.getElementById('colorDepth').textContent = `${colorDepth}-bit`;
+
+        // Re-apply rotation after display size changes
+        this._applyRotation();
+    }
+
+    _applyRotation() {
+        const display = this.displayElement;
+        const rot = this._currentRotation;
+        const baseW = this.displayWidth || 466;
+        const baseH = this.displayHeight || 466;
+
+        if (rot === 90 || rot === 270) {
+            display.style.width = baseH + 'px';
+            display.style.height = baseW + 'px';
+            display.style.transform = `rotate(${rot}deg)`;
+            const offset = (baseW - baseH) / 2;
+            display.style.marginLeft = offset + 'px';
+            display.style.marginRight = offset + 'px';
+        } else {
+            display.style.width = baseW + 'px';
+            display.style.height = baseH + 'px';
+            display.style.transform = `rotate(${rot}deg)`;
+            display.style.marginLeft = '';
+            display.style.marginRight = '';
+        }
+    }
+
+    setRotation(deg) {
+        this._currentRotation = deg;
+        const select = document.getElementById('rotationSelect');
+        if (select) select.value = String(deg);
+        this._applyRotation();
     }
 
     populatePageSelect() {
@@ -724,14 +871,82 @@ lvgl:
         if (page) this.renderPage(page);
     }
 
-    renderCurrentPage() {
-        this.displayElement.innerHTML = '';
+    _buildLVGLProxy() {
+        return buildLVGLProxy(this._renderedElements, (pageId) => {
+            const idx = this.pages.findIndex(p => p.id === pageId);
+            if (idx >= 0) {
+                this.currentPageIndex = idx;
+                this.syncPageSelect();
+                this.renderCurrentPage('NONE');
+            }
+        }, this);
+    }
+
+    renderCurrentPage(animType = 'NONE') {
+        if (this._onLoadTimer) {
+            clearTimeout(this._onLoadTimer);
+            this._onLoadTimer = null;
+        }
         const page = this.pages[this.currentPageIndex];
-        if (page) this.renderPage(page);
+        if (!page) { this.syncPageSelect(); return; }
+
+        if (animType === 'NONE') {
+            this.displayElement.innerHTML = '';
+            this.renderPage(page);
+            this.syncPageSelect();
+            return;
+        }
+
+        // Directional slide animation
+        const enterClassMap = {
+            MOVE_LEFT:   'page-enter-right',
+            MOVE_RIGHT:  'page-enter-left',
+            MOVE_TOP:    'page-enter-bottom',
+            MOVE_BOTTOM: 'page-enter-top',
+        };
+        const exitClassMap = {
+            MOVE_LEFT:   'page-exit-left',
+            MOVE_RIGHT:  'page-exit-right',
+            MOVE_TOP:    'page-exit-top',
+            MOVE_BOTTOM: 'page-exit-bottom',
+        };
+
+        const enterClass = enterClassMap[animType] || 'page-enter-right';
+        const exitClass  = exitClassMap[animType]  || 'page-exit-left';
+
+        // Wrap existing content in a wrapper div (old page)
+        const oldWrapper = document.createElement('div');
+        oldWrapper.className = 'lvgl-page-wrapper';
+        while (this.displayElement.firstChild) {
+            oldWrapper.appendChild(this.displayElement.firstChild);
+        }
+        this.displayElement.appendChild(oldWrapper);
+
+        // Build new page content in a wrapper div
+        const newWrapper = document.createElement('div');
+        newWrapper.className = `lvgl-page-wrapper ${enterClass}`;
+        this.renderPageInto(page, newWrapper);
+        this.displayElement.appendChild(newWrapper);
+
+        // Double-rAF to ensure initial classes are painted before transition starts
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                oldWrapper.classList.add(exitClass);
+                newWrapper.classList.remove(enterClass);
+                setTimeout(() => {
+                    oldWrapper.remove();
+                }, 210);
+            });
+        });
+
         this.syncPageSelect();
     }
 
     renderPage(page) {
+        this.renderPageInto(page, this.displayElement);
+    }
+
+    renderPageInto(page, container) {
         this._renderedElements = {};
         this._deferredAlignments = [];
 
@@ -741,6 +956,11 @@ lvgl:
 
         if (page.bg_color) pageEl.style.backgroundColor = this.parseColor(page.bg_color);
 
+        if (page.scrollable === true) {
+            pageEl.style.overflowY = 'auto';
+            pageEl.style.overflowX = 'hidden';
+        }
+
         if (page.widgets) {
             page.widgets.forEach(w => {
                 const el = this.renderWidget(w, pageEl);
@@ -748,8 +968,20 @@ lvgl:
             });
         }
 
-        this.displayElement.appendChild(pageEl);
+        container.appendChild(pageEl);
         this._resolveAlignments();
+
+        // Wire up the proxy now that _renderedElements is populated
+        this.lambda._proxy = this._buildLVGLProxy();
+
+        // Fire on_load handler if present
+        if (page.on_load) {
+            this._onLoadTimer = setTimeout(() => {
+                this._onLoadTimer = null;
+                this.lambda._proxy = this._buildLVGLProxy();
+                this.lambda.evaluate(page.on_load, null);
+            }, 50);
+        }
     }
 
     _resolveAlignments() {
@@ -846,6 +1078,7 @@ lvgl:
             case 'line':     el = this.renderLine(cfg, parent);     break;
             case 'led':      el = this.renderLed(cfg, parent);      break;
             case 'meter':    el = this.renderMeter(cfg, parent);    break;
+            case 'chart':    el = this.renderChart(cfg, parent);    break;
             default:
                 console.warn(`Unsupported widget: ${type}`);
                 el = this.renderUnsupported(type, cfg, parent);
@@ -1130,21 +1363,41 @@ lvgl:
 
     getShareURL() {
         const yaml = this.yamlEditor.value;
-        const encoded = btoa(unescape(encodeURIComponent(yaml)));
-        return `${location.origin}${location.pathname}#yaml=${encoded}`;
+        const signals = this.signalGen.serialise();
+        const state = { yaml };
+        if (Object.keys(signals).length > 0) state.signals = signals;
+        const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(state))));
+        return `${location.origin}${location.pathname}#state=${encoded}`;
     }
 
     loadFromHash() {
         const hash = location.hash;
-        if (!hash.startsWith('#yaml=')) return false;
-        try {
-            const yaml = decodeURIComponent(escape(atob(hash.slice(6))));
-            this.yamlEditor.value = yaml;
-            this.renderFromEditor();
-            return true;
-        } catch (e) {
-            return false;
+        // Support new #state= format with signal generator state
+        if (hash.startsWith('#state=')) {
+            try {
+                const state = JSON.parse(decodeURIComponent(escape(atob(hash.slice(7)))));
+                if (state.yaml) {
+                    this.yamlEditor.value = state.yaml;
+                    this.renderFromEditor();
+                    if (state.signals) this.signalGen.restore(state.signals);
+                    return true;
+                }
+            } catch (e) {
+                // fall through to legacy format
+            }
         }
+        // Legacy #yaml= format
+        if (hash.startsWith('#yaml=')) {
+            try {
+                const yaml = decodeURIComponent(escape(atob(hash.slice(6))));
+                this.yamlEditor.value = yaml;
+                this.renderFromEditor();
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+        return false;
     }
 
     _evalFormatArgs(format, args) {
@@ -1409,12 +1662,87 @@ lvgl:
         rangeRow.className = 'mock-control__range-row';
         rangeRow.innerHTML = `<span>${min}</span><span>${max}</span>`;
 
+        // Generator toggle button
+        const genBtn = document.createElement('button');
+        genBtn.className = 'mock-gen-btn';
+        genBtn.title = 'Signal generator';
+        genBtn.textContent = '⌇';
+        genBtn.addEventListener('click', () => this._toggleGeneratorPanel(id, meta, sliderRow));
+        if (this.signalGen.isActive(id)) genBtn.classList.add('mock-gen-btn--active');
+
         sliderRow.appendChild(slider);
         sliderRow.appendChild(numInput);
+        sliderRow.appendChild(genBtn);
         wrapper.appendChild(labelRow);
         wrapper.appendChild(sliderRow);
         wrapper.appendChild(rangeRow);
         return wrapper;
+    }
+
+    _toggleGeneratorPanel(id, meta, parentRow) {
+        // Remove existing panel if open
+        const existing = parentRow.nextElementSibling;
+        if (existing && existing.classList.contains('mock-gen-panel')) {
+            existing.remove();
+            return;
+        }
+
+        const { min, max } = this._smartRange(meta);
+        const cfg = this.signalGen.getConfig(id) || {
+            type: 'sine', period: 10, min, max, phase: 0
+        };
+
+        const panel = document.createElement('div');
+        panel.className = 'mock-gen-panel';
+        panel.innerHTML = `
+            <div class="mock-gen-row">
+                <label>Wave</label>
+                <select class="gen-type">
+                    ${['sine','square','sawtooth','triangle','random'].map(t =>
+                        `<option value="${t}" ${cfg.type===t?'selected':''}>${t}</option>`
+                    ).join('')}
+                </select>
+            </div>
+            <div class="mock-gen-row">
+                <label>Period (s)</label>
+                <input type="number" class="gen-period" value="${cfg.period}" min="0.1" step="0.5" style="width:60px">
+            </div>
+            <div class="mock-gen-row">
+                <label>Min</label>
+                <input type="number" class="gen-min" value="${cfg.min}" style="width:60px">
+                <label>Max</label>
+                <input type="number" class="gen-max" value="${cfg.max}" style="width:60px">
+            </div>
+            <div class="mock-gen-row">
+                <label>Phase °</label>
+                <input type="number" class="gen-phase" value="${cfg.phase||0}" min="0" max="360" style="width:60px">
+            </div>
+            <div class="mock-gen-row">
+                <button class="gen-start-btn mock-btn">${this.signalGen.isActive(id) ? 'Stop' : 'Start'}</button>
+            </div>
+        `;
+
+        const startBtn = panel.querySelector('.gen-start-btn');
+        startBtn.addEventListener('click', () => {
+            if (this.signalGen.isActive(id)) {
+                this.signalGen.stop(id);
+                startBtn.textContent = 'Start';
+                parentRow.querySelector('.mock-gen-btn')?.classList.remove('mock-gen-btn--active');
+            } else {
+                const newCfg = {
+                    type: panel.querySelector('.gen-type').value,
+                    period: parseFloat(panel.querySelector('.gen-period').value) || 10,
+                    min: parseFloat(panel.querySelector('.gen-min').value),
+                    max: parseFloat(panel.querySelector('.gen-max').value),
+                    phase: parseFloat(panel.querySelector('.gen-phase').value) || 0,
+                };
+                this.signalGen.start(id, newCfg);
+                startBtn.textContent = 'Stop';
+                parentRow.querySelector('.mock-gen-btn')?.classList.add('mock-gen-btn--active');
+            }
+        });
+
+        parentRow.insertAdjacentElement('afterend', panel);
     }
 
     createBooleanControl(id, meta) {
@@ -1552,6 +1880,8 @@ Object.assign(ESPHomeLVGLSimulator.prototype, {
     renderDropdown,
     renderLine,
     renderMeter,
+    renderChart,
+    drawChart,
 });
 
 document.addEventListener('DOMContentLoaded', () => {
