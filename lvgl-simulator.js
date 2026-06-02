@@ -729,6 +729,21 @@ lvgl:
         const globals = this.config.globals || [];
         globals.forEach(g => {
             if (!g.id) return;
+
+            // Auto-enable sim_mode for browser simulation
+            // (BLE devices never connect in browser; sim_mode=true makes D5 generate data itself)
+            if (g.id === 'sim_mode') {
+                this.store.register(g.id, {
+                    entityType: 'global',
+                    type: 'boolean',
+                    cppType: 'bool',
+                    initialValue: true,
+                    restoreValue: false,
+                });
+                this.store.set(g.id, true);
+                return;
+            }
+
             const cppType = (g.type || 'float').trim();
             const simType = this._mapCppType(cppType);
             const rawInitial = g.initial_value !== undefined ? String(g.initial_value) : undefined;
@@ -2024,6 +2039,11 @@ lvgl:
         const label = document.createElement('span');
         label.className = 'mock-toggle__label';
         label.textContent = cb.checked ? 'ON' : 'OFF';
+
+        if (id === 'sim_mode') {
+            nameEl.textContent += ' ★';
+            nameEl.title = 'Auto-enabled — BLE devices simulate data when this is on';
+        }
 
         cb.addEventListener('change', e => {
             this.store.set(id, e.target.checked);

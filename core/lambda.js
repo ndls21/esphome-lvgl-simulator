@@ -263,6 +263,11 @@ export class LambdaEvaluator {
         b = b.replace(/id\(\w+\)\s*\.\s*set_brightness\s*\(([^)]+)\)/g,
           (_, val) => `__lvgl__.setDisplayBrightness(${val.trim()})`);
 
+        // id(sensor).publish_state(val) → __store__.set('sensor', val)
+        // store.set triggers on_value subscriptions via subscribe mechanism
+        b = b.replace(/\bid\s*\(\s*(\w+)\s*\)\s*\.\s*publish_state\s*\(\s*([^)]+)\)/g,
+            (_, sensorId, val) => `__store__.set('${sensorId}', ${val.trim()})`);
+
         // Strip remaining component method calls (prevent ReferenceError)
         b = b.replace(/id\(\w+\)\s*->\s*\w+\s*\([^)]*\)\s*;?/g, '/* component call */');
 
@@ -378,6 +383,20 @@ export class LambdaEvaluator {
         js = js.replace(/(?<!Math\.)\bsqrt\s*\(/g, 'Math.sqrt(');
         js = js.replace(/(?<!Math\.)\bfabs\s*\(/g, 'Math.abs(');
         js = js.replace(/(?<!Math\.)\bfmod\s*\(/g, '((a,b)=>a%b)(');
+
+        // C float math functions (f-suffixed variants) → Math.*
+        js = js.replace(/\bsinf\s*\(/g, 'Math.sin(');
+        js = js.replace(/\bcosf\s*\(/g, 'Math.cos(');
+        js = js.replace(/\btanf\s*\(/g, 'Math.tan(');
+        js = js.replace(/\bfabsf\s*\(/g, 'Math.abs(');
+        js = js.replace(/\bsqrtf\s*\(/g, 'Math.sqrt(');
+        js = js.replace(/\bpowf\s*\(/g, 'Math.pow(');
+        js = js.replace(/\blogf\s*\(/g, 'Math.log(');
+        js = js.replace(/\bfmodf\s*\(/g, '((a,b)=>a%b)(');
+        // Float literal suffixes: 3.14f → 3.14, 30.0f → 30.0
+        js = js.replace(/(\b\d+\.\d*|\b\d*\.\d+)f\b/g, '$1');
+        // Integer float literals: 1f → 1
+        js = js.replace(/\b(\d+)f\b/g, '$1');
 
         // sprintf / esphome::str_sprintf → _sprintf
         js = js.replace(/\besphome::str_sprintf\s*\(/g, '_sprintf(');
