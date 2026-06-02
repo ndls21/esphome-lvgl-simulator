@@ -142,6 +142,12 @@ class ESPHomeLVGLSimulator {
         this._currentRotation = 0;
         this._onLoadTimer = null;
         this._screensaver = null;
+        this._intervalsEnabled = false;
+        this._intervalSpeed = 1;
+        this._intervalRafId = null;
+        this._intervalHandlers = [];
+        this._intervalEpoch = 0;
+        this._intervalStartReal = 0;
         this.displayElement = document.getElementById('lvglDisplay');
         this.yamlEditor = document.getElementById('yamlEditor');
         this.pageSelect = document.getElementById('pageSelect');
@@ -368,6 +374,27 @@ class ESPHomeLVGLSimulator {
         // Wire display click to reset screensaver inactivity timer
         this.displayElement?.addEventListener('pointerdown', () => {
             this._screensaver?.triggerActivity();
+        });
+
+        // Interval runner UI controls
+        document.getElementById('intervalsEnable')?.addEventListener('change', e => {
+            this._intervalsEnabled = e.target.checked;
+            if (e.target.checked) {
+                this._intervalStartReal = performance.now();
+                this._intervalEpoch = 0;
+                this._startIntervalRunner();
+            } else {
+                this._stopIntervalRunner();
+            }
+        });
+
+        document.getElementById('intervalSpeed')?.addEventListener('change', e => {
+            const wasEnabled = this._intervalsEnabled;
+            // Reset epoch so speed change doesn't cause a time jump
+            this._intervalEpoch = 0;
+            this._intervalStartReal = performance.now();
+            this._intervalSpeed = parseFloat(e.target.value) || 1;
+            if (wasEnabled) this._startIntervalRunner();
         });
 
         // Screensaver UI controls
@@ -802,6 +829,7 @@ lvgl:
             return;
         }
 
+        this._stopIntervalRunner();
         if (this._storeUnsub) { this._storeUnsub(); this._storeUnsub = null; }
         if (this._onValueUnsubs) { this._onValueUnsubs.forEach(u => u()); this._onValueUnsubs = []; }
         if (this._rerenderTimer) { clearTimeout(this._rerenderTimer); this._rerenderTimer = null; }
@@ -834,6 +862,10 @@ lvgl:
 
             this._collectOnValueHandlers();
             this._wireOnValueHandlers();
+
+            this._collectIntervalHandlers();
+            const countEl = document.getElementById('intervalCount');
+            if (countEl) countEl.textContent = `${this._intervalHandlers.length} handler${this._intervalHandlers.length !== 1 ? 's' : ''}`;
 
             this.populatePageSelect();
             this.renderCurrentPage();
@@ -2000,6 +2032,82 @@ lvgl:
             opt.textContent = name;
             sel.appendChild(opt);
         });
+    }
+
+    _collectIntervalHandlers() {
+        this._intervalHandlers = [];
+        const intervals = this.config?.interval || [];
+        const list = Array.isArray(intervals) ? intervals : [intervals];
+
+        for (const entry of list) {
+            if (!entry) continue;
+
+            // Parse interval duration string: "50ms", "500ms", "1s", "2s", "30s"
+            const ms = this._parseIntervalMs(entry.interval || entry.period || '1s');
+
+            // Extract lambda from then: block
+            let lambdaStr = null;
+            const then = entry.then;
+            if (typeof then === 'string') lambdaStr = then;
+            else if (Array.isArray(then)) {
+                for (const a of then) {
+                    if (a?.lambda) { lambdaStr = a.lambda; break; }
+                }
+            } else if (then?.lambda) {
+                lambdaStr = then.lambda;
+            } else if (entry.lambda) {
+                lambdaStr = entry.lambda;
+            }
+
+            if (lambdaStr) {
+                this._intervalHandlers.push({ ms, lambda: lambdaStr, lastRun: 0 });
+            }
+        }
+    }
+
+    _parseIntervalMs(str) {
+        if (typeof str === 'number') return str;
+        const s = String(str).trim().toLowerCase();
+        if (s.endsWith('ms')) return parseFloat(s);
+        if (s.endsWith('s'))  return parseFloat(s) * 1000;
+        if (s.endsWith('m'))  return parseFloat(s) * 60000;
+        return parseFloat(s) * 1000; // default: seconds
+    }
+
+    _startIntervalRunner() {
+        if (this._intervalRafId) cancelAnimationFrame(this._intervalRafId);
+        if (!this._intervalHandlers?.length || !this._intervalsEnabled) return;
+
+        const tick = (now) => {
+            if (!this._intervalsEnabled) return;
+            const speed = this._intervalSpeed || 1;
+            const scaledNow = this._intervalEpoch + (now - this._intervalStartReal) * speed;
+
+            for (const handler of this._intervalHandlers) {
+                if (scaledNow - handler.lastRun >= handler.ms) {
+                    handler.lastRun = scaledNow;
+                    try {
+                        this.lambda._proxy = this._buildLVGLProxy();
+                        this.lambda.evaluate(handler.lambda, null);
+                    } catch(e) {
+                        console.warn('[interval] error:', e.message);
+                    }
+                }
+            }
+
+            this._intervalRafId = requestAnimationFrame(tick);
+        };
+
+        this._intervalEpoch = 0;
+        this._intervalStartReal = performance.now();
+        this._intervalRafId = requestAnimationFrame(tick);
+    }
+
+    _stopIntervalRunner() {
+        if (this._intervalRafId) {
+            cancelAnimationFrame(this._intervalRafId);
+            this._intervalRafId = null;
+        }
     }
 }
 

@@ -85,6 +85,19 @@
               <button id="ssTrigger" class="mock-btn" style="font-size:11px;padding:2px 6px">Trigger now</button>
               <span id="ssStateLabel" style="opacity:0.5;font-size:11px">OFF</span>
             </div>
+            <div id="intervalControls" style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 8px;border-top:1px solid #333;">
+              <label style="opacity:0.7">Intervals:</label>
+              <label style="display:flex;align-items:center;gap:3px;cursor:pointer">
+                <input type="checkbox" id="intervalsEnable"> Run
+              </label>
+              <select id="intervalSpeed" style="background:#222;color:#ccc;border:1px solid #444;border-radius:3px;padding:1px 4px;font-size:11px">
+                <option value="1">1&times;</option>
+                <option value="5">5&times;</option>
+                <option value="10">10&times;</option>
+                <option value="30">30&times;</option>
+              </select>
+              <span id="intervalCount" style="opacity:0.4;font-size:11px">0 handlers</span>
+            </div>
             <div id="entitySummary" class="entity-summary" style="display:none">
                 <div id="entityBadges" class="entity-badges"></div>
             </div>
