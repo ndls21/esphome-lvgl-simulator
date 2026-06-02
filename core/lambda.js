@@ -405,18 +405,26 @@ export class LambdaEvaluator {
         // lv_disp_get_inactive_time(NULL) → __lvgl__.getInactiveTime()
         b = b.replace(/lv_disp_get_inactive_time\s*\([^)]*\)/g, '__lvgl__.getInactiveTime()');
 
-        // gpio_get_level(pin) → 0 (always low in simulator — no real GPIO)
-        b = b.replace(/\bgpio_get_level\s*\([^)]+\)/g, '0');
+        // gpio_get_level(pin) → __lvgl__.getGPIO(pin)
+        b = b.replace(/\bgpio_get_level\s*\(\s*([^)]+)\s*\)/g,
+          (_, pin) => {
+            const num = pin.replace(/GPIO_NUM_/g, '').trim();
+            return `__lvgl__.getGPIO(${num})`;
+          });
 
-        // gpio_set_level(pin, val) → no-op
-        b = b.replace(/\bgpio_set_level\s*\([^)]*\)\s*;?/g, '/* gpio_set_level */');
+        // gpio_set_level(pin, val) → __lvgl__.setGPIO(pin, val)
+        b = b.replace(/\bgpio_set_level\s*\(\s*([^,]+),\s*([^)]+)\)/g,
+          (_, pin, val) => {
+            const num = pin.replace(/GPIO_NUM_/g, '').trim();
+            return `__lvgl__.setGPIO(${num}, ${val.trim()})`;
+          });
+
+        // GPIO constants: GPIO_NUM_11 → 11
+        b = b.replace(/\bGPIO_NUM_(\d+)\b/g, (_, n) => n);
 
         // pinMode, digitalWrite, digitalRead — Arduino-style GPIO
         b = b.replace(/\bdigitalRead\s*\([^)]+\)/g, '0');
         b = b.replace(/\bdigitalWrite\s*\([^)]*\)\s*;?/g, '/* digitalWrite */');
-
-        // ESP-IDF GPIO constants — just need to not throw
-        b = b.replace(/\bGPIO_NUM_\d+\b/g, '0');
 
         // esp_timer_get_time() → Date.now() * 1000 (microseconds)
         b = b.replace(/\besp_timer_get_time\s*\(\s*\)/g, '(Date.now() * 1000)');
@@ -461,6 +469,12 @@ export class LambdaEvaluator {
         b = b.replace(/lv_obj_move_foreground\s*\([^)]*\)\s*;?/g, '/* lv_obj_move_foreground */');
         b = b.replace(/lv_obj_move_to_index\s*\([^)]*\)\s*;?/g, '/* lv_obj_move_to_index */');
         b = b.replace(/lv_obj_swap\s*\([^)]*\)\s*;?/g, '/* lv_obj_swap */');
+
+        // SD card / filesystem stubs
+        b = b.replace(/\bSPIFFS\.begin\s*\([^)]*\)\s*;?/g, '/* SPIFFS.begin */');
+        b = b.replace(/\bSD_MMC\.begin\s*\([^)]*\)\s*;?/g, 'true /* SD_MMC.begin */');
+        b = b.replace(/\bSDLogging\s*::\s*\w+\s*\([^)]*\)\s*;?/g, '/* SDLogging */');
+        b = b.replace(/\bSDLogging\s*::\s*\w+\b/g, 'null');
 
         // Strip remaining unhandled lv_* function *calls* (standalone statements only)
         b = b.replace(/(^|\n)([ \t]*)(lv_\w+\s*\([^)]*\)\s*;)/g,

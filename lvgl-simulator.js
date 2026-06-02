@@ -947,6 +947,8 @@ lvgl:
             const countEl = document.getElementById('intervalCount');
             if (countEl) countEl.textContent = `${this._intervalHandlers.length} handler${this._intervalHandlers.length !== 1 ? 's' : ''}`;
 
+            this._buildGPIOPanel();
+
             this.populatePageSelect();
             this.renderCurrentPage();
             this.updateEntitySummary();
@@ -2233,6 +2235,86 @@ lvgl:
             opt.textContent = name;
             sel.appendChild(opt);
         });
+    }
+
+    _buildGPIOPanel() {
+        const container = document.getElementById('gpioPins');
+        if (!container) return;
+        container.innerHTML = '';
+
+        // Collect all GPIO pins used in this config
+        const allLambdas = JSON.stringify(this.config || '');
+        const pinMatches = [...allLambdas.matchAll(/GPIO_NUM_(\d+)/g)];
+        const pins = [...new Set(pinMatches.map(m => parseInt(m[1])))].sort((a, b) => a - b);
+
+        if (pins.length === 0) {
+            container.innerHTML = '<span style="opacity:0.4;font-size:11px">No GPIO pins detected</span>';
+            return;
+        }
+
+        pins.forEach(pin => {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'display:flex;align-items:center;gap:3px;';
+
+            // Level indicator LED
+            const led = document.createElement('span');
+            led.id = `gpio-led-${pin}`;
+            led.style.cssText = 'width:8px;height:8px;border-radius:50%;background:#333;border:1px solid #555;display:inline-block;';
+
+            // Label
+            const lbl = document.createElement('span');
+            lbl.textContent = `G${pin}`;
+            lbl.style.cssText = 'opacity:0.6;font-size:10px;';
+
+            // Pulse button
+            const btn = document.createElement('button');
+            btn.className = 'mock-btn';
+            btn.style.cssText = 'font-size:10px;padding:1px 5px;';
+            btn.textContent = '⏻';
+            btn.title = `Pulse GPIO ${pin} (200ms)`;
+            btn.addEventListener('click', () => {
+                const proxy = this.lambda?._proxy;
+                if (proxy?.pulseGPIO) {
+                    proxy.pulseGPIO(pin, 200);
+                    // Flash the LED
+                    led.style.background = '#4af';
+                    setTimeout(() => { led.style.background = '#333'; }, 250);
+                }
+            });
+
+            // Hold toggle button
+            const hold = document.createElement('button');
+            hold.className = 'mock-btn';
+            hold.style.cssText = 'font-size:10px;padding:1px 5px;';
+            hold.textContent = 'H';
+            hold.title = `Hold GPIO ${pin} HIGH`;
+            let held = false;
+            hold.addEventListener('click', () => {
+                held = !held;
+                const proxy = this.lambda?._proxy;
+                if (proxy?.setGPIO) proxy.setGPIO(pin, held ? 1 : 0);
+                hold.style.color = held ? '#4af' : '';
+                led.style.background = held ? '#4af' : '#333';
+            });
+
+            wrap.appendChild(led);
+            wrap.appendChild(lbl);
+            wrap.appendChild(btn);
+            wrap.appendChild(hold);
+            container.appendChild(wrap);
+        });
+
+        // Update LED states periodically
+        setInterval(() => {
+            pins.forEach(pin => {
+                const ledEl = document.getElementById(`gpio-led-${pin}`);
+                if (!ledEl) return;
+                const proxy = this.lambda?._proxy;
+                const val = proxy?.getGPIO ? proxy.getGPIO(pin) : 0;
+                if (val) ledEl.style.background = '#4af';
+                else if (ledEl.style.background === 'rgb(68, 170, 255)') ledEl.style.background = '#333';
+            });
+        }, 100);
     }
 
     _collectIntervalHandlers() {

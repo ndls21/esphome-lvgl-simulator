@@ -101,6 +101,10 @@
               </select>
               <span id="intervalCount" style="opacity:0.4;font-size:11px">0 handlers</span>
             </div>
+            <div id="gpioControls" style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 8px;border-top:1px solid #333;flex-wrap:wrap;">
+              <label style="opacity:0.7">GPIO:</label>
+              <div id="gpioPins" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+            </div>
             <div id="entitySummary" class="entity-summary" style="display:none">
                 <div id="entityBadges" class="entity-badges"></div>
             </div>
@@ -132,6 +136,19 @@
             <div id="mockControls" class="mock-controls">
               <div class="mock-empty">Load a config with sensors or globals to see controls here.</div>
             </div>
+          </div>
+          <div style="padding:4px 8px;border-top:1px solid #333;font-size:12px;">
+            <label style="opacity:0.7">SD Card data:</label>
+            <input type="file" id="csvImport" accept=".csv" style="font-size:11px;margin-left:4px;">
+            <button id="csvClear" class="mock-btn" style="font-size:11px;">Clear</button>
+            <span id="csvStatus" style="opacity:0.5;font-size:11px;margin-left:4px;"></span>
+          </div>
+          <div id="supabasePanel" style="display:none;padding:4px 8px;border-top:1px solid #333;font-size:12px;">
+            <label style="opacity:0.7">Supabase:</label>
+            <input id="sbUrl" placeholder="URL" style="width:180px;font-size:11px;background:#222;color:#ccc;border:1px solid #444;border-radius:3px;padding:2px 4px;">
+            <input id="sbKey" placeholder="anon key" style="width:120px;font-size:11px;background:#222;color:#ccc;border:1px solid #444;border-radius:3px;padding:2px 4px;">
+            <button id="sbTest" class="mock-btn" style="font-size:11px;">Test connection</button>
+            <span id="sbStatus" style="opacity:0.5;font-size:11px;margin-left:4px;"></span>
           </div>
           <div class="live-device-section" id="liveDeviceSection">
             <div class="live-device-header">

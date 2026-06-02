@@ -89,7 +89,25 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
   const charts = new Map();
   let chartHandleCounter = 1;
 
+  // Virtual GPIO state map (pin number → 0 or 1)
+  const gpioState = new Map();
+
   return {
+    // Virtual GPIO
+    getGPIO(pin) {
+      return gpioState.get(parseInt(pin)) ?? 0;
+    },
+    setGPIO(pin, val) {
+      gpioState.set(parseInt(pin), val ? 1 : 0);
+    },
+    pulseGPIO(pin, durationMs = 200) {
+      // Simulate momentary button press: high for durationMs then low
+      gpioState.set(parseInt(pin), 1);
+      setTimeout(() => gpioState.set(parseInt(pin), 0), durationMs);
+    },
+    getGPIOState() {
+      return gpioState;
+    },
     // Visibility
     hide(id) { const el = getEl(id); if (el) el.style.display = 'none'; },
     show(id) { const el = getEl(id); if (el) el.style.display = ''; },
