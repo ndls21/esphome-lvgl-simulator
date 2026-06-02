@@ -247,6 +247,15 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
       if (simulator && simulator.setRotation) simulator.setRotation(deg);
     },
 
+    // Screensaver / inactivity timer
+    triggerActivity() {
+      if (simulator?._screensaver) simulator._screensaver.triggerActivity();
+    },
+
+    setPaused(paused) {
+      if (simulator) simulator.setPaused?.(paused);
+    },
+
     // Touch mirror/swap — no-ops (coordinate remapping not supported in simulator)
     setMirrorX(v) { /* no-op */ },
     setMirrorY(v) { /* no-op */ },

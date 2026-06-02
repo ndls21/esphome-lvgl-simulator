@@ -141,6 +141,7 @@ class ESPHomeLVGLSimulator {
         this.displayOverride = null;
         this._currentRotation = 0;
         this._onLoadTimer = null;
+        this._screensaver = null;
         this.displayElement = document.getElementById('lvglDisplay');
         this.yamlEditor = document.getElementById('yamlEditor');
         this.pageSelect = document.getElementById('pageSelect');
@@ -353,6 +354,42 @@ class ESPHomeLVGLSimulator {
         const savedProxy = localStorage.getItem('esphome-sim-proxy-url');
         if (savedHost) document.getElementById('liveHost').value = savedHost;
         if (savedProxy) document.getElementById('liveProxyUrl').value = savedProxy;
+
+        // Wire display click to reset screensaver inactivity timer
+        this.displayElement?.addEventListener('pointerdown', () => {
+            this._screensaver?.triggerActivity();
+        });
+
+        // Screensaver UI controls
+        document.getElementById('ssEnable')?.addEventListener('change', e => {
+            if (e.target.checked) this._screensaver?.enable();
+            else this._screensaver?.disable();
+        });
+        document.getElementById('ssSpeed')?.addEventListener('change', e => {
+            this._screensaver?.setSpeed(parseFloat(e.target.value));
+        });
+        document.getElementById('ssTrigger')?.addEventListener('click', () => {
+            if (!this._screensaver) return;
+            const cb = document.getElementById('ssEnable');
+            if (cb) cb.checked = true;
+            this._screensaver.enable();
+            this._screensaver.triggerNow();
+        });
+
+        // State label update interval
+        setInterval(() => {
+            const labels = ['ACTIVE', 'DIM', 'SCREENSAVER', 'OFF'];
+            const colors = ['#44ff44', '#ffaa00', '#ff8800', '#ff4444'];
+            const s = this._screensaver?._state ?? 0;
+            const el = document.getElementById('ssStateLabel');
+            if (el && this._screensaver?._enabled) {
+                el.textContent = labels[s] || 'ACTIVE';
+                el.style.color = colors[s] || '#888';
+            } else if (el) {
+                el.textContent = 'OFF';
+                el.style.color = '';
+            }
+        }, 250);
 
         this._initSwipeHandlers();
 
@@ -872,7 +909,7 @@ lvgl:
     }
 
     _buildLVGLProxy() {
-        return buildLVGLProxy(this._renderedElements, (pageId) => {
+        const proxy = buildLVGLProxy(this._renderedElements, (pageId) => {
             const idx = this.pages.findIndex(p => p.id === pageId);
             if (idx >= 0) {
                 this.currentPageIndex = idx;
@@ -880,6 +917,19 @@ lvgl:
                 this.renderCurrentPage('NONE');
             }
         }, this);
+
+        if (!this._screensaver) {
+            this._screensaver = new ScreensaverSimulator(this.store, proxy, this);
+        } else {
+            this._screensaver._proxy = proxy;
+        }
+
+        return proxy;
+    }
+
+    setPaused(paused) {
+        // When unpaused, treat as activity (wake from screensaver if active)
+        if (!paused && this._screensaver) this._screensaver.triggerActivity();
     }
 
     renderCurrentPage(animType = 'NONE') {

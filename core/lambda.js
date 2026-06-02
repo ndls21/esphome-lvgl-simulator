@@ -108,7 +108,7 @@ export class LambdaEvaluator {
         // No-ops first (so they don't partially match other patterns)
         b = b.replace(/lv_refr_now\s*\([^)]*\)\s*;?/g, '/* lv_refr_now */');
         b = b.replace(/lv_indev_wait_release\s*\([^)]*\)\s*;?/g, '/* lv_indev_wait_release */');
-        b = b.replace(/lv_disp_trig_activity\s*\([^)]*\)\s*;?/g, '/* lv_disp_trig_activity */');
+        b = b.replace(/lv_disp_trig_activity\s*\([^)]*\)\s*;?/g, '__lvgl__.triggerActivity();');
         b = b.replace(/lv_indev_get_act\s*\(\s*\)/g, 'null');
 
         // Visibility
@@ -227,6 +227,10 @@ export class LambdaEvaluator {
         b = b.replace(/\bHIST_SLOTS\b/g, '200');
         b = b.replace(/\bHIST_RES_COUNT\b/g, '4');
         b = b.replace(/\bHIST_RES_LABEL\b/g, "['6h','12h','24h','7d']");
+
+        // set_paused — pause/resume LVGL rendering simulation
+        b = b.replace(/id\(\w+\)\s*->\s*set_paused\s*\(([^,)]+)[^)]*\)\s*;?/g,
+            (_, paused) => `__lvgl__.setPaused(${paused.trim()});`);
 
         // Strip remaining component method calls (prevent ReferenceError)
         b = b.replace(/id\(\w+\)\s*->\s*\w+\s*\([^)]*\)\s*;?/g, '/* component call */');

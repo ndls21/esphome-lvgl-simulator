@@ -71,6 +71,20 @@
                   </select>
                 </label>
             </div>
+            <div id="screensaverControls" style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 8px;border-top:1px solid #333;margin-top:4px;">
+              <label style="opacity:0.7">Screensaver:</label>
+              <label style="display:flex;align-items:center;gap:3px;cursor:pointer">
+                <input type="checkbox" id="ssEnable"> Simulate
+              </label>
+              <select id="ssSpeed" style="background:#222;color:#ccc;border:1px solid #444;border-radius:3px;padding:1px 4px;font-size:11px">
+                <option value="1">1&times;</option>
+                <option value="5">5&times;</option>
+                <option value="10">10&times;</option>
+                <option value="30">30&times;</option>
+              </select>
+              <button id="ssTrigger" class="mock-btn" style="font-size:11px;padding:2px 6px">Trigger now</button>
+              <span id="ssStateLabel" style="opacity:0.5;font-size:11px">OFF</span>
+            </div>
             <div id="entitySummary" class="entity-summary" style="display:none">
                 <div id="entityBadges" class="entity-badges"></div>
             </div>
@@ -129,6 +143,7 @@
     <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="core/hist-buffer.js"></script>
+    <script src="core/screensaver.js"></script>
     <script type="module" src="lvgl-simulator.js"></script>
 </body>
 </html>
