@@ -291,6 +291,22 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
     setMirrorY(v) { /* no-op */ },
     setSwapXY(v)  { /* no-op */ },
 
+    // SNTP time mock — returns an ESPTime-like object from the system clock
+    getSNTPTime() {
+      const now = new Date();
+      return {
+        is_valid: () => true,
+        hour: now.getHours(),
+        minute: now.getMinutes(),
+        second: now.getSeconds(),
+        day_of_week: now.getDay() + 1, // 1=Sunday, matches ESPHome
+        day_of_month: now.getDate(),
+        month: now.getMonth() + 1,
+        year: now.getFullYear(),
+        timestamp: Math.floor(now.getTime() / 1000),
+      };
+    },
+
     // No-ops (must exist to avoid ReferenceError)
     noop() {},
   };

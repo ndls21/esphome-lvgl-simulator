@@ -22,11 +22,12 @@ const _constrainImpl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const _mapImpl = (v, il, ih, ol, oh) => ol + (v - il) * (oh - ol) / (ih - il);
 
 export class LambdaEvaluator {
-    constructor(store, proxy = null, histProxy = null, histArrays = {}) {
+    constructor(store, proxy = null, histProxy = null, histArrays = {}, statics = null) {
         this.store = store;
         this._proxy = proxy;
         this._histProxy = histProxy;
         this._histArrays = histArrays;
+        this._statics = statics || new Map();
         this._cache = new Map();
     }
 
@@ -72,6 +73,7 @@ export class LambdaEvaluator {
                     '__store__', '_sprintf', '_constrain', '_map', '__lvgl__', '__hist__',
                     'history_ready', 'millis', 'NAN', 'INFINITY', 'M_PI',
                     'fridge_dmm', 'van_dmm', 'outside_dmm', 'battery_dmm',
+                    '__statics__',
                     ...arrayNames,
                     translated
                 ));
@@ -93,6 +95,7 @@ export class LambdaEvaluator {
                 typeof van_dmm !== 'undefined' ? van_dmm : null,
                 typeof outside_dmm !== 'undefined' ? outside_dmm : null,
                 typeof battery_dmm !== 'undefined' ? battery_dmm : null,
+                this._statics,
                 ...arrayVals
             );
             return result ?? fallback;
@@ -348,6 +351,9 @@ export class LambdaEvaluator {
         b = b.replace(/(^|\n)([ \t]*)(lv_\w+\s*\([^)]*\)\s*;)/g,
             (_, nl, indent, call) => `${nl}${indent}/* unhandled: ${call} */`);
 
+        // id(*_time).now() → __lvgl__.getSNTPTime() (mock ESPTime from system clock)
+        b = b.replace(/\bid\s*\(\s*\w*_time\w*\s*\)\s*\.\s*now\s*\(\s*\)/g, '__lvgl__.getSNTPTime()');
+
         // millis() → Date.now()
         b = b.replace(/\bmillis\s*\(\s*\)/g, 'Date.now()');
 
@@ -481,12 +487,31 @@ export class LambdaEvaluator {
     _translateTypeDeclarations(body) {
         let b = body;
 
+        // C++ static local variables → store-backed persistent state via __statics__ Map.
+        // Pre-pass: split multi-variable static declarations into separate statements.
+        // e.g. static uint32_t prev_idle = 0, tap_ms = 0  →  static uint32_t prev_idle = 0\nstatic uint32_t tap_ms = 0
+        b = b.replace(
+            /\bstatic\s+(?:const\s+)?(?:unsigned\s+)?(\w+)\s+((?:\w+\s*=\s*[^,;\n]+,\s*)+\w+\s*=\s*[^;,\n]+)/g,
+            (_, type, vars) => vars.split(',').map(v => `static ${type} ${v.trim()}`).join(';\n')
+        );
+
+        // Main pass: static TYPE varname = initVal
+        // → if (!__statics__.has('varname')) __statics__.set('varname', initVal); let varname = __statics__.get('varname')
+        // TODO: mutations to static vars (varname = newVal) are not written back to __statics__,
+        // so changes won't persist across calls. The init-read alone fixes the reset-to-zero problem.
+        b = b.replace(
+            /\bstatic\s+(?:const\s+)?(?:unsigned\s+)?(?:\w+)\s+(\w+)\s*=\s*([^,;\n]+)/g,
+            (_, name, init) =>
+                `if (!__statics__.has('${name}')) __statics__.set('${name}', ${init.trim()}); let ${name} = __statics__.get('${name}')`
+        );
+
         // Typed variable declarations with optional initialiser
         const typeKeywords = '(?:const\\s+)?(?:unsigned\\s+)?(?:' + [
             'int','float','double','bool','char','auto','void',
             'uint8_t','uint16_t','uint32_t','uint64_t',
             'int8_t','int16_t','int32_t','int64_t',
-            'size_t','lv_coord_t','lv_color_t','lv_opa_t'
+            'size_t','lv_coord_t','lv_color_t','lv_opa_t',
+            'ESPTime'
         ].join('|') + ')';
 
         // Simple declaration: type varname = ...  or  type varname;
@@ -526,6 +551,7 @@ export class LambdaEvaluator {
                 '__store__', '_sprintf', '_constrain', '_map', '__lvgl__', '__hist__', 'history_ready', 'millis',
                 'NAN', 'INFINITY', 'M_PI',
                 'fridge_dmm', 'van_dmm', 'outside_dmm', 'battery_dmm',
+                '__statics__',
                 ...arrayNames,
                 'x', 'id',
                 translated
@@ -544,6 +570,7 @@ export class LambdaEvaluator {
                 typeof van_dmm !== 'undefined' ? van_dmm : null,
                 typeof outside_dmm !== 'undefined' ? outside_dmm : null,
                 typeof battery_dmm !== 'undefined' ? battery_dmm : null,
+                this._statics,
                 ...arrayVals,
                 xValue, xValue
             );

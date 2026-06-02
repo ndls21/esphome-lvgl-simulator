@@ -160,7 +160,8 @@ class ESPHomeLVGLSimulator {
                 get(_, res) { return getOrCreateHistBuffer(name).get(parseInt(res) || 0); }
             });
         });
-        this.lambda = new LambdaEvaluator(this.store, null, histProxy, histArrays);
+        this._staticVars = new Map(); // persistent across lambda calls (C++ static locals)
+        this.lambda = new LambdaEvaluator(this.store, null, histProxy, histArrays, this._staticVars);
         this.theme = {};
         this.currentWidgetType = '';
         this._renderedElements = {};
