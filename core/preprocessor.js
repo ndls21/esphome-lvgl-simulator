@@ -1,4 +1,15 @@
-export function preprocessYAML(text) {
+async function _loadSecrets(fileMap) {
+    const secretsText = fileMap?.['secrets.yaml'] || fileMap?.['secrets.yml'];
+    if (!secretsText) return {};
+    const secrets = {};
+    secretsText.split('\n').forEach(line => {
+        const m = line.match(/^(\w+)\s*:\s*["']?([^"'\n#]+?)["']?\s*(?:#.*)?$/);
+        if (m) secrets[m[1].trim()] = m[2].trim();
+    });
+    return secrets;
+}
+
+export function preprocessYAML(text, secrets = {}) {
     const substitutions = {};
     const subsMatch = text.match(/^substitutions\s*:\s*\n((?:[ \t]+.+\n?)*)/m);
     if (subsMatch) {
@@ -17,8 +28,11 @@ export function preprocessYAML(text) {
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i];
 
-        // Handle !secret
-        line = line.replace(/!secret\s+(\S+)/g, '"__secret_$1__"');
+        // Handle !secret — resolve from secrets map if available
+        line = line.replace(/!secret\s+(\S+)/g, (_, key) => {
+            const val = secrets[key];
+            return val ? `"${val}"` : `"__secret_${key}__"`;
+        });
 
         // Detect start of block lambda (!lambda |  or  !lambda |-)
         const blockLambdaMatch = line.match(/^(\s*\S.*?:\s*)!lambda\s+\|-?\s*$/);
@@ -68,9 +82,14 @@ export function preprocessYAML(text) {
  * @param {string|null} baseUrl  Base URL for resolving relative paths (directory, trailing slash)
  * @returns {Promise<object>} Parsed and merged config object
  */
+export { _loadSecrets };
+
 export async function preprocessAndResolve(yamlText, baseUrl = null, fileMap = {}) {
+    // Step 0: load secrets.yaml so !secret tags can be resolved
+    const secrets = await _loadSecrets(fileMap);
+
     // Step 1: text-level preprocessing (substitutions, lambda encoding, tag rewriting)
-    const { text: preprocessed, substitutions } = preprocessYAML(yamlText);
+    const { text: preprocessed, substitutions } = preprocessYAML(yamlText, secrets);
 
     // Step 2: resolve __include__ placeholders in text
     const textWithIncludes = await _resolveTextIncludes(preprocessed, baseUrl, new Set(), fileMap);
@@ -94,6 +113,8 @@ export async function preprocessAndResolve(yamlText, baseUrl = null, fileMap = {
     _applyExtendRemove(config);
 
     config.__packageWarnings = warnings;
+    config.__substitutions = substitutions;
+    config.__secrets = secrets;
     return config;
 }
 

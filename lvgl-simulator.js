@@ -2,7 +2,7 @@ import { SimulatorStateStore } from './core/store.js';
 import { SignalGenerator } from './core/signal-generator.js';
 import { LambdaEvaluator } from './core/lambda.js';
 import { buildLVGLProxy, clearGPIOState } from './core/lvgl-proxy.js';
-import { preprocessYAML, preprocessAndResolve } from './core/preprocessor.js';
+import { preprocessYAML, preprocessAndResolve, _loadSecrets } from './core/preprocessor.js';
 import { resolveIncludes } from './core/resolver.js';
 import { renderObj } from './widgets/obj.js';
 import { renderLabel } from './widgets/label.js';
@@ -760,7 +760,11 @@ lvgl:
             // Use the async preprocessor that handles packages: and remote !include
             const config = await preprocessAndResolve(resolved, baseUrl, this.fileMap || {});
             this.config = config;
-            this.substitutions = config ? (config.__substitutions || {}) : {};
+            // Merge secrets into substitutions so supabase_url etc. resolve via either path
+            this._secrets = config ? (config.__secrets || {}) : {};
+            this.substitutions = config
+                ? Object.assign({}, config.__secrets || {}, config.__substitutions || {})
+                : {};
 
             // Show package warning if needed
             this._showPackageWarnings(config && config.__packageWarnings);
@@ -1992,16 +1996,21 @@ lvgl:
     }
 
     _maybeShowSupabasePanel() {
-        const url = this.store.get('supabase_url') || this.substitutions?.supabase_url;
-        const key = this.store.get('supabase_anon_key') || this.substitutions?.supabase_anon_key;
-        if (!url || url.includes('SUPABASE')) return; // unresolved substitution
+        // Check substitutions (includes resolved secrets) and store
+        const subs = this.substitutions || {};
+        let url = subs.supabase_url || this.store.get('supabase_url') || '';
+        let key = subs.supabase_anon_key || this.store.get('supabase_anon_key') || '';
+
+        // Skip if still a placeholder or empty
+        if (!url || url.includes('__secret_') || url.includes('${') || url.includes('SUPABASE')) return;
 
         const panel = document.getElementById('supabasePanel');
-        if (panel) {
-            panel.style.display = 'block';
-            panel.querySelector('#sbUrl').value = url;
-            panel.querySelector('#sbKey').value = key || '';
-        }
+        if (!panel) return;
+        panel.style.display = 'block';
+        const urlEl = document.getElementById('sbUrl');
+        const keyEl = document.getElementById('sbKey');
+        if (urlEl && !urlEl.value) urlEl.value = url;
+        if (keyEl && !keyEl.value) keyEl.value = key;
     }
 
     createMockSection(title, items, type) {
