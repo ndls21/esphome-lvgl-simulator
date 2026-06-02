@@ -1,19 +1,21 @@
 function _sprintfImpl(fmt, args) {
     if (typeof fmt !== 'string') return String(fmt ?? '');
     let i = 0;
-    return fmt.replace(/%(-?0?\d*\.?\d*)?([difsoxX%])/g, (_, spec, type) => {
-        if (type === '%') return '%';
+    return fmt.replace(/%(-?0?\d*\.?\d*)?(l{0,2}[diufseoxX%])/g, (_, spec, type) => {
+        const baseType = type.replace(/^l+/, ''); // strip l/ll prefix
+        if (baseType === '%') return '%';
         const val = args[i++];
         const width = parseInt(spec) || 0;
         const prec = spec && spec.includes('.') ? parseInt(spec.split('.')[1]) : undefined;
         const padCh = spec && spec.startsWith('0') ? '0' : ' ';
-        switch (type) {
+        switch (baseType) {
             case 'd': case 'i': { const n = String(Math.round(Number(val) || 0)); return width ? n.padStart(Math.abs(width), padCh) : n; }
+            case 'u': { const n = String(Math.abs(Math.trunc(Number(val) || 0))); return width ? n.padStart(Math.abs(width), padCh) : n; }
             case 'f': return (Number(val) || 0).toFixed(prec ?? 6);
             case 's': return String(val ?? '');
-            case 'x': return (Number(val) || 0).toString(16).toLowerCase().padStart(width, '0');
-            case 'X': return (Number(val) || 0).toString(16).toUpperCase().padStart(width, '0');
-            case 'o': return (Number(val) || 0).toString(8);
+            case 'x': return (Number(val) >>> 0).toString(16).toLowerCase().padStart(width, '0');
+            case 'X': return (Number(val) >>> 0).toString(16).toUpperCase().padStart(width, '0');
+            case 'o': return (Number(val) >>> 0).toString(8);
             default: return '';
         }
     });
@@ -420,7 +422,7 @@ export class LambdaEvaluator {
 
         // std:: math functions → Math.*
         js = js.replace(/\bstd::isnan\s*\(/g, 'isNaN(');
-        js = js.replace(/\bstd::isinf\s*\(/g, 'isFinite(!(');
+        js = js.replace(/\bstd::isinf\s*\(/g, '!isFinite(');
         js = js.replace(/\bstd::abs\s*\(/g, 'Math.abs(');
         js = js.replace(/\bstd::ceil\s*\(/g, 'Math.ceil(');
         js = js.replace(/\bstd::floor\s*\(/g, 'Math.floor(');
@@ -486,6 +488,10 @@ export class LambdaEvaluator {
 
     _translateTypeDeclarations(body) {
         let b = body;
+
+        // Strip constexpr — treated as const in simulator
+        b = b.replace(/\bstatic\s+constexpr\s+/g, '');
+        b = b.replace(/\bconstexpr\s+/g, '');
 
         // C++ static local variables → store-backed persistent state via __statics__ Map.
         // Pre-pass: split multi-variable static declarations into separate statements.
