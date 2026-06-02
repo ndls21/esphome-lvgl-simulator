@@ -21,6 +21,20 @@ import { renderLed } from './widgets/led.js';
 import { renderMeter } from './widgets/meter.js';
 import { renderChart, drawChart } from './widgets/chart.js';
 
+function deepMergeStyles(target, source) {
+  if (!source || typeof source !== 'object') return target;
+  const result = { ...target };
+  for (const [k, v] of Object.entries(source)) {
+    if (v !== null && typeof v === 'object' && !Array.isArray(v) &&
+        result[k] !== null && typeof result[k] === 'object' && !Array.isArray(result[k])) {
+      result[k] = deepMergeStyles(result[k], v);
+    } else {
+      result[k] = v;
+    }
+  }
+  return result;
+}
+
 class LiveDeviceClient {
   constructor(store, onStatusChange) {
     this.store = store;
@@ -1264,12 +1278,15 @@ lvgl:
         const ids = config.styles
             ? (Array.isArray(config.styles) ? config.styles : [config.styles])
             : [];
-        const base = Object.assign({}, themeDefaults, mainPart);
+        let resolved = {};
+        resolved = deepMergeStyles(resolved, themeDefaults);
+        resolved = deepMergeStyles(resolved, mainPart);
         ids.forEach(id => {
             const s = this.styleDefinitions[id];
-            if (s) this._deepMerge(base, s);
+            if (s) resolved = deepMergeStyles(resolved, s);
         });
-        return Object.assign(base, config);
+        resolved = deepMergeStyles(resolved, config);
+        return resolved;
     }
 
     _deepMerge(target, source) {
@@ -1534,11 +1551,35 @@ lvgl:
         return 'Arial, sans-serif';
     }
 
+    _getMockSnapshot() {
+        const snapshot = {};
+        const entries = this.store.getAllEntries?.() || {};
+        for (const [id, meta] of Object.entries(entries)) {
+            const current = this.store.get(id);
+            const initial = meta.initialValue ?? meta.initial_value;
+            if (current !== undefined && current !== initial) {
+                snapshot[id] = current;
+            }
+        }
+        return snapshot;
+    }
+
+    _getScreensaverSettings() {
+        return {
+            enabled: document.getElementById('ssEnable')?.checked || false,
+            speed: parseFloat(document.getElementById('ssSpeed')?.value || '1'),
+        };
+    }
+
     getShareURL() {
         const yaml = this.yamlEditor.value;
         const signals = this.signalGen.serialise();
         const state = { yaml };
         if (Object.keys(signals).length > 0) state.signals = signals;
+        const mockValues = this._getMockSnapshot();
+        if (Object.keys(mockValues).length > 0) state.mockValues = mockValues;
+        const screensaver = this._getScreensaverSettings();
+        if (screensaver.enabled || screensaver.speed !== 1) state.screensaver = screensaver;
         const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(state))));
         return `${location.origin}${location.pathname}#state=${encoded}`;
     }
@@ -1553,6 +1594,23 @@ lvgl:
                     this.yamlEditor.value = state.yaml;
                     this.renderFromEditor();
                     if (state.signals) this.signalGen.restore(state.signals);
+                    // Restore mock values (deferred until after populateMockPanel)
+                    if (state.mockValues) {
+                        this._pendingMockRestore = state.mockValues;
+                    }
+                    // Restore screensaver settings
+                    if (state.screensaver) {
+                        const ssEnable = document.getElementById('ssEnable');
+                        const ssSpeed = document.getElementById('ssSpeed');
+                        if (ssEnable && state.screensaver.enabled) {
+                            ssEnable.checked = true;
+                            ssEnable.dispatchEvent(new Event('change'));
+                        }
+                        if (ssSpeed && state.screensaver.speed) {
+                            ssSpeed.value = String(state.screensaver.speed);
+                            ssSpeed.dispatchEvent(new Event('change'));
+                        }
+                    }
                     return true;
                 }
             } catch (e) {
@@ -1717,6 +1775,17 @@ lvgl:
             return;
         }
         document.getElementById('mockPanel').classList.add('mock-panel--visible');
+
+        // Apply any pending mock restore from loadFromHash (deferred to here so controls exist)
+        if (this._pendingMockRestore) {
+            const restore = this._pendingMockRestore;
+            this._pendingMockRestore = null;
+            setTimeout(() => {
+                for (const [id, val] of Object.entries(restore)) {
+                    this.store.set(id, val);
+                }
+            }, 0);
+        }
     }
 
     createMockSection(title, items, type) {

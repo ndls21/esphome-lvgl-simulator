@@ -65,7 +65,7 @@ export class LambdaEvaluator {
         try {
             if (!this._cache.has(body)) {
                 // eslint-disable-next-line no-new-func
-                this._cache.set(body, new Function('__store__', '_sprintf', '_constrain', '_map', '__lvgl__', '__hist__', 'history_ready', 'millis', 'NAN', 'INFINITY', 'M_PI', translated));
+                this._cache.set(body, new Function('__store__', '_sprintf', '_constrain', '_map', '__lvgl__', '__hist__', 'history_ready', 'millis', 'NAN', 'INFINITY', 'M_PI', 'fridge_dmm', 'van_dmm', 'outside_dmm', 'battery_dmm', translated));
             }
             const result = this._cache.get(body)(this.store,
                 (fmt, ...a) => _sprintfImpl(fmt, a),
@@ -77,7 +77,11 @@ export class LambdaEvaluator {
                 () => Date.now(),
                 NaN,
                 Infinity,
-                Math.PI);
+                Math.PI,
+                typeof fridge_dmm !== 'undefined' ? fridge_dmm : null,
+                typeof van_dmm !== 'undefined' ? van_dmm : null,
+                typeof outside_dmm !== 'undefined' ? outside_dmm : null,
+                typeof battery_dmm !== 'undefined' ? battery_dmm : null);
             return result ?? fallback;
         } catch (e) {
             return fallback;
@@ -415,6 +419,7 @@ export class LambdaEvaluator {
             const fn = new Function(
                 '__store__', '_sprintf', '_constrain', '_map', '__lvgl__', '__hist__', 'history_ready', 'millis',
                 'NAN', 'INFINITY', 'M_PI',
+                'fridge_dmm', 'van_dmm', 'outside_dmm', 'battery_dmm',
                 'x', 'id',
                 translated
             );
@@ -428,6 +433,10 @@ export class LambdaEvaluator {
                 true,
                 () => Date.now(),
                 NaN, Infinity, Math.PI,
+                typeof fridge_dmm !== 'undefined' ? fridge_dmm : null,
+                typeof van_dmm !== 'undefined' ? van_dmm : null,
+                typeof outside_dmm !== 'undefined' ? outside_dmm : null,
+                typeof battery_dmm !== 'undefined' ? battery_dmm : null,
                 xValue, xValue
             );
         } catch (e) {

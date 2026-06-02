@@ -89,6 +89,28 @@ function initSyntheticHistBuffers() {
   });
 }
 
+class DailyMinMax {
+  constructor(opts = {}) {
+    const { min = 0, max = 100, yesterdayOffset = 5 } = opts;
+    this._min = min;
+    this._max = max;
+    this._yOffset = yesterdayOffset;
+  }
+  get_today_min()      { return this._min; }
+  get_today_max()      { return this._max; }
+  get_yesterday_min()  { return this._min - this._yOffset; }
+  get_yesterday_max()  { return this._max - this._yOffset; }
+  // Allow signal generator to update values
+  setMin(v) { this._min = v; }
+  setMax(v) { this._max = v; }
+}
+
+// D5 instances (values are ×10 to match D5's integer encoding)
+const fridge_dmm   = new DailyMinMax({ min: 30,  max: 70,  yesterdayOffset: 5  }); // 3.0°C–7.0°C
+const van_dmm      = new DailyMinMax({ min: 180, max: 310, yesterdayOffset: 15 }); // 18°C–31°C
+const outside_dmm  = new DailyMinMax({ min: 120, max: 280, yesterdayOffset: 20 }); // 12°C–28°C
+const battery_dmm  = new DailyMinMax({ min: 220, max: 380, yesterdayOffset: 10 }); // 22°C–38°C
+
 if (typeof module !== 'undefined') {
-  module.exports = { HistBuffer, HistBufferArray, histBuffers, getOrCreateHistBuffer, initSyntheticHistBuffers };
+  module.exports = { HistBuffer, HistBufferArray, histBuffers, getOrCreateHistBuffer, initSyntheticHistBuffers, DailyMinMax, fridge_dmm, van_dmm, outside_dmm, battery_dmm };
 }
