@@ -1502,3 +1502,14 @@ body {
 .inspector-value { background:var(--surface2); border:1px solid var(--borderS); border-radius:5px; padding:3px 8px; font-family:monospace; font-size:11px; color:var(--text); display:flex; align-items:center; gap:4px; overflow:hidden; }
 .inspector-swatch { width:10px; height:10px; border-radius:2px; border:1px solid var(--border); flex-shrink:0; }
 .inspector-driven { font-size:9px; color:var(--accent); }
+
+/* ── YAML Pane ── */
+.yaml-pane { font-family: "JetBrains Mono", "SF Mono", ui-monospace, monospace; font-size:12px; line-height:1.55; color:var(--text); background:var(--surface); height:100%; overflow:auto; padding:10px 0; white-space:pre; }
+.yaml-pane-row { display:flex; padding-right:16px; }
+.yaml-pane-gutter { width:36px; flex-shrink:0; text-align:right; padding-right:10px; color:var(--textFaint); font-size:10px; user-select:none; }
+.yaml-pane-line { flex:1; }
+.yaml-comment { color:var(--textFaint); }
+.yaml-string  { color:#00CC88; }
+.yaml-key     { color:var(--accent); }
+.yaml-number  { color:#FFAA55; }
+.yaml-const   { color:#FFCC66; }
