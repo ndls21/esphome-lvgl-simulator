@@ -438,6 +438,24 @@ export class LambdaEvaluator {
         b = b.replace(new RegExp(`lv_arc_set_range\\s*\\(\\s*${id}\\s*,\\s*([^,]+),\\s*([^)]+)\\)`, 'g'),
             (_, wid, min, max) => `__lvgl__.setArcRange('${wid}', ${min.trim()}, ${max.trim()})`);
 
+        // Padding style translations
+        b = b.replace(new RegExp(`lv_obj_set_style_pad_all\\s*\\(\\s*${id}\\s*,\\s*([^,]+),\\s*\\d+\\s*\\)`, 'g'),
+          (_, wid, val) => `__lvgl__.setPadding('${wid}', ${val.trim()})`);
+        b = b.replace(new RegExp(`lv_obj_set_style_pad_left\\s*\\(\\s*${id}\\s*,\\s*([^,]+),\\s*\\d+\\s*\\)`, 'g'),
+          (_, wid, val) => `__lvgl__.setPaddingLeft('${wid}', ${val.trim()})`);
+        b = b.replace(new RegExp(`lv_obj_set_style_pad_right\\s*\\(\\s*${id}\\s*,\\s*([^,]+),\\s*\\d+\\s*\\)`, 'g'),
+          (_, wid, val) => `__lvgl__.setPaddingRight('${wid}', ${val.trim()})`);
+        b = b.replace(new RegExp(`lv_obj_set_style_pad_top\\s*\\(\\s*${id}\\s*,\\s*([^,]+),\\s*\\d+\\s*\\)`, 'g'),
+          (_, wid, val) => `__lvgl__.setPaddingTop('${wid}', ${val.trim()})`);
+        b = b.replace(new RegExp(`lv_obj_set_style_pad_bottom\\s*\\(\\s*${id}\\s*,\\s*([^,]+),\\s*\\d+\\s*\\)`, 'g'),
+          (_, wid, val) => `__lvgl__.setPaddingBottom('${wid}', ${val.trim()})`);
+
+        // Z-order / layer management — no-op in simulator (DOM order is sufficient)
+        b = b.replace(/lv_obj_move_background\s*\([^)]*\)\s*;?/g, '/* lv_obj_move_background */');
+        b = b.replace(/lv_obj_move_foreground\s*\([^)]*\)\s*;?/g, '/* lv_obj_move_foreground */');
+        b = b.replace(/lv_obj_move_to_index\s*\([^)]*\)\s*;?/g, '/* lv_obj_move_to_index */');
+        b = b.replace(/lv_obj_swap\s*\([^)]*\)\s*;?/g, '/* lv_obj_swap */');
+
         // Strip remaining unhandled lv_* function *calls* (standalone statements only)
         b = b.replace(/(^|\n)([ \t]*)(lv_\w+\s*\([^)]*\)\s*;)/g,
             (_, nl, indent, call) => `${nl}${indent}/* unhandled: ${call} */`);
@@ -498,6 +516,8 @@ export class LambdaEvaluator {
 
     _translateIdGlobal(js) {
         // Any remaining id(name) not followed by . or ( — these are global reads
+        // NOTE: bare id(x) in boolean context correctly treats 0 as falsy,
+        // matching C++ boolean semantics. Use id(x).state for numeric sensor reads.
         return js.replace(/\bid\s*\(\s*(\w+)\s*\)(?!\s*[.(])/g, "__store__.get('$1')");
     }
 

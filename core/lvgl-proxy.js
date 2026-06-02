@@ -356,6 +356,16 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
       return parent.children.length;
     },
 
+    // Padding styles
+    setPadding(id, val) {
+      const el = getEl(id); if (!el) return;
+      el.style.padding = (Number(val) || 0) + 'px';
+    },
+    setPaddingLeft(id, val)   { const el = getEl(id); if (el) el.style.paddingLeft   = (Number(val)||0) + 'px'; },
+    setPaddingRight(id, val)  { const el = getEl(id); if (el) el.style.paddingRight  = (Number(val)||0) + 'px'; },
+    setPaddingTop(id, val)    { const el = getEl(id); if (el) el.style.paddingTop    = (Number(val)||0) + 'px'; },
+    setPaddingBottom(id, val) { const el = getEl(id); if (el) el.style.paddingBottom = (Number(val)||0) + 'px'; },
+
     // No-ops (must exist to avoid ReferenceError)
     noop() {},
   };
