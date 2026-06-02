@@ -187,6 +187,11 @@ class ESPHomeLVGLSimulator {
         document.getElementById('prevPage').addEventListener('click', () => {
             if (this.currentPageIndex > 0) {
                 this.currentPageIndex--;
+                this.syncPageSelect();
+                this.renderCurrentPage('MOVE_RIGHT');
+            } else if (this.pageWrap) {
+                this.currentPageIndex = this.pages.length - 1;
+                this.syncPageSelect();
                 this.renderCurrentPage('MOVE_RIGHT');
             }
         });
@@ -194,6 +199,11 @@ class ESPHomeLVGLSimulator {
         document.getElementById('nextPage').addEventListener('click', () => {
             if (this.currentPageIndex < this.pages.length - 1) {
                 this.currentPageIndex++;
+                this.syncPageSelect();
+                this.renderCurrentPage('MOVE_LEFT');
+            } else if (this.pageWrap) {
+                this.currentPageIndex = 0;
+                this.syncPageSelect();
                 this.renderCurrentPage('MOVE_LEFT');
             }
         });
@@ -745,6 +755,7 @@ lvgl:
             this.parseSensorComponents();
             this.setupDisplay();
             this.pages = this.config.lvgl.pages || [];
+            this.pageWrap = this.config?.lvgl?.page_wrap ?? true;
 
             if (this.pages.length === 0) {
                 this.displayError('No pages found in configuration');
@@ -889,8 +900,9 @@ lvgl:
     syncPageSelect() {
         this.pageSelect.value = this.currentPageIndex;
         this.pageInfo.textContent = `${this.currentPageIndex + 1} / ${this.pages.length}`;
-        document.getElementById('prevPage').disabled = this.currentPageIndex === 0;
-        document.getElementById('nextPage').disabled = this.currentPageIndex === this.pages.length - 1;
+        const wrap = this.pageWrap ?? true;
+        document.getElementById('prevPage').disabled = this.currentPageIndex === 0 && !wrap;
+        document.getElementById('nextPage').disabled = this.currentPageIndex === this.pages.length - 1 && !wrap;
     }
 
     _scheduleRerender() {
@@ -1231,6 +1243,12 @@ lvgl:
         if (config.grid_cell_row_span !== undefined && config.grid_cell_row_span > 1) {
             el.style.gridRowEnd = `span ${config.grid_cell_row_span}`;
         }
+        // Flex child sizing
+        if (config.flex_grow !== undefined) el.style.flexGrow = config.flex_grow;
+        if (config.flex_shrink !== undefined) el.style.flexShrink = config.flex_shrink;
+        if (config.flex_basis !== undefined) el.style.flexBasis =
+            typeof config.flex_basis === 'number' ? config.flex_basis + 'px' : config.flex_basis;
+
         if (config.grid_cell_x_align) {
             const a = config.grid_cell_x_align.toUpperCase();
             el.style.justifySelf = a === 'CENTER' ? 'center' : a === 'STRETCH' ? 'stretch' : a === 'END' ? 'end' : 'start';

@@ -6,7 +6,10 @@ function _drawChartInternal(c) {
   const h = canvas.offsetHeight || canvas.height || 300;
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return;
+  if (!ctx) {
+    console.warn('[lvgl] chart: canvas 2d context unavailable, skipping draw');
+    return;
+  }
 
   ctx.fillStyle = '#111111';
   ctx.fillRect(0, 0, w, h);

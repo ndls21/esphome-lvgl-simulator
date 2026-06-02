@@ -46,11 +46,31 @@ export function renderArc(config, parent) {
             const indWidth = cfg.indicator.arc_width ?? arcWidth;
             const indRounded = cfg.indicator.arc_rounded ? 'round' : rounded;
             const indicatorEl = this.makeSVGArc(ns, cx, cy, r, svgStartAngle, indicatorSpan, indWidth, indColor, indRounded);
+            indicatorEl.classList.add('arc-indicator');
             if (isLambda) indicatorEl.setAttribute('stroke-dasharray', '8 4');
             if (cfg.indicator.arc_opa !== undefined) indicatorEl.setAttribute('stroke-opacity', this.parseOpacity(cfg.indicator.arc_opa));
             svg.appendChild(indicatorEl);
         }
     }
+
+    const el = svg;
+
+    el.addEventListener('lvgl-arc-update', (e) => {
+        const newVal = e.detail.value;
+        const svgEl = el.tagName.toLowerCase() === 'svg' ? el : el.querySelector('svg');
+        if (!svgEl) return;
+
+        const minVal = cfg.min_value ?? 0;
+        const maxVal = cfg.max_value ?? 100;
+        const clamped = Math.max(minVal, Math.min(maxVal, newVal));
+        const pct = maxVal > minVal ? (clamped - minVal) / (maxVal - minVal) : 0;
+
+        const indicatorPath = svgEl.querySelector('.arc-indicator');
+        if (indicatorPath) {
+            const newD = _computeArcIndicatorPath(cfg, pct, cx, cy, r, arcWidth, rounded);
+            if (newD) indicatorPath.setAttribute('d', newD);
+        }
+    });
 
     if (cfg.widgets) {
         const wrapper = document.createElement('div');
@@ -65,10 +85,48 @@ export function renderArc(config, parent) {
             if (childEl) overlay.appendChild(childEl);
         });
         wrapper.appendChild(overlay);
+
+        wrapper.addEventListener('lvgl-arc-update', (e) => {
+            const newVal = e.detail.value;
+            const svgEl = wrapper.querySelector('svg');
+            if (!svgEl) return;
+
+            const minVal = cfg.min_value ?? 0;
+            const maxVal = cfg.max_value ?? 100;
+            const clamped = Math.max(minVal, Math.min(maxVal, newVal));
+            const pct = maxVal > minVal ? (clamped - minVal) / (maxVal - minVal) : 0;
+
+            const indicatorPath = svgEl.querySelector('.arc-indicator');
+            if (indicatorPath) {
+                const newD = _computeArcIndicatorPath(cfg, pct, cx, cy, r, arcWidth, rounded);
+                if (newD) indicatorPath.setAttribute('d', newD);
+            }
+        });
+
         return wrapper;
     }
 
     return svg;
+}
+
+function _computeArcIndicatorPath(cfg, pct, cx, cy, r, arcWidth, rounded) {
+    const startAngle = cfg.start_angle ?? 135;
+    const endAngle = cfg.end_angle ?? 45;
+    const svgStartAngle = startAngle - 90;
+    const svgEndAngle = endAngle - 90;
+    const totalSpan = ((svgEndAngle - svgStartAngle) + 360) % 360 || 360;
+    const indicatorSpan = pct * totalSpan;
+    if (indicatorSpan <= 0) return null;
+
+    const ns = 'http://www.w3.org/2000/svg';
+    const toRad = d => d * Math.PI / 180;
+    const endDeg = svgStartAngle + indicatorSpan;
+    const x1 = cx + r * Math.cos(toRad(svgStartAngle));
+    const y1 = cy + r * Math.sin(toRad(svgStartAngle));
+    const x2 = cx + r * Math.cos(toRad(endDeg));
+    const y2 = cy + r * Math.sin(toRad(endDeg));
+    const largeArc = indicatorSpan > 180 ? 1 : 0;
+    return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
 }
 
 export function makeSVGArc(ns, cx, cy, r, startDeg, spanDeg, strokeWidth, color, linecap) {
