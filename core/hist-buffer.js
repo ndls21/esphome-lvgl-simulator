@@ -36,6 +36,35 @@ class HistBuffer {
   }
 
   get count() { return this._count; }
+
+  // Get max of all stored values (ignoring NaN)
+  get_max() {
+    let max = -Infinity;
+    for (let i = 0; i < this._count; i++) {
+      const v = this._data[i];
+      if (!isNaN(v) && v > max) max = v;
+    }
+    return max === -Infinity ? NaN : max;
+  }
+
+  // Get min of all stored values (ignoring NaN)
+  get_min() {
+    let min = Infinity;
+    for (let i = 0; i < this._count; i++) {
+      const v = this._data[i];
+      if (!isNaN(v) && v < min) min = v;
+    }
+    return min === Infinity ? NaN : min;
+  }
+
+  // Get count of non-NaN values
+  get_count() {
+    let n = 0;
+    for (let i = 0; i < this._count; i++) {
+      if (!isNaN(this._data[i])) n++;
+    }
+    return n;
+  }
 }
 
 // HistBufferArray — array of 4 HistBuffer instances (one per resolution)

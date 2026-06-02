@@ -22,10 +22,11 @@ const _constrainImpl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const _mapImpl = (v, il, ih, ol, oh) => ol + (v - il) * (oh - ol) / (ih - il);
 
 export class LambdaEvaluator {
-    constructor(store, proxy = null, histProxy = null) {
+    constructor(store, proxy = null, histProxy = null, histArrays = {}) {
         this.store = store;
         this._proxy = proxy;
         this._histProxy = histProxy;
+        this._histArrays = histArrays;
         this._cache = new Map();
     }
 
@@ -63,11 +64,21 @@ export class LambdaEvaluator {
         const translated = this._translate(body);
         if (translated === null) return fallback;
         try {
-            if (!this._cache.has(body)) {
+            const arrayNames = Object.keys(this._histArrays || {});
+            const cacheKey = body;
+            if (!this._cache.has(cacheKey)) {
                 // eslint-disable-next-line no-new-func
-                this._cache.set(body, new Function('__store__', '_sprintf', '_constrain', '_map', '__lvgl__', '__hist__', 'history_ready', 'millis', 'NAN', 'INFINITY', 'M_PI', 'fridge_dmm', 'van_dmm', 'outside_dmm', 'battery_dmm', translated));
+                this._cache.set(cacheKey, new Function(
+                    '__store__', '_sprintf', '_constrain', '_map', '__lvgl__', '__hist__',
+                    'history_ready', 'millis', 'NAN', 'INFINITY', 'M_PI',
+                    'fridge_dmm', 'van_dmm', 'outside_dmm', 'battery_dmm',
+                    ...arrayNames,
+                    translated
+                ));
             }
-            const result = this._cache.get(body)(this.store,
+            const arrayVals = arrayNames.map(n => this._histArrays[n]);
+            const result = this._cache.get(cacheKey)(
+                this.store,
                 (fmt, ...a) => _sprintfImpl(fmt, a),
                 _constrainImpl,
                 _mapImpl,
@@ -81,7 +92,9 @@ export class LambdaEvaluator {
                 typeof fridge_dmm !== 'undefined' ? fridge_dmm : null,
                 typeof van_dmm !== 'undefined' ? van_dmm : null,
                 typeof outside_dmm !== 'undefined' ? outside_dmm : null,
-                typeof battery_dmm !== 'undefined' ? battery_dmm : null);
+                typeof battery_dmm !== 'undefined' ? battery_dmm : null,
+                ...arrayVals
+            );
             return result ?? fallback;
         } catch (e) {
             return fallback;
@@ -179,6 +192,10 @@ export class LambdaEvaluator {
         b = b.replace(/\bid\s*\(\s*(\w+)\s*\)\s*->\s*index\b/g,
             (_, pageId) => `(__store__.get('${pageId}') || {}).index`);
 
+        // id(comp)->get_current_page() → __lvgl__.getCurrentPage()
+        b = b.replace(/id\(\w+\)\s*->\s*get_current_page\s*\(\s*\)/g,
+            '__lvgl__.getCurrentPage()');
+
         // Page navigation: id(lvgl_comp)->show_page(id(PAGE), anim, duration)
         b = b.replace(/id\(\w+\)\s*->\s*show_page\s*\(\s*id\((\w+)\)[^)]*\)/g,
             (_, pageId) => `__lvgl__.showPage('${pageId}')`);
@@ -267,6 +284,22 @@ export class LambdaEvaluator {
         // store.set triggers on_value subscriptions via subscribe mechanism
         b = b.replace(/\bid\s*\(\s*(\w+)\s*\)\s*\.\s*publish_state\s*\(\s*([^)]+)\)/g,
             (_, sensorId, val) => `__store__.set('${sensorId}', ${val.trim()})`);
+
+        // ESPHome component namespace access → mock values
+        b = b.replace(/\bwifi\s*::\s*global_wifi_component\s*->\s*is_connected\s*\(\s*\)/g,
+            "__store__.get('wifi_connected') || false");
+        b = b.replace(/\bapi\s*::\s*global_api_server\s*->\s*is_connected\s*\(\s*\)/g,
+            "__store__.get('api_connected') || false");
+        b = b.replace(/\bapi\s*::\s*global_api_server\s*->\s*get_client_count\s*\(\s*\)/g, '0');
+
+        // General namespace:: stripping — remove any remaining namespace::identifier patterns
+        // This must run before _isUntranslatable() which rejects :: as untranslatable
+        b = b.replace(/\b\w+\s*::\s*(\w+)/g, '$1');
+
+        // C++11 lambda syntax: auto funcname = [...](params) { body }
+        // Replace entire signature with a variadic JS arrow function to prevent SyntaxError
+        b = b.replace(/\bauto\s+(\w+)\s*=\s*\[[^\]]*\]\s*\([^)]*\)\s*(?:->\s*\w+\s*)?\{/g,
+            (_, name) => `let ${name} = (..._args) => {`);
 
         // Strip remaining component method calls (prevent ReferenceError)
         b = b.replace(/id\(\w+\)\s*->\s*\w+\s*\([^)]*\)\s*;?/g, '/* component call */');
@@ -413,6 +446,11 @@ export class LambdaEvaluator {
         // .c_str() — no-op in JS
         js = js.replace(/\.c_str\(\)/g, '');
 
+        // std::string .length() / .size() → .length property; .empty() → length check
+        js = js.replace(/\.length\s*\(\s*\)/g, '.length');
+        js = js.replace(/\.size\s*\(\s*\)/g, '.length');
+        js = js.replace(/\.empty\s*\(\s*\)/g, '.length === 0');
+
         // C-style casts: (int)expr → Math.round(expr), (float)/(double) → no-op
         js = js.replace(/\(int\)\s*([^\s;,)]+)/g, 'Math.round($1)');
         js = js.replace(/\(float\)\s*/g, '');
@@ -470,11 +508,14 @@ export class LambdaEvaluator {
             }
             const translated = this._translate(body);
             if (translated === null) return;
+            const arrayNames = Object.keys(this._histArrays || {});
+            const arrayVals = arrayNames.map(n => this._histArrays[n]);
             // eslint-disable-next-line no-new-func
             const fn = new Function(
                 '__store__', '_sprintf', '_constrain', '_map', '__lvgl__', '__hist__', 'history_ready', 'millis',
                 'NAN', 'INFINITY', 'M_PI',
                 'fridge_dmm', 'van_dmm', 'outside_dmm', 'battery_dmm',
+                ...arrayNames,
                 'x', 'id',
                 translated
             );
@@ -492,6 +533,7 @@ export class LambdaEvaluator {
                 typeof van_dmm !== 'undefined' ? van_dmm : null,
                 typeof outside_dmm !== 'undefined' ? outside_dmm : null,
                 typeof battery_dmm !== 'undefined' ? battery_dmm : null,
+                ...arrayVals,
                 xValue, xValue
             );
         } catch (e) {
@@ -509,8 +551,7 @@ export class LambdaEvaluator {
         if (/\bstd::/.test(js)) return true;
         // new / delete operators
         if (/\bnew\s+\w|\bdelete\s+/.test(js)) return true;
-        // Remaining :: scope resolution (not part of a translated call)
-        if (/::/.test(js)) return true;
+        // Note: :: scope resolution is now stripped in _translateLVGLCalls, so no check here.
         return false;
     }
 }

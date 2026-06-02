@@ -281,6 +281,11 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
       if (simulator) simulator.setPaused?.(paused);
     },
 
+    getCurrentPage() {
+      // Return the current page index in the simulator
+      return simulator?.currentPageIndex ?? 0;
+    },
+
     // Touch mirror/swap — no-ops (coordinate remapping not supported in simulator)
     setMirrorX(v) { /* no-op */ },
     setMirrorY(v) { /* no-op */ },

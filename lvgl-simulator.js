@@ -145,7 +145,22 @@ class ESPHomeLVGLSimulator {
                 return getOrCreateHistBuffer(name).get(parseInt(res) || 0);
             }
         };
-        this.lambda = new LambdaEvaluator(this.store, null, histProxy);
+        // Build direct-access Proxy objects for each named HistBuffer array so lambdas
+        // can access e.g. solar_pv_hist[res].ordered_value(i) directly by name.
+        const knownHistBuffers = [
+            'batt_v_hist', 'batt_i_hist', 'batt_soc_hist',
+            'solar_pv_hist', 'solar_charge_hist',
+            'mains_power_hist', 'mains_current_hist',
+            'dcdc_in_v_hist', 'dcdc_out_v_hist', 'dcdc_in_a_hist', 'dcdc_out_a_hist', 'dcdc_pwr_hist',
+            'fridge_hist', 'van_hist', 'outside_hist', 'battery_hist',
+        ];
+        const histArrays = {};
+        knownHistBuffers.forEach(name => {
+            histArrays[name] = new Proxy({}, {
+                get(_, res) { return getOrCreateHistBuffer(name).get(parseInt(res) || 0); }
+            });
+        });
+        this.lambda = new LambdaEvaluator(this.store, null, histProxy, histArrays);
         this.theme = {};
         this.currentWidgetType = '';
         this._renderedElements = {};
