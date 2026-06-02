@@ -170,6 +170,7 @@ class ESPHomeLVGLSimulator {
         this.currentPageIndex = 0;
         this.displayOverride = null;
         this._currentRotation = 0;
+        this._topLayerEl = null;
         this._onLoadTimer = null;
         this._screensaver = null;
         this._intervalsEnabled = false;
@@ -401,11 +402,6 @@ class ESPHomeLVGLSimulator {
         if (savedHost) document.getElementById('liveHost').value = savedHost;
         if (savedProxy) document.getElementById('liveProxyUrl').value = savedProxy;
 
-        // Wire display click to reset screensaver inactivity timer
-        this.displayElement?.addEventListener('pointerdown', () => {
-            this._screensaver?.triggerActivity();
-        });
-
         // Interval runner UI controls
         document.getElementById('intervalsEnable')?.addEventListener('change', e => {
             this._intervalsEnabled = e.target.checked;
@@ -467,6 +463,24 @@ class ESPHomeLVGLSimulator {
         });
     }
 
+    _transformPointerCoords(clientX, clientY) {
+        const display = document.getElementById(this._displayElId || 'lvglDisplay');
+        if (!display) return { x: clientX, y: clientY };
+        const rect = display.getBoundingClientRect();
+        // Coords relative to display
+        let x = clientX - rect.left;
+        let y = clientY - rect.top;
+        const w = rect.width;
+        const h = rect.height;
+        // Inverse transform based on rotation (undo CSS rotation)
+        switch (this._currentRotation) {
+            case 90:  return { x: y,         y: w - x };
+            case 180: return { x: w - x,     y: h - y };
+            case 270: return { x: h - y,     y: x     };
+            default:  return { x,            y        };
+        }
+    }
+
     _initSwipeHandlers() {
         const display = document.getElementById('lvglDisplay');
         if (!display) return;
@@ -477,12 +491,15 @@ class ESPHomeLVGLSimulator {
         const MAX_CROSS = 80;
 
         display.addEventListener('pointerdown', (e) => {
-            startX = e.clientX; startY = e.clientY; startTime = Date.now();
+            const c = this._transformPointerCoords(e.clientX, e.clientY);
+            startX = c.x; startY = c.y; startTime = Date.now();
+            this._screensaver?.triggerActivity();
         });
 
         display.addEventListener('pointerup', (e) => {
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
+            const c = this._transformPointerCoords(e.clientX, e.clientY);
+            const dx = c.x - startX;
+            const dy = c.y - startY;
             const dt = Date.now() - startTime;
             if (dt > MAX_SWIPE_TIME) return;
 
@@ -498,6 +515,7 @@ class ESPHomeLVGLSimulator {
             if (dir) this._handleSwipe(dir);
         });
     }
+
 
     _handleSwipe(dir) {
         const page = this.pages[this.currentPageIndex];
@@ -889,6 +907,7 @@ lvgl:
         if (this._rerenderTimer) { clearTimeout(this._rerenderTimer); this._rerenderTimer = null; }
 
         try {
+            this._topLayerEl = null;
             this.styleDefinitions = {};
             (this.config.lvgl.style_definitions || []).forEach(def => {
                 if (def.id) {
@@ -1175,7 +1194,13 @@ lvgl:
     }
 
     renderPageInto(page, container) {
+        // Preserve top-layer element registrations across page navigation
         this._renderedElements = {};
+        if (this._topLayerEl) {
+            this._topLayerEl.querySelectorAll('[data-lvgl-id]').forEach(el => {
+                this._renderedElements[el.dataset.lvglId] = el;
+            });
+        }
         this._deferredAlignments = [];
 
         const pageEl = document.createElement('div');
@@ -1202,8 +1227,8 @@ lvgl:
         // Wire up the proxy now that _renderedElements is populated
         this.lambda._proxy = this._buildLVGLProxy();
 
-        // Render top_layer widgets on top of page content
-        this._renderTopLayer(container);
+        // Render top_layer widgets on top of page content (persistent across page navigation)
+        this._ensureTopLayer();
 
         // Fire on_load handler if present
         if (page.on_load) {
@@ -1215,13 +1240,18 @@ lvgl:
         }
     }
 
-    _renderTopLayer(container) {
-        // Remove any existing top layer overlay within this container
-        const existing = container.querySelector('#lvgl-top-layer');
-        if (existing) existing.remove();
-
+    _ensureTopLayer() {
         const topLayerCfg = this.config?.lvgl?.top_layer;
-        if (!topLayerCfg || !topLayerCfg.widgets) return;
+        if (!topLayerCfg?.widgets) return;
+
+        // Create once and keep — only rebuild when config changes (render() resets _topLayerEl)
+        if (this._topLayerEl && document.body.contains(this._topLayerEl)) return;
+
+        const display = document.getElementById(this._displayElId || 'lvglDisplay');
+        if (!display) return;
+
+        // Remove old one if it exists but got detached
+        if (this._topLayerEl) this._topLayerEl.remove();
 
         const topEl = document.createElement('div');
         topEl.id = 'lvgl-top-layer';
@@ -1232,18 +1262,23 @@ lvgl:
             if (el) {
                 // Top-layer widgets need pointer events for buttons/interactive elements
                 el.style.pointerEvents = 'auto';
-                topEl.appendChild(el);
             }
         });
 
-        container.appendChild(topEl);
+        display.appendChild(topEl);
+        this._topLayerEl = topEl;
+
+        // Re-register top-layer elements now that they exist
+        topEl.querySelectorAll('[data-lvgl-id]').forEach(el => {
+            this._renderedElements[el.dataset.lvglId] = el;
+        });
 
         // Fire on_load for top_layer if present
         if (topLayerCfg.on_load) {
             setTimeout(() => {
                 this.lambda._proxy = this._buildLVGLProxy();
                 this.lambda.evaluate(topLayerCfg.on_load, null);
-            }, 50);
+            }, 60);
         }
     }
 
@@ -1348,7 +1383,10 @@ lvgl:
         }
 
         if (el) {
-            if (cfg && cfg.id) this._renderedElements[cfg.id] = el;
+            if (cfg && cfg.id) {
+                this._renderedElements[cfg.id] = el;
+                el.dataset.lvglId = cfg.id;
+            }
             if (cfg && cfg.align_to) this._deferredAlignments.push({ el, alignTo: cfg.align_to });
         }
         return el;
