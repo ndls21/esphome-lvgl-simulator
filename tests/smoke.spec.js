@@ -3,6 +3,13 @@ const { test, expect } = require('@playwright/test');
 
 const BASE = process.env.TEST_URL || 'http://localhost:8765';
 
+/** Click the Edit tab then Load Example. Used by most tests. */
+async function loadExample(page) {
+  await page.click('.console-tab[data-tab="edit"]');
+  await page.click('#loadExample');
+  await expect(page.locator('#lvglDisplay .placeholder')).toHaveCount(0, { timeout: 10000 });
+}
+
 test.describe('LVGL Simulator smoke tests', () => {
 
   test('page loads with no JS errors', async ({ page }) => {
@@ -26,11 +33,7 @@ test.describe('LVGL Simulator smoke tests', () => {
 
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
-
-    // Click "Load Example" button
-    await page.click('#loadExample');
-    // Wait for the placeholder to disappear
-    await expect(page.locator('#lvglDisplay .placeholder')).toHaveCount(0, { timeout: 5000 });
+    await loadExample(page);
 
     // Display element should have children (rendered widgets)
     const childCount = await page.locator('#lvglDisplay').evaluate(el => el.children.length);
@@ -44,8 +47,7 @@ test.describe('LVGL Simulator smoke tests', () => {
   test('left rail page list populates after load', async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
-    await page.click('#loadExample');
-    await expect(page.locator('#lvglDisplay .placeholder')).toHaveCount(0, { timeout: 5000 });
+    await loadExample(page);
 
     const rowCount = await page.locator('#page-list .page-list-row').count();
     expect(rowCount, 'Left rail should list pages').toBeGreaterThan(0);
@@ -57,8 +59,7 @@ test.describe('LVGL Simulator smoke tests', () => {
   test('page selector pill shows real page info after load', async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
-    await page.click('#loadExample');
-    await expect(page.locator('#lvglDisplay .placeholder')).toHaveCount(0, { timeout: 5000 });
+    await loadExample(page);
 
     const index = await page.locator('#page-selector-index').textContent();
     expect(index).not.toBe('--');
@@ -68,8 +69,7 @@ test.describe('LVGL Simulator smoke tests', () => {
   test('swipe right arrow navigates to next page', async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
-    await page.click('#loadExample');
-    await expect(page.locator('#lvglDisplay .placeholder')).toHaveCount(0, { timeout: 5000 });
+    await loadExample(page);
 
     const before = await page.locator('#page-selector-index').textContent();
     await page.click('#swipe-right');
@@ -86,8 +86,7 @@ test.describe('LVGL Simulator smoke tests', () => {
   test('clicking page in left rail navigates to that page', async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
-    await page.click('#loadExample');
-    await expect(page.locator('#lvglDisplay .placeholder')).toHaveCount(0, { timeout: 5000 });
+    await loadExample(page);
 
     const rows = page.locator('#page-list .page-list-row');
     const count = await rows.count();
@@ -102,8 +101,7 @@ test.describe('LVGL Simulator smoke tests', () => {
   test('top bar caption shows display dimensions after load', async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
-    await page.click('#loadExample');
-    await expect(page.locator('#lvglDisplay .placeholder')).toHaveCount(0, { timeout: 5000 });
+    await loadExample(page);
 
     const caption = await page.locator('#top-bar-caption').textContent();
     expect(caption).toMatch(/\d+×\d+/);

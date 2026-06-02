@@ -30,7 +30,7 @@ jobs:
         run: npx playwright test --reporter=list
 
       - name: Commit screenshots to branch
-        if: always()
+        if: always() && github.event_name == 'pull_request'
         run: |
           mkdir -p test-screenshots
           find test-results -name "*.png" -exec cp {} test-screenshots/ \; 2>/dev/null || true
@@ -38,5 +38,6 @@ jobs:
             git config user.email "ci@github.com"
             git config user.name "CI Bot"
             git add test-screenshots/
-            git diff --cached --quiet || git commit -m "ci: update smoke test screenshots [skip ci]" && git push
+            git diff --cached --quiet || git commit -m "ci: update smoke test screenshots [skip ci]" && \
+              git push origin HEAD:${{ github.head_ref }}
           fi
