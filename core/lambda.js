@@ -407,6 +407,18 @@ export class LambdaEvaluator {
         b = b.replace(/\b(\w+_dmm)\s*\.\s*record\s*\(\s*([^,]+),\s*[^,]+,\s*[^)]+\)/g,
             (_, dmmName, val) => `(typeof ${dmmName}!=='undefined' && ${dmmName}.setMinMax ? ${dmmName}.setMinMax(${val.trim()}) : null)`);
 
+        // Border style translations
+        b = b.replace(new RegExp(`lv_obj_set_style_border_color\\s*\\(\\s*${id}\\s*,\\s*([^,]+),\\s*\\d+\\s*\\)`, 'g'),
+            (_, wid, color) => `__lvgl__.setBorderColor('${wid}', ${color.trim()})`);
+        b = b.replace(new RegExp(`lv_obj_set_style_border_width\\s*\\(\\s*${id}\\s*,\\s*([^,]+),\\s*\\d+\\s*\\)`, 'g'),
+            (_, wid, width) => `__lvgl__.setBorderWidth('${wid}', ${width.trim()})`);
+        b = b.replace(new RegExp(`lv_obj_set_style_border_opa\\s*\\(\\s*${id}\\s*,\\s*([^,]+),\\s*\\d+\\s*\\)`, 'g'),
+            (_, wid, opa) => `__lvgl__.setBorderOpacity('${wid}', ${opa.trim()})`);
+
+        // lv_arc_set_range(id(arc), min, max)
+        b = b.replace(new RegExp(`lv_arc_set_range\\s*\\(\\s*${id}\\s*,\\s*([^,]+),\\s*([^)]+)\\)`, 'g'),
+            (_, wid, min, max) => `__lvgl__.setArcRange('${wid}', ${min.trim()}, ${max.trim()})`);
+
         // Strip remaining unhandled lv_* function *calls* (standalone statements only)
         b = b.replace(/(^|\n)([ \t]*)(lv_\w+\s*\([^)]*\)\s*;)/g,
             (_, nl, indent, call) => `${nl}${indent}/* unhandled: ${call} */`);
@@ -561,13 +573,39 @@ export class LambdaEvaluator {
 
         // Main pass: static TYPE varname = initVal
         // → if (!__statics__.has('varname')) __statics__.set('varname', initVal); let varname = __statics__.get('varname')
-        // TODO: mutations to static vars (varname = newVal) are not written back to __statics__,
-        // so changes won't persist across calls. The init-read alone fixes the reset-to-zero problem.
+        // Collect static variable names so we can add write-back lines below.
+        const staticNames = new Set();
         b = b.replace(
             /\bstatic\s+(?:const\s+)?(?:unsigned\s+)?(?:\w+)\s+(\w+)\s*=\s*([^,;\n]+)/g,
-            (_, name, init) =>
-                `if (!__statics__.has('${name}')) __statics__.set('${name}', ${init.trim()}); let ${name} = __statics__.get('${name}')`
+            (_, name, init) => {
+                staticNames.add(name);
+                return `if (!__statics__.has('${name}')) __statics__.set('${name}', ${init.trim()}); let ${name} = __statics__.get('${name}')`;
+            }
         );
+
+        // Write-back pass: after any assignment to a static var, sync back to __statics__
+        // so mutations persist across invocations.  We skip lines that already contain
+        // __statics__ (the init lines produced above) to avoid double-appending.
+        if (staticNames.size > 0) {
+            const lines = b.split('\n');
+            b = lines.map(line => {
+                if (line.includes('__statics__')) return line;
+                let l = line;
+                for (const name of staticNames) {
+                    // Compound assignments: name += / name -= / name *= / name /=
+                    l = l.replace(
+                        new RegExp(`\\b${name}\\b\\s*[+\\-*/]?=(?!=)\\s*[^;]+`, 'g'),
+                        match => `${match}; __statics__.set('${name}', ${name})`
+                    );
+                    // Post-increment / post-decrement: name++ / name--
+                    l = l.replace(new RegExp(`\\b${name}\\b\\s*\\+\\+`, 'g'),
+                        `${name}++; __statics__.set('${name}', ${name})`);
+                    l = l.replace(new RegExp(`\\b${name}\\b\\s*--`, 'g'),
+                        `${name}--; __statics__.set('${name}', ${name})`);
+                }
+                return l;
+            }).join('\n');
+        }
 
         // Typed variable declarations with optional initialiser
         const typeKeywords = '(?:const\\s+)?(?:unsigned\\s+)?(?:' + [

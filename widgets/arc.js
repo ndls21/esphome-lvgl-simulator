@@ -72,6 +72,13 @@ export function renderArc(config, parent) {
         }
     });
 
+    el.addEventListener('lvgl-arc-range-update', (e) => {
+        cfg.min_value = e.detail.min;
+        cfg.max_value = e.detail.max;
+        const currentVal = parseFloat(el.dataset.arcValue ?? cfg.value ?? cfg.min_value ?? 0);
+        el.dispatchEvent(new CustomEvent('lvgl-arc-update', { detail: { value: currentVal } }));
+    });
+
     if (cfg.widgets) {
         const wrapper = document.createElement('div');
         wrapper.style.cssText = 'position:absolute;width:0;height:0;top:0;left:0;';

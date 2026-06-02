@@ -143,6 +143,33 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
     setHeight(id, h)    { const el = getEl(id); if (el) el.style.height = h+'px'; },
     setPos(id, x, y)    { const el = getEl(id); if (el) { el.style.position='absolute'; el.style.left=x+'px'; el.style.top=y+'px'; } },
 
+    // Border styles
+    setBorderColor(id, hex) {
+      const el = getEl(id); if (!el) return;
+      el.style.borderColor = typeof hex === 'string' ? hex : `#${Number(hex).toString(16).padStart(6, '0')}`;
+    },
+    setBorderWidth(id, w) {
+      const el = getEl(id); if (!el) return;
+      el.style.borderWidth = (Number(w) || 0) + 'px';
+      el.style.borderStyle = 'solid';
+    },
+    setBorderOpacity(id, opa) {
+      const el = getEl(id); if (!el) return;
+      // LVGL opa is 0-255; approximate by setting the element's border-color alpha
+      // Full solution would need rgba parsing; this is a best-effort for simulator
+      el.style.opacity = (Number(opa) / 255).toFixed(2);
+    },
+
+    // Arc range
+    setArcRange(id, min, max) {
+      const el = getEl(id); if (!el) return;
+      el.dataset.arcMin = min;
+      el.dataset.arcMax = max;
+      el.dispatchEvent(new CustomEvent('lvgl-arc-range-update', {
+        detail: { min: Number(min), max: Number(max) }
+      }));
+    },
+
     // Arc value
     setArcValue(id, val) {
       const el = getEl(id);
