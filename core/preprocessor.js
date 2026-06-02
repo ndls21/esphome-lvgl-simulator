@@ -158,18 +158,33 @@ async function _resolveTextIncludes(text, baseUrl, visited = new Set(), fileMap 
     // We do a line-by-line pass so we can handle indentation
     const lines = text.split('\n');
     const output = [];
+    let inPackagesSection = false;
     for (const line of lines) {
+        // Track 'packages:' top-level section — its entries are handled by _resolvePackages,
+        // not inline expansion, so we must leave __include__: strings intact there.
+        if (/^packages\s*:/.test(line)) {
+            inPackagesSection = true;
+        } else if (/^\S/.test(line) && line.trim() && !line.trim().startsWith('#')) {
+            inPackagesSection = false;
+        }
+
         const m = line.match(/^(\s*)((?:[^"]*:\s*)?)\"__include__:(.+?)\"\s*$/);
         if (!m) { output.push(line); continue; }
         const [, indent, keyPart, inclPath] = m;
 
-        if (!baseUrl) {
-            output.push(indent + (keyPart || '') + `# [include: ${inclPath} - no base URL to resolve]`);
+        // packages: section entries must stay as strings for _resolvePackages
+        if (inPackagesSection) { output.push(line); continue; }
+
+        // Resolve to a URL (absolute) or a fileMap key (relative path)
+        let url = _resolveUrl(baseUrl, inclPath);
+        if (!url && fileMap && fileMap[inclPath] !== undefined) {
+            url = inclPath; // use relative path as fileMap key
+        }
+        if (!url) {
+            // Can't resolve — leave line intact (don't convert to a comment)
+            output.push(line);
             continue;
         }
-
-        const url = _resolveUrl(baseUrl, inclPath);
-        if (!url) { output.push(line); continue; }
 
         // Guard against circular includes
         if (visited.has(url)) { output.push(line); continue; }
@@ -179,7 +194,8 @@ async function _resolveTextIncludes(text, baseUrl, visited = new Set(), fileMap 
         if (!fetched) { output.push(line); continue; }
 
         // Recurse into fetched content
-        const newBase = new URL('.', url).href;
+        let newBase = null;
+        try { newBase = new URL('.', url).href; } catch { /* relative fileMap path — sub-includes resolved via fileMap */ }
         const { text: preprocessedFetched } = preprocessYAML(fetched);
         const resolvedFetched = await _resolveTextIncludes(preprocessedFetched, newBase, visited, fileMap);
 
@@ -213,9 +229,12 @@ async function _resolvePackages(config, baseUrl, warnings, visited = new Set(), 
             const m = entry.match(/^__include__:(.+)$/);
             if (m) {
                 url = _resolveUrl(baseUrl, m[1]);
-                if (!url && baseUrl === null) {
-                    warnings.push(`Package "${name}" (${m[1]}) could not be loaded — no base URL.`);
+                // No baseUrl (ZIP/folder load) — try relative path directly against fileMap
+                if (!url && fileMap) {
+                    const relPath = m[1];
+                    if (Object.keys(fileMap).some(k => k === relPath)) url = relPath;
                 }
+                if (!url) warnings.push(`Package "${name}" (${m[1]}) could not be loaded — no base URL.`);
             } else if (/^https?:\/\//i.test(entry)) {
                 url = entry;
             }
@@ -242,7 +261,9 @@ async function _resolvePackages(config, baseUrl, warnings, visited = new Set(), 
             continue;
         }
 
-        const newBase = new URL('.', url).href;
+        // url may be a relative fileMap path (no base URL) — handle gracefully
+        let newBase = null;
+        try { newBase = new URL('.', url).href; } catch { /* relative path — sub-includes use fileMap */ }
         let pkgConfig;
         try {
             const { text: pre } = preprocessYAML(text);
