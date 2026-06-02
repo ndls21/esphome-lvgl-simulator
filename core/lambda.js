@@ -88,8 +88,8 @@ export class LambdaEvaluator {
 
         js = js.replace(/^return\s+/, '').replace(/;+$/, '').trim();
 
-        // Global writes (id(x) = val) are read-only in the simulator — untranslatable
-        if (/\bid\s*\(\s*\w+\s*\)\s*=[^=]/.test(js)) return null;
+        // Global writes must come before read translations to avoid reads consuming id(x) first
+        js = this._translateGlobalWrites(js);
 
         js = this._translateIdHasState(js);
         js = this._translateIdState(js);
@@ -238,6 +238,34 @@ export class LambdaEvaluator {
         // Strip remaining unhandled lv_* function *calls* (standalone statements only)
         b = b.replace(/(^|\n)([ \t]*)(lv_\w+\s*\([^)]*\)\s*;)/g,
             (_, nl, indent, call) => `${nl}${indent}/* unhandled: ${call} */`);
+
+        return b;
+    }
+
+    _translateGlobalWrites(body) {
+        let b = body;
+
+        // Compound assignments first (more specific before simple)
+        // id(x) += n  →  __store__.set('x', (__store__.get('x')||0) + (n))
+        b = b.replace(/\bid\s*\(\s*(\w+)\s*\)\s*\+=\s*([^;,\)]+)/g,
+            (_, id, val) => `__store__.set('${id}', (__store__.get('${id}')||0) + (${val.trim()}))`);
+        b = b.replace(/\bid\s*\(\s*(\w+)\s*\)\s*-=\s*([^;,\)]+)/g,
+            (_, id, val) => `__store__.set('${id}', (__store__.get('${id}')||0) - (${val.trim()}))`);
+        b = b.replace(/\bid\s*\(\s*(\w+)\s*\)\s*\*=\s*([^;,\)]+)/g,
+            (_, id, val) => `__store__.set('${id}', (__store__.get('${id}')||0) * (${val.trim()}))`);
+
+        // Increment/decrement
+        b = b.replace(/\bid\s*\(\s*(\w+)\s*\)\s*\+\+/g,
+            (_, id) => `__store__.set('${id}', (__store__.get('${id}')||0) + 1)`);
+        b = b.replace(/\bid\s*\(\s*(\w+)\s*\)\s*--/g,
+            (_, id) => `__store__.set('${id}', (__store__.get('${id}')||0) - 1)`);
+        b = b.replace(/\+\+\s*id\s*\(\s*(\w+)\s*\)/g,
+            (_, id) => `__store__.set('${id}', (__store__.get('${id}')||0) + 1)`);
+
+        // Simple assignment: id(x) = expr  (must not match ==, !=, <=, >=)
+        // Use negative lookbehind for !, <, > and lookahead to avoid ==
+        b = b.replace(/\bid\s*\(\s*(\w+)\s*\)\s*=(?![=])\s*([^;,\n]+)/g,
+            (_, id, val) => `__store__.set('${id}', ${val.trim()})`);
 
         return b;
     }
