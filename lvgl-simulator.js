@@ -463,6 +463,11 @@ class ESPHomeLVGLSimulator {
 
         this._initSwipeHandlers();
 
+        // Swipe arrows act as click-to-navigate buttons (visible on mobile)
+        document.getElementById('swipe-left')?.addEventListener('click',  () => this._handleSwipe('left'));
+        document.getElementById('swipe-right')?.addEventListener('click', () => this._handleSwipe('right'));
+        document.getElementById('swipe-up')?.addEventListener('click',    () => this._handleSwipe('up'));
+
         document.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
             const map = { ArrowLeft: 'right', ArrowRight: 'left', ArrowUp: 'down', ArrowDown: 'up' };
@@ -1035,6 +1040,7 @@ lvgl:
             this._buildGPIOPanel();
 
             this.populatePageSelect();
+            this.buildPageList();
             this.renderCurrentPage();
             this.updateEntitySummary();
             this.buildDrivePanel();
@@ -1180,6 +1186,41 @@ lvgl:
         const wrap = this.pageWrap ?? true;
         document.getElementById('prevPage').disabled = this.currentPageIndex === 0 && !wrap;
         document.getElementById('nextPage').disabled = this.currentPageIndex === this.pages.length - 1 && !wrap;
+
+        // Update page selector pill
+        const pillIndex = document.getElementById('page-selector-index');
+        const pillTitle = document.getElementById('page-selector-title');
+        const curPage = this.pages[this.currentPageIndex];
+        if (pillIndex) pillIndex.textContent = `${this.currentPageIndex + 1}/${this.pages.length}`;
+        if (pillTitle) pillTitle.textContent = curPage?.id ? this.pageDisplayTitle(curPage.id) : `Page ${this.currentPageIndex + 1}`;
+
+        // Highlight active row in left rail
+        document.querySelectorAll('.page-list-row').forEach((row, idx) => {
+            row.classList.toggle('active', idx === this.currentPageIndex);
+        });
+    }
+
+    buildPageList() {
+        const listEl = document.getElementById('page-list');
+        const countEl = document.getElementById('page-count-badge');
+        if (!listEl) return;
+        listEl.innerHTML = '';
+        if (countEl) countEl.textContent = this.pages.length;
+        this.pages.forEach((page, idx) => {
+            const row = document.createElement('div');
+            row.className = 'page-list-row' + (idx === this.currentPageIndex ? ' active' : '');
+            row.innerHTML = `
+                <span class="page-list-row__index">${idx + 1}</span>
+                <span class="page-list-row__dot"></span>
+                <span class="page-list-row__title">${page.id ? this.pageDisplayTitle(page.id) : `page_${idx}`}</span>
+            `;
+            row.addEventListener('click', () => {
+                this.currentPageIndex = idx;
+                this.syncPageSelect();
+                this.renderCurrentPage('NONE');
+            });
+            listEl.appendChild(row);
+        });
     }
 
     _scheduleRerender() {
