@@ -727,6 +727,75 @@ lvgl:
         return '';
     }
 
+    _collectOnValueHandlers() {
+        this._onValueHandlers = {}; // { sensorId: lambdaStr }
+
+        const componentTypes = ['sensor', 'binary_sensor', 'text_sensor', 'number', 'switch', 'select'];
+        for (const type of componentTypes) {
+            const components = this.config[type] || [];
+            for (const comp of [].concat(components)) {
+                const id = comp.id;
+                if (!id) continue;
+
+                const onValue = comp.on_value;
+                if (!onValue) continue;
+
+                // Handle multiple YAML forms:
+                //   on_value: !lambda |...         → string after preprocessor encodes as __lambda__:...
+                //   on_value: - lambda: |...        → array with {lambda: str}
+                //   on_value: then: - lambda: |...  → object with .then array
+                let lambdaStr = null;
+                if (typeof onValue === 'string') {
+                    lambdaStr = onValue;
+                } else if (Array.isArray(onValue)) {
+                    for (const action of onValue) {
+                        if (action?.lambda) { lambdaStr = action.lambda; break; }
+                        if (action?.then) {
+                            for (const a of (Array.isArray(action.then) ? action.then : [action.then])) {
+                                if (a?.lambda) { lambdaStr = a.lambda; break; }
+                            }
+                            if (lambdaStr) break;
+                        }
+                    }
+                } else if (onValue?.then) {
+                    const then = Array.isArray(onValue.then) ? onValue.then : [onValue.then];
+                    for (const a of then) {
+                        if (a?.lambda) { lambdaStr = a.lambda; break; }
+                    }
+                } else if (onValue?.lambda) {
+                    lambdaStr = onValue.lambda;
+                }
+
+                if (lambdaStr) this._onValueHandlers[id] = lambdaStr;
+            }
+        }
+    }
+
+    _wireOnValueHandlers() {
+        if (!this._onValueHandlers) return;
+
+        // Unsubscribe any previous on_value subscriptions
+        if (this._onValueUnsubs) {
+            this._onValueUnsubs.forEach(unsub => unsub());
+        }
+        this._onValueUnsubs = [];
+
+        function debounce(fn, ms) {
+            let t;
+            return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+        }
+
+        Object.entries(this._onValueHandlers).forEach(([sensorId, lambdaStr]) => {
+            const handler = debounce((newValue) => {
+                this.lambda._proxy = this._buildLVGLProxy();
+                this.lambda.evaluateWithX(lambdaStr, newValue);
+            }, 100);
+
+            const unsub = this.store.subscribe(sensorId, handler);
+            this._onValueUnsubs.push(unsub);
+        });
+    }
+
     render() {
         if (!this.config || !this.config.lvgl) {
             this.displayError('No LVGL configuration found');
@@ -734,6 +803,7 @@ lvgl:
         }
 
         if (this._storeUnsub) { this._storeUnsub(); this._storeUnsub = null; }
+        if (this._onValueUnsubs) { this._onValueUnsubs.forEach(u => u()); this._onValueUnsubs = []; }
         if (this._rerenderTimer) { clearTimeout(this._rerenderTimer); this._rerenderTimer = null; }
 
         try {
@@ -761,6 +831,9 @@ lvgl:
                 this.displayError('No pages found in configuration');
                 return;
             }
+
+            this._collectOnValueHandlers();
+            this._wireOnValueHandlers();
 
             this.populatePageSelect();
             this.renderCurrentPage();

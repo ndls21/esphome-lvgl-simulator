@@ -375,6 +375,44 @@ export class LambdaEvaluator {
         return b;
     }
 
+    evaluateWithX(lambdaStr, xValue) {
+        // Evaluate a lambda in on_value context with 'x' bound to the new sensor value.
+        // lambdaStr may be a raw C++ string (from YAML on_value) or a __lambda__: encoded string.
+        try {
+            let body;
+            if (typeof lambdaStr === 'string' && lambdaStr.startsWith('__lambda__:')) {
+                body = decodeURIComponent(escape(atob(lambdaStr.slice(11))));
+            } else if (typeof lambdaStr === 'string') {
+                body = lambdaStr;
+            } else {
+                return;
+            }
+            const translated = this._translate(body);
+            if (translated === null) return;
+            // eslint-disable-next-line no-new-func
+            const fn = new Function(
+                '__store__', '_sprintf', '_constrain', '_map', '__lvgl__', '__hist__', 'history_ready', 'millis',
+                'NAN', 'INFINITY', 'M_PI',
+                'x', 'id',
+                translated
+            );
+            fn(
+                this.store,
+                (fmt, ...a) => _sprintfImpl(fmt, a),
+                _constrainImpl,
+                _mapImpl,
+                this._proxy || {},
+                this._histProxy || { get: () => ({ ordered_value: () => NaN }) },
+                true,
+                () => Date.now(),
+                NaN, Infinity, Math.PI,
+                xValue, xValue
+            );
+        } catch (e) {
+            console.warn('[lambda] on_value evaluation error:', e.message);
+        }
+    }
+
     _isUntranslatable(js) {
         return /\b(const\s|std::|new\s|delete\s|nullptr|->(?!>)|::)\b/.test(js);
     }
