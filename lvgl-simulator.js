@@ -1,7 +1,7 @@
 import { SimulatorStateStore } from './core/store.js';
 import { SignalGenerator } from './core/signal-generator.js';
 import { LambdaEvaluator } from './core/lambda.js';
-import { buildLVGLProxy } from './core/lvgl-proxy.js';
+import { buildLVGLProxy, clearGPIOState } from './core/lvgl-proxy.js';
 import { preprocessYAML, preprocessAndResolve } from './core/preprocessor.js';
 import { resolveIncludes } from './core/resolver.js';
 import { renderObj } from './widgets/obj.js';
@@ -189,6 +189,7 @@ class ESPHomeLVGLSimulator {
         this._intervalHandlers = [];
         this._intervalEpoch = 0;
         this._intervalStartReal = 0;
+        this._gpioPollInterval = null;
         this.displayElement = document.getElementById('lvglDisplay');
         this.yamlEditor = document.getElementById('yamlEditor');
         this.pageSelect = document.getElementById('pageSelect');
@@ -507,17 +508,18 @@ class ESPHomeLVGLSimulator {
         const display = document.getElementById(this._displayElId || 'lvglDisplay');
         if (!display) return { x: clientX, y: clientY };
         const rect = display.getBoundingClientRect();
-        // Coords relative to display
+        // Raw coords relative to display element
         let x = clientX - rect.left;
         let y = clientY - rect.top;
-        const w = rect.width;
-        const h = rect.height;
+        // Use LVGL base dimensions (pre-rotation), not CSS rendered size
+        const W = this.displayWidth  || rect.width;
+        const H = this.displayHeight || rect.height;
         // Inverse transform based on rotation (undo CSS rotation)
         switch (this._currentRotation) {
-            case 90:  return { x: y,         y: w - x };
-            case 180: return { x: w - x,     y: h - y };
-            case 270: return { x: h - y,     y: x     };
-            default:  return { x,            y        };
+            case 90:  return { x: y * W / rect.height, y: W - x * W / rect.width };
+            case 180: return { x: W - x * W / rect.width,  y: H - y * H / rect.height };
+            case 270: return { x: H - y * H / rect.height, y: x * H / rect.width  };
+            default:  return { x, y };
         }
     }
 
@@ -2396,8 +2398,9 @@ lvgl:
             container.appendChild(wrap);
         });
 
-        // Update LED states periodically
-        setInterval(() => {
+        // Update LED states periodically (clear previous interval to avoid leaks on rebuild)
+        if (this._gpioPollInterval) clearInterval(this._gpioPollInterval);
+        this._gpioPollInterval = setInterval(() => {
             pins.forEach(pin => {
                 const ledEl = document.getElementById(`gpio-led-${pin}`);
                 if (!ledEl) return;

@@ -217,12 +217,6 @@ export class LambdaEvaluator {
         b = b.replace(/\b(?:nullptr|NULL)\s*!=\s*id\s*\(\s*(\w+)\s*\)/g,
             (_, id) => `!!__store__.get('${id}')`);
 
-        // Plain variable nullptr checks (lv_obj_t* local variables like 'chart')
-        b = b.replace(/\b(\w+)\s*==\s*(?:nullptr|NULL)\b/g, (_, v) => `!${v}`);
-        b = b.replace(/\b(\w+)\s*!=\s*(?:nullptr|NULL)\b/g, (_, v) => `!!${v}`);
-        b = b.replace(/\b(?:nullptr|NULL)\s*==\s*(\w+)\b/g, (_, v) => `!${v}`);
-        b = b.replace(/\b(?:nullptr|NULL)\s*!=\s*(\w+)\b/g, (_, v) => `!!${v}`);
-
         // Chart API — must come BEFORE the catch-all lv_* stripper
 
         // LV_CHART_POINT_NONE / type constants
@@ -665,6 +659,10 @@ export class LambdaEvaluator {
                 return l;
             }).join('\n');
         }
+
+        // Deduplicate consecutive __statics__.set calls for the same key on the same line
+        // (can occur when a static var appears multiple times in a compound expression)
+        b = b.replace(/(; __statics__\.set\('(\w+)', \w+\))\s*; __statics__\.set\('\2', \w+\)/g, '$1');
 
         // Typed variable declarations with optional initialiser
         const typeKeywords = '(?:const\\s+)?(?:unsigned\\s+)?(?:' + [

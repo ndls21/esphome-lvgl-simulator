@@ -1,5 +1,8 @@
 const LV_CHART_POINT_NONE_PROXY = -32768;
 
+// Module-level persistent GPIO state (survives proxy rebuilds on page navigation)
+const gpioState = new Map();
+
 function _drawChartInternal(c) {
   const canvas = c.canvas;
   const w = canvas.offsetWidth || canvas.width || 460;
@@ -77,6 +80,8 @@ function _drawChartInternal(c) {
   });
 }
 
+export function clearGPIOState() { gpioState.clear(); }
+
 export function buildLVGLProxy(elements, navigateFn, simulator) {
   function getEl(id) {
     if (!id || id === 'null' || id === 'undefined') return null;
@@ -88,9 +93,6 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
   // Chart state
   const charts = new Map();
   let chartHandleCounter = 1;
-
-  // Virtual GPIO state map (pin number → 0 or 1)
-  const gpioState = new Map();
 
   return {
     // Virtual GPIO
