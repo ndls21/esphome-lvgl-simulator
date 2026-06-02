@@ -166,6 +166,7 @@ class ESPHomeLVGLSimulator {
         this.theme = {};
         this.currentWidgetType = '';
         this._renderedElements = {};
+        this._selectedWidgetId = null;
         this._deferredAlignments = [];
         this.pages = [];
         this.currentPageIndex = 0;
@@ -1310,6 +1311,9 @@ lvgl:
                 this.lambda.evaluate(page.on_load, null);
             }, 50);
         }
+
+        // Populate widget tree in right rail
+        this.buildWidgetTree();
     }
 
     _ensureTopLayer() {
@@ -1458,6 +1462,12 @@ lvgl:
             if (cfg && cfg.id) {
                 this._renderedElements[cfg.id] = el;
                 el.dataset.lvglId = cfg.id;
+                el.dataset.widgetId = cfg.id;
+                el.style.cursor = 'pointer';
+                el.addEventListener('click', e => {
+                    e.stopPropagation();
+                    this.selectWidget(cfg.id, cfg);
+                });
             }
             if (cfg && cfg.align_to) this._deferredAlignments.push({ el, alignTo: cfg.align_to });
         }
@@ -2492,6 +2502,143 @@ lvgl:
         if (this._intervalRafId) {
             cancelAnimationFrame(this._intervalRafId);
             this._intervalRafId = null;
+        }
+    }
+
+    // ── Widget Tree ──────────────────────────────────────────────────────────
+
+    buildWidgetTree() {
+        const treeEl = document.getElementById('tree-body');
+        if (!treeEl) return;
+        treeEl.innerHTML = '';
+
+        const page = this.pages[this.currentPageIndex];
+        if (!page) return;
+
+        // Page section header
+        const pageHeader = document.createElement('div');
+        pageHeader.className = 'tree-section-header';
+        pageHeader.textContent = page.id || `page_${this.currentPageIndex}`;
+        treeEl.appendChild(pageHeader);
+
+        (page.widgets || []).forEach(w => this._renderTreeNode(w, treeEl, 0));
+
+        // Top layer section
+        const topWidgets = this.config?.lvgl?.top_layer?.widgets || [];
+        if (topWidgets.length > 0) {
+            const tlHeader = document.createElement('div');
+            tlHeader.className = 'tree-section-header';
+            tlHeader.textContent = 'Top layer';
+            treeEl.appendChild(tlHeader);
+            topWidgets.forEach(w => this._renderTreeNode(w, treeEl, 0));
+        }
+    }
+
+    _renderTreeNode(widgetObj, container, depth) {
+        const type = Object.keys(widgetObj)[0];
+        const cfg = widgetObj[type] || {};
+        const id = cfg.id;
+        const isHidden = cfg.hidden === true;
+
+        const ICONS = { label:'T', arc:'◯', obj:'▣', button:'▭', bar:'▬', slider:'▬', checkbox:'☑', img:'◻', meter:'◉', chart:'▤', led:'●', line:'╱', spinner:'↻', switch:'⏻', dropdown:'▾', roller:'≡' };
+
+        const node = document.createElement('div');
+        node.className = 'tree-node' + (isHidden ? ' tree-node--hidden' : '');
+        node.style.paddingLeft = `${8 + depth * 14}px`;
+        if (id) node.dataset.widgetId = id;
+        if (id === this._selectedWidgetId) node.classList.add('tree-node--selected');
+
+        node.innerHTML = `
+            <span class="tree-node-icon">${ICONS[type] || '▪'}</span>
+            <span class="tree-node-label">${id || `(${type})`}</span>
+            <span class="tree-node-type">${type}</span>
+            ${isHidden ? '<span class="tree-node-hidden">○</span>' : ''}
+        `;
+
+        if (id) {
+            node.addEventListener('click', () => this.selectWidget(id, cfg));
+        }
+        container.appendChild(node);
+
+        // Recurse into children
+        (cfg.widgets || []).forEach(child => this._renderTreeNode(child, container, depth + 1));
+    }
+
+    // ── Widget Inspector ─────────────────────────────────────────────────────
+
+    selectWidget(id, cfg) {
+        this._selectedWidgetId = id;
+        // Update right rail subtitle
+        const nameEl = document.getElementById('inspector-widget-name');
+        if (nameEl) nameEl.textContent = id;
+        // Highlight tree node
+        document.querySelectorAll('.tree-node').forEach(n => {
+            n.classList.toggle('tree-node--selected', n.dataset.widgetId === id);
+        });
+        // Populate inspector
+        this.buildInspector(cfg);
+    }
+
+    buildInspector(cfg) {
+        const el = document.getElementById('inspector-body');
+        if (!el) return;
+        el.innerHTML = '';
+
+        const type = this.currentWidgetType || 'widget';
+        const isLambda = v => v && String(v).includes('__lambda__');
+
+        // Header chip
+        const chip = document.createElement('div');
+        chip.className = 'inspector-chip';
+        const isBound = Object.values(cfg).some(v => isLambda(v));
+        chip.innerHTML = `
+            <span class="inspector-chip-icon">${type === 'label' ? 'T' : '▣'}</span>
+            <div class="inspector-chip-info">
+                <div class="inspector-chip-name">${cfg.id || '(anonymous)'}</div>
+                <div class="inspector-chip-sub">${type}</div>
+            </div>
+            ${isBound ? '<span class="inspector-bound-badge">bound</span>' : ''}
+        `;
+        el.appendChild(chip);
+
+        // Property sections
+        const SECTIONS = [
+            { title: 'Position', keys: ['align','x','y','width','height'] },
+            { title: 'Style',    keys: ['bg_color','border_color','border_width','radius','opacity','bg_opa'] },
+            { title: 'Text',     keys: ['text','text_font','text_color','text_align'] },
+            { title: 'Arc',      keys: ['min_value','max_value','value','start_angle','end_angle','arc_width','arc_color'] },
+        ];
+
+        for (const sec of SECTIONS) {
+            const fields = sec.keys
+                .filter(k => cfg[k] !== undefined)
+                .map(k => ({ k, v: cfg[k] }));
+            if (fields.length === 0) continue;
+
+            const secEl = document.createElement('div');
+            secEl.className = 'inspector-section';
+            const header = document.createElement('div');
+            header.className = 'inspector-section-title';
+            header.textContent = sec.title;
+            secEl.appendChild(header);
+
+            for (const { k, v } of fields) {
+                const row = document.createElement('div');
+                row.className = 'inspector-row';
+                const isColor = String(v).startsWith('0x') || String(v).startsWith('#');
+                const hexColor = isColor ? '#' + String(v).replace(/^0x/i,'') : null;
+                const isDriven = isLambda(v);
+                row.innerHTML = `
+                    <span class="inspector-key">${k}</span>
+                    <span class="inspector-value">
+                        ${hexColor ? `<span class="inspector-swatch" style="background:${hexColor}"></span>` : ''}
+                        ${isDriven ? '<span class="inspector-driven">↻</span>' : ''}
+                        <span>${String(v).replace('__lambda__','λ').substring(0,40)}</span>
+                    </span>
+                `;
+                secEl.appendChild(row);
+            }
+            el.appendChild(secEl);
         }
     }
 }
