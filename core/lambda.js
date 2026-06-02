@@ -333,6 +333,17 @@ export class LambdaEvaluator {
         // esp_timer_get_time() → Date.now() * 1000 (microseconds)
         b = b.replace(/\besp_timer_get_time\s*\(\s*\)/g, '(Date.now() * 1000)');
 
+        // hist_record_all(buffer_array, value, timestamp) → push value into all 4 resolution buffers
+        b = b.replace(/\bhist_record_all\s*\(\s*(\w+)\s*,\s*([^,]+),\s*([^)]+)\)/g,
+            (_, bufName, val, _ts) => {
+                const v = val.trim();
+                return `(()=>{ for(let _r=0;_r<4;_r++) { const _b = (typeof ${bufName}!=='undefined' ? ${bufName}[_r] : null); if(_b && _b.push) _b.push(isNaN(${v}) ? NaN : ${v}); } })()`;
+            });
+
+        // fridge_dmm.record(value, timestamp, epoch) → update DailyMinMax min/max
+        b = b.replace(/\b(\w+_dmm)\s*\.\s*record\s*\(\s*([^,]+),\s*[^,]+,\s*[^)]+\)/g,
+            (_, dmmName, val) => `(typeof ${dmmName}!=='undefined' && ${dmmName}.setMinMax ? ${dmmName}.setMinMax(${val.trim()}) : null)`);
+
         // Strip remaining unhandled lv_* function *calls* (standalone statements only)
         b = b.replace(/(^|\n)([ \t]*)(lv_\w+\s*\([^)]*\)\s*;)/g,
             (_, nl, indent, call) => `${nl}${indent}/* unhandled: ${call} */`);

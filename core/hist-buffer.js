@@ -132,6 +132,12 @@ class DailyMinMax {
   // Allow signal generator to update values
   setMin(v) { this._min = v; }
   setMax(v) { this._max = v; }
+  // Called by fridge_dmm.record() translation — update live min/max from a new reading
+  setMinMax(value) {
+    if (isNaN(value)) return;
+    if (value < this._min) this._min = value;
+    if (value > this._max) this._max = value;
+  }
 }
 
 // D5 instances (values are ×10 to match D5's integer encoding)

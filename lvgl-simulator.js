@@ -1192,12 +1192,47 @@ lvgl:
         // Wire up the proxy now that _renderedElements is populated
         this.lambda._proxy = this._buildLVGLProxy();
 
+        // Render top_layer widgets on top of page content
+        this._renderTopLayer(container);
+
         // Fire on_load handler if present
         if (page.on_load) {
             this._onLoadTimer = setTimeout(() => {
                 this._onLoadTimer = null;
                 this.lambda._proxy = this._buildLVGLProxy();
                 this.lambda.evaluate(page.on_load, null);
+            }, 50);
+        }
+    }
+
+    _renderTopLayer(container) {
+        // Remove any existing top layer overlay within this container
+        const existing = container.querySelector('#lvgl-top-layer');
+        if (existing) existing.remove();
+
+        const topLayerCfg = this.config?.lvgl?.top_layer;
+        if (!topLayerCfg || !topLayerCfg.widgets) return;
+
+        const topEl = document.createElement('div');
+        topEl.id = 'lvgl-top-layer';
+        topEl.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:100;overflow:hidden;';
+
+        topLayerCfg.widgets.forEach(w => {
+            const el = this.renderWidget(w, topEl);
+            if (el) {
+                // Top-layer widgets need pointer events for buttons/interactive elements
+                el.style.pointerEvents = 'auto';
+                topEl.appendChild(el);
+            }
+        });
+
+        container.appendChild(topEl);
+
+        // Fire on_load for top_layer if present
+        if (topLayerCfg.on_load) {
+            setTimeout(() => {
+                this.lambda._proxy = this._buildLVGLProxy();
+                this.lambda.evaluate(topLayerCfg.on_load, null);
             }, 50);
         }
     }
