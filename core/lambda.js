@@ -65,7 +65,7 @@ export class LambdaEvaluator {
         try {
             if (!this._cache.has(body)) {
                 // eslint-disable-next-line no-new-func
-                this._cache.set(body, new Function('__store__', '_sprintf', '_constrain', '_map', '__lvgl__', '__hist__', 'history_ready', translated));
+                this._cache.set(body, new Function('__store__', '_sprintf', '_constrain', '_map', '__lvgl__', '__hist__', 'history_ready', 'millis', 'NAN', 'INFINITY', 'M_PI', translated));
             }
             const result = this._cache.get(body)(this.store,
                 (fmt, ...a) => _sprintfImpl(fmt, a),
@@ -73,7 +73,11 @@ export class LambdaEvaluator {
                 _mapImpl,
                 this._proxy || {},
                 this._histProxy || { get: () => ({ ordered_value: () => NaN }) },
-                true);
+                true,
+                () => Date.now(),
+                NaN,
+                Infinity,
+                Math.PI);
             return result ?? fallback;
         } catch (e) {
             return fallback;
@@ -90,6 +94,8 @@ export class LambdaEvaluator {
 
         // Global writes must come before read translations to avoid reads consuming id(x) first
         js = this._translateGlobalWrites(js);
+
+        js = this._translateTypeDeclarations(js);
 
         js = this._translateIdHasState(js);
         js = this._translateIdState(js);
@@ -239,6 +245,15 @@ export class LambdaEvaluator {
         b = b.replace(/(^|\n)([ \t]*)(lv_\w+\s*\([^)]*\)\s*;)/g,
             (_, nl, indent, call) => `${nl}${indent}/* unhandled: ${call} */`);
 
+        // millis() → Date.now()
+        b = b.replace(/\bmillis\s*\(\s*\)/g, 'Date.now()');
+
+        // ESP_LOG* → strip entirely (prevent ReferenceError)
+        b = b.replace(/\bESP_LOG[IWED]\s*\([^;]*\)\s*;?/g, '/* ESP_LOG */');
+
+        // Serial.print/println → strip
+        b = b.replace(/\bSerial\.print(?:ln)?\s*\([^;]*\)\s*;?/g, '/* Serial */');
+
         return b;
     }
 
@@ -287,6 +302,20 @@ export class LambdaEvaluator {
     }
 
     _translateStrings(js) {
+        // std:: math functions → Math.*
+        js = js.replace(/\bstd::abs\s*\(/g, 'Math.abs(');
+        js = js.replace(/\bstd::ceil\s*\(/g, 'Math.ceil(');
+        js = js.replace(/\bstd::floor\s*\(/g, 'Math.floor(');
+        js = js.replace(/\bstd::round\s*\(/g, 'Math.round(');
+        js = js.replace(/\bstd::sqrt\s*\(/g, 'Math.sqrt(');
+        js = js.replace(/\bstd::pow\s*\(/g, 'Math.pow(');
+        js = js.replace(/\bstd::log\s*\(/g, 'Math.log(');
+        // Bare C math functions (no std:: prefix)
+        js = js.replace(/(?<!Math\.)\babs\s*\(/g, 'Math.abs(');
+        js = js.replace(/(?<!Math\.)\bsqrt\s*\(/g, 'Math.sqrt(');
+        js = js.replace(/(?<!Math\.)\bfabs\s*\(/g, 'Math.abs(');
+        js = js.replace(/(?<!Math\.)\bfmod\s*\(/g, '((a,b)=>a%b)(');
+
         // sprintf / esphome::str_sprintf → _sprintf
         js = js.replace(/\besphome::str_sprintf\s*\(/g, '_sprintf(');
         js = js.replace(/\bsprintf\s*\(/g, '_sprintf(');
@@ -311,9 +340,6 @@ export class LambdaEvaluator {
     }
 
     _translateArith(js) {
-        // C++ type declarations → let declarations
-        js = js.replace(/\b(int|float|double|bool|uint8_t|uint16_t|uint32_t|std::string)\s+(\w+)\s*=/g, 'let $2 =');
-
         // constrain / map → helper functions
         js = js.replace(/\bconstrain\s*\(/g, '_constrain(');
         js = js.replace(/\bmap\s*\(/g, '_map(');
@@ -321,7 +347,31 @@ export class LambdaEvaluator {
         return js;
     }
 
+    _translateTypeDeclarations(body) {
+        let b = body;
+
+        // Typed variable declarations with optional initialiser
+        const typeKeywords = '(?:const\\s+)?(?:unsigned\\s+)?(?:' + [
+            'int','float','double','bool','char','auto','void',
+            'uint8_t','uint16_t','uint32_t','uint64_t',
+            'int8_t','int16_t','int32_t','int64_t',
+            'size_t','lv_coord_t','lv_color_t','lv_opa_t'
+        ].join('|') + ')';
+
+        // Simple declaration: type varname = ...  or  type varname;
+        b = b.replace(new RegExp(`\\b${typeKeywords}\\s+(\\w+)\\s*(?==|;)`, 'g'),
+            (_, varname) => `let ${varname}`);
+
+        // Pointer declarations: lv_obj_t *varname  or  lv_chart_series_t *varname
+        b = b.replace(/\blv_\w+_t\s*\*\s*(\w+)/g, 'let $1');
+
+        // Array declarations: int arr[N] — convert to let arr = new Array(N)
+        b = b.replace(/\blet\s+(\w+)\s*\[(\d+)\]/g, 'let $1 = new Array($2)');
+
+        return b;
+    }
+
     _isUntranslatable(js) {
-        return /\b(auto\s|const\s|std::|new\s|delete\s|nullptr|->(?!>)|::)\b/.test(js);
+        return /\b(const\s|std::|new\s|delete\s|nullptr|->(?!>)|::)\b/.test(js);
     }
 }
