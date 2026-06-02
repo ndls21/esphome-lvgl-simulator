@@ -29,15 +29,10 @@ jobs:
       - name: Run smoke tests (local server)
         run: npx playwright test --reporter=list
 
-      - name: Commit screenshots to branch
-        if: always() && github.event_name == 'pull_request'
-        run: |
-          mkdir -p test-screenshots
-          find test-results -name "*.png" -exec cp {} test-screenshots/ \; 2>/dev/null || true
-          if [ "$(ls -A test-screenshots 2>/dev/null)" ]; then
-            git config user.email "ci@github.com"
-            git config user.name "CI Bot"
-            git add test-screenshots/
-            git diff --cached --quiet || git commit -m "ci: update smoke test screenshots [skip ci]" && \
-              git push origin HEAD:${{ github.head_ref }}
-          fi
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-screenshots
+          path: test-results/
+          if-no-files-found: ignore
