@@ -20,6 +20,7 @@ import { renderLine } from './widgets/line.js';
 import { renderLed } from './widgets/led.js';
 import { renderMeter } from './widgets/meter.js';
 import { renderChart, drawChart } from './widgets/chart.js';
+import { detectFeatures } from './core/feature-detector.js';
 
 function deepMergeStyles(target, source) {
   if (!source || typeof source !== 'object') return target;
@@ -779,6 +780,7 @@ lvgl:
         try {
             this.store.clear();
             raw = this.yamlEditor.value;
+            this._detectedFeatures = detectFeatures(raw);
 
             // Determine base URL from the config URL input (if present)
             const urlInputEl = document.getElementById('configFileUrl');
