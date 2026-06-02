@@ -366,6 +366,15 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
     setPaddingTop(id, val)    { const el = getEl(id); if (el) el.style.paddingTop    = (Number(val)||0) + 'px'; },
     setPaddingBottom(id, val) { const el = getEl(id); if (el) el.style.paddingBottom = (Number(val)||0) + 'px'; },
 
+    // RTTTL audio playback
+    playRTTTL(song) {
+      if (document.getElementById('audioMute')?.checked) return;
+      if (typeof rtttlPlayer !== 'undefined') rtttlPlayer.play(String(song).replace(/^["']|["']$/g, ''));
+    },
+    stopRTTTL() {
+      if (typeof rtttlPlayer !== 'undefined') rtttlPlayer.stop();
+    },
+
     // No-ops (must exist to avoid ReferenceError)
     noop() {},
   };

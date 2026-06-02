@@ -383,6 +383,12 @@ export class LambdaEvaluator {
         b = b.replace(new RegExp(`lv_label_set_text\\s*\\(\\s*${anyWidget}\\s*,\\s*`, 'g'),
             (_, widget) => `__lvgl__.setText(${widget}, `);
 
+        // RTTTL audio
+        b = b.replace(/id\(\w*rtttl\w*\)\s*->\s*play\s*\(([^)]+)\)/g,
+          (_, song) => `__lvgl__.playRTTTL(${song.trim()})`);
+        b = b.replace(/id\(\w*rtttl\w*\)\s*->\s*stop\s*\(\s*\)/g,
+          '__lvgl__.stopRTTTL()');
+
         // Strip remaining component method calls (prevent ReferenceError)
         b = b.replace(/id\(\w+\)\s*->\s*\w+\s*\([^)]*\)\s*;?/g, '/* component call */');
 
