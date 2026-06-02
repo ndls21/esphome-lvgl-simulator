@@ -6,180 +6,304 @@
     <title>ESPHome LVGL Simulator</title>
     <!-- Live URL: https://ndls21.github.io/esphome-lvgl-simulator/ -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="app-container">
-        <div class="editor-panel">
-            <div class="panel-header">
-                <h3>ESPHome LVGL Configuration</h3>
-                <div class="load-buttons">
-                    <button id="loadConfig" class="btn">Load Config</button>
-                    <button id="loadZip" class="btn">Load ZIP</button>
-                    <button id="loadFolder" class="btn">Load Folder</button>
-                </div>
+    <!-- ─── TOP BAR ─────────────────────────────────────────────────────── -->
+    <div id="top-bar">
+        <div class="top-bar-left">
+            <div class="logo-chip"></div>
+            <span class="app-title">LVGL Studio</span>
+            <span id="top-bar-caption" class="top-bar-caption"></span>
+        </div>
+        <div class="top-bar-right">
+            <!-- Load buttons -->
+            <div class="load-buttons">
+                <button id="loadConfig" class="btn">Load Config</button>
+                <button id="loadZip" class="btn">Load ZIP</button>
+                <button id="loadFolder" class="btn">Load Folder</button>
             </div>
-            <textarea id="yamlEditor" placeholder="Paste your ESPHome LVGL YAML configuration here..."></textarea>
-            <div class="controls">
-                <button id="renderPreview" class="btn btn-primary">Render Preview</button>
-                <button id="loadExample" class="btn">Load Example</button>
+            <!-- Display preset -->
+            <select id="displayPreset">
+              <option value="">Auto (from YAML)</option>
+              <option value="466x466">Waveshare 1.75" Round — 466×466</option>
+              <option value="480x480">Waveshare 2.1" Round — 480×480</option>
+              <option value="320x240">ESP32 2.8" / CYD / M5Stack — 320×240</option>
+              <option value="320x170">T-Display S3 — 320×170</option>
+              <option value="450x600">Lilygo T4 S3 — 450×600</option>
+              <option value="custom">Custom...</option>
+            </select>
+            <span id="customSizeInputs" style="display:none;align-items:center;gap:4px">
+              <input type="number" id="customWidth" placeholder="W" style="width:52px">
+              ×
+              <input type="number" id="customHeight" placeholder="H" style="width:52px">
+            </span>
+            <!-- Rotation -->
+            <label class="top-bar-label">Rotation:
+              <select id="rotationSelect">
+                <option value="0">0°</option>
+                <option value="90">90°</option>
+                <option value="180">180°</option>
+                <option value="270">270°</option>
+              </select>
+            </label>
+            <!-- Share -->
+            <button id="shareBtn" class="btn share-btn" title="Copy shareable link to clipboard">&#9138; Share</button>
+            <!-- Page selector pill -->
+            <div id="page-selector-pill" class="page-selector-pill">
+                <span id="page-selector-index" class="page-selector-index">--</span>
+                <span id="page-selector-title" class="page-selector-title">—</span>
             </div>
-            <div class="url-input-row" style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px;">
-                <label for="configFileUrl" style="white-space:nowrap;color:#aaa;">Config URL (for package resolution):</label>
-                <input type="text" id="configFileUrl"
-                       placeholder="https://raw.githubusercontent.com/you/repo/main/device.yaml"
-                       style="flex:1;background:#1e1e2e;color:#cdd6f4;border:1px solid #45475a;border-radius:4px;padding:4px 8px;font-size:12px;" />
+            <!-- Hidden page nav (JS still uses these) -->
+            <button id="prevPage" class="btn" disabled style="display:none">&#9664;</button>
+            <select id="pageSelect" style="display:none"></select>
+            <button id="nextPage" class="btn" disabled style="display:none">&#9654;</button>
+            <span id="pageInfo" class="page-info-text" style="display:none">— / —</span>
+            <!-- Theme toggle -->
+            <button id="theme-toggle" class="theme-toggle-btn" title="Toggle theme">☼</button>
+        </div>
+    </div>
+
+    <!-- ─── APP LAYOUT ────────────────────────────────────────────────────── -->
+    <div id="app-layout">
+
+        <!-- LEFT RAIL -->
+        <div id="left-rail">
+            <div class="rail-header">
+                <span class="rail-label">Pages</span>
+                <span id="page-count-badge" class="count-badge">0</span>
             </div>
+            <div id="page-list"></div>
         </div>
 
-        <div class="preview-panel">
-            <div class="panel-header">
-                <h3>LVGL Display Preview</h3>
-                <div class="display-info">
-                    <span id="displaySize">466x466</span>
-                    <span id="colorDepth">16-bit</span>
-                    <select id="displayPreset">
-                      <option value="">Auto (from YAML)</option>
-                      <option value="466x466">Waveshare 1.75" Round — 466×466</option>
-                      <option value="480x480">Waveshare 2.1" Round — 480×480</option>
-                      <option value="320x240">ESP32 2.8" / CYD / M5Stack — 320×240</option>
-                      <option value="320x170">T-Display S3 — 320×170</option>
-                      <option value="450x600">Lilygo T4 S3 — 450×600</option>
-                      <option value="custom">Custom...</option>
-                    </select>
-                    <span id="customSizeInputs" style="display:none">
-                      <input type="number" id="customWidth" placeholder="W" style="width:50px">
-                      ×
-                      <input type="number" id="customHeight" placeholder="H" style="width:50px">
-                    </span>
-                    <button id="shareBtn" class="btn" title="Copy shareable link to clipboard">&#9138; Share</button>
+        <!-- HERO CANVAS -->
+        <div id="hero-canvas">
+            <div id="hero-void">
+                <!-- Entity summary overlay -->
+                <div id="entitySummary" class="entity-summary" style="display:none">
+                    <div id="entityBadges" class="entity-badges"></div>
                 </div>
-            </div>
-            <div class="page-nav">
-                <button id="prevPage" class="btn" disabled>&#9664;</button>
-                <select id="pageSelect"></select>
-                <button id="nextPage" class="btn" disabled>&#9654;</button>
-                <span id="pageInfo" class="page-info-text">— / —</span>
-                <span style="opacity:0.4;font-size:11px">← → ↑ ↓ or swipe</span>
-                <label style="font-size:12px;opacity:0.7">Rotation:
-                  <select id="rotationSelect" style="font-size:12px;background:#222;color:#ccc;border:1px solid #444;padding:2px 4px;border-radius:3px">
-                    <option value="0">0°</option>
-                    <option value="90">90°</option>
-                    <option value="180">180°</option>
-                    <option value="270">270°</option>
-                  </select>
-                </label>
-            </div>
-            <div id="screensaverControls" style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 8px;border-top:1px solid #333;margin-top:4px;">
-              <label style="opacity:0.7">Screensaver:</label>
-              <label style="display:flex;align-items:center;gap:3px;cursor:pointer">
-                <input type="checkbox" id="ssEnable"> Simulate
-              </label>
-              <select id="ssSpeed" style="background:#222;color:#ccc;border:1px solid #444;border-radius:3px;padding:1px 4px;font-size:11px">
-                <option value="1">1&times;</option>
-                <option value="5">5&times;</option>
-                <option value="10">10&times;</option>
-                <option value="30">30&times;</option>
-              </select>
-              <button id="ssTrigger" class="mock-btn" style="font-size:11px;padding:2px 6px">Trigger now</button>
-              <span id="ssStateLabel" style="opacity:0.5;font-size:11px">OFF</span>
-              <label style="display:flex;align-items:center;gap:4px;font-size:12px;opacity:0.7;cursor:pointer">
-                <input type="checkbox" id="audioMute"> Mute audio
-              </label>
-            </div>
-            <div id="intervalControls" style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 8px;border-top:1px solid #333;">
-              <label style="opacity:0.7">Intervals:</label>
-              <label style="display:flex;align-items:center;gap:3px;cursor:pointer">
-                <input type="checkbox" id="intervalsEnable"> Run
-              </label>
-              <select id="intervalSpeed" style="background:#222;color:#ccc;border:1px solid #444;border-radius:3px;padding:1px 4px;font-size:11px">
-                <option value="1">1&times;</option>
-                <option value="5">5&times;</option>
-                <option value="10">10&times;</option>
-                <option value="30">30&times;</option>
-              </select>
-              <span id="intervalCount" style="opacity:0.4;font-size:11px">0 handlers</span>
-            </div>
-            <div id="gpioControls" style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 8px;border-top:1px solid #333;flex-wrap:wrap;">
-              <label style="opacity:0.7">GPIO:</label>
-              <div id="gpioPins" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
-            </div>
-            <div id="entitySummary" class="entity-summary" style="display:none">
-                <div id="entityBadges" class="entity-badges"></div>
-            </div>
-            <div class="display-container">
+
+                <!-- Floor shadow -->
+                <div id="floor-shadow"></div>
+
+                <!-- The actual LVGL render target -->
                 <div id="lvglDisplay" class="lvgl-display">
                     <div class="placeholder">
                         <p>Load a configuration to see the preview</p>
                     </div>
                 </div>
+
+                <!-- Swipe arrows -->
+                <div id="swipe-left"  class="swipe-arrow swipe-arrow--left">←</div>
+                <div id="swipe-right" class="swipe-arrow swipe-arrow--right">→</div>
+                <div id="swipe-up"    class="swipe-arrow swipe-arrow--up">↑</div>
             </div>
         </div>
 
-        <div id="mockPanel" class="mock-panel">
-          <div class="panel-header">
-            <h3>Mock Data</h3>
-            <div style="display:flex;gap:6px;align-items:center">
-              <button id="resetMockData" class="btn" title="Reset all values to defaults">&#8635; Reset</button>
-              <button id="toggleMockPanel" class="btn" title="Collapse panel">&#9664;</button>
+        <!-- RIGHT RAIL -->
+        <div id="right-rail">
+            <div class="rail-header">
+                <span class="rail-label">Inspect</span>
+                <span id="inspector-widget-name" class="inspector-widget-name"></span>
             </div>
-          </div>
-          <div class="mock-presets-row">
-            <select id="presetSelect">
-              <option value="__default__">Default</option>
-            </select>
-            <button id="savePreset" class="mock-btn">Save</button>
-            <button id="deletePreset" class="mock-btn">Delete</button>
-          </div>
-          <div id="mockPanelBody" class="mock-panel-body">
-            <div id="mockControls" class="mock-controls">
-              <div class="mock-empty">Load a config with sensors or globals to see controls here.</div>
+            <div id="right-rail-body">
+                <div id="inspector-body">
+                    <p class="rail-placeholder">Select a widget</p>
+                </div>
+                <div class="tree-sub-header">
+                    <span class="rail-label">Tree</span>
+                </div>
+                <div id="tree-body">
+                    <p class="rail-placeholder">Load a config</p>
+                </div>
             </div>
-          </div>
-          <div id="sdCardControls" style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 8px;border-top:1px solid #333;">
-            <label style="opacity:0.7">SD Card:</label>
-            <span id="sdStatus" style="opacity:0.5;font-size:11px;">idle</span>
-            <span id="sdRowCount" style="opacity:0.4;font-size:11px;"></span>
-            <button id="sdDownload" class="mock-btn" style="font-size:11px;" disabled>&#8595; Download CSV</button>
-            <button id="sdClear" class="mock-btn" style="font-size:11px;">Clear</button>
-          </div>
-          <div id="supabasePanel" style="display:none;padding:4px 8px;border-top:1px solid #333;font-size:12px;">
-            <label style="opacity:0.7">Supabase:</label>
-            <input id="sbUrl" placeholder="URL" style="width:180px;font-size:11px;background:#222;color:#ccc;border:1px solid #444;border-radius:3px;padding:2px 4px;">
-            <input id="sbKey" placeholder="anon key" style="width:120px;font-size:11px;background:#222;color:#ccc;border:1px solid #444;border-radius:3px;padding:2px 4px;">
-            <button id="sbTest" class="mock-btn" style="font-size:11px;">Test connection</button>
-            <span id="sbStatus" style="opacity:0.5;font-size:11px;margin-left:4px;"></span>
-          </div>
-          <div id="networkControls" style="padding:4px 8px;border-top:1px solid #333;font-size:12px;">
-            <label style="opacity:0.7">Network:</label>
-            <span id="netOnline" style="font-size:11px;margin-left:4px;"></span>
-            <input id="netPingHost" placeholder="hostname to ping" style="font-size:11px;width:140px;background:#222;color:#ccc;border:1px solid #444;border-radius:3px;padding:2px 4px;margin-left:6px;">
-            <button id="netPingBtn" class="mock-btn" style="font-size:11px;">Ping</button>
-            <span id="netPingResult" style="font-size:11px;opacity:0.6;margin-left:4px;"></span>
-          </div>
-          <div class="live-device-section" id="liveDeviceSection">
-            <div class="live-device-header">
-              Live Device
-              <span class="live-dot live-dot--off" id="liveDot"></span>
-              <span id="liveStatusText">Not connected</span>
-            </div>
-            <div class="live-device-body" id="liveDeviceBody">
-              <label class="live-field-label">Device IP</label>
-              <input type="text" id="liveHost" placeholder="192.168.1.100" />
-              <label class="live-field-label">Proxy WebSocket</label>
-              <input type="text" id="liveProxyUrl" placeholder="ws://localhost:6054" />
-              <div class="live-btn-row">
-                <button id="liveConnect" class="mock-btn">Connect</button>
-                <button id="liveDisconnect" class="mock-btn" disabled>Disconnect</button>
-              </div>
-              <div id="liveError" class="live-error" style="display:none"></div>
-              <div id="liveInfo" class="live-info" style="display:none"></div>
-              <div id="liveWarn" class="live-warn" style="display:none"></div>
-            </div>
-          </div>
         </div>
-    </div>
+
+        <!-- BOTTOM CONSOLE -->
+        <div id="bottom-console">
+            <!-- Tab strip -->
+            <div id="tab-strip">
+                <!-- YAML slice tabs (JS populates after render) -->
+                <div id="yaml-tabs" class="console-tab-group"></div>
+
+                <!-- Vertical divider -->
+                <div class="tab-divider"></div>
+
+                <!-- Always-present tabs -->
+                <button class="console-tab active" data-tab="drive">◉ Drive</button>
+                <button class="console-tab" data-tab="edit">✎ Edit</button>
+                <button class="console-tab" data-tab="live">◎ Live</button>
+
+                <!-- Right side context info -->
+                <div id="tab-strip-right" class="tab-strip-right"></div>
+            </div>
+
+            <!-- ─── TAB BODIES ──────────────────────────────────────────── -->
+
+            <!-- DRIVE TAB -->
+            <div id="tab-drive" class="tab-body active">
+                <div id="mockControls" class="mock-controls">
+                    <div class="mock-empty">Load a config with sensors or globals to see controls here.</div>
+                </div>
+
+                <!-- Screensaver controls -->
+                <div id="screensaverControls" class="drive-row">
+                    <label class="drive-row-label">Screensaver:</label>
+                    <label class="drive-row-item">
+                        <input type="checkbox" id="ssEnable"> Simulate
+                    </label>
+                    <select id="ssSpeed" class="compact-select">
+                        <option value="1">1×</option>
+                        <option value="5">5×</option>
+                        <option value="10">10×</option>
+                        <option value="30">30×</option>
+                    </select>
+                    <button id="ssTrigger" class="mock-btn">Trigger now</button>
+                    <span id="ssStateLabel" class="drive-row-dim">OFF</span>
+                    <label class="drive-row-item">
+                        <input type="checkbox" id="audioMute"> Mute audio
+                    </label>
+                </div>
+
+                <!-- Interval controls -->
+                <div id="intervalControls" class="drive-row">
+                    <label class="drive-row-label">Intervals:</label>
+                    <label class="drive-row-item">
+                        <input type="checkbox" id="intervalsEnable"> Run
+                    </label>
+                    <select id="intervalSpeed" class="compact-select">
+                        <option value="1">1×</option>
+                        <option value="5">5×</option>
+                        <option value="10">10×</option>
+                        <option value="30">30×</option>
+                    </select>
+                    <span id="intervalCount" class="drive-row-dim">0 handlers</span>
+                </div>
+
+                <!-- GPIO controls -->
+                <div id="gpioControls" class="drive-row">
+                    <label class="drive-row-label">GPIO:</label>
+                    <div id="gpioPins" class="gpio-pins"></div>
+                </div>
+
+                <!-- Presets row -->
+                <div class="mock-presets-row">
+                    <select id="presetSelect"><option value="__default__">Default</option></select>
+                    <button id="savePreset" class="mock-btn">Save</button>
+                    <button id="deletePreset" class="mock-btn">Delete</button>
+                    <button id="resetMockData" class="btn" title="Reset all values to defaults" style="margin-left:auto">&#8635; Reset</button>
+                </div>
+
+                <!-- SD Card controls -->
+                <div id="sdCardControls" class="drive-row">
+                    <label class="drive-row-label">SD Card:</label>
+                    <span id="sdStatus" class="drive-row-dim">idle</span>
+                    <span id="sdRowCount" class="drive-row-dim"></span>
+                    <button id="sdDownload" class="mock-btn" disabled>&#8595; Download CSV</button>
+                    <button id="sdClear" class="mock-btn">Clear</button>
+                </div>
+
+                <!-- Supabase panel -->
+                <div id="supabasePanel" class="drive-row" style="display:none">
+                    <label class="drive-row-label">Supabase:</label>
+                    <input id="sbUrl" placeholder="URL" class="compact-input" style="width:180px">
+                    <input id="sbKey" placeholder="anon key" class="compact-input" style="width:120px">
+                    <button id="sbTest" class="mock-btn">Test connection</button>
+                    <span id="sbStatus" class="drive-row-dim"></span>
+                </div>
+
+                <!-- Network controls -->
+                <div id="networkControls" class="drive-row">
+                    <label class="drive-row-label">Network:</label>
+                    <span id="netOnline" class="drive-row-item"></span>
+                    <input id="netPingHost" placeholder="hostname to ping" class="compact-input" style="width:140px">
+                    <button id="netPingBtn" class="mock-btn">Ping</button>
+                    <span id="netPingResult" class="drive-row-dim"></span>
+                </div>
+            </div>
+
+            <!-- EDIT TAB -->
+            <div id="tab-edit" class="tab-body" style="display:none">
+                <div class="edit-toolbar">
+                    <button id="renderPreview" class="btn btn-primary">Render Preview</button>
+                    <button id="loadExample" class="btn">Load Example</button>
+                </div>
+                <div class="url-input-row">
+                    <label for="configFileUrl" class="url-label">Config URL (for package resolution):</label>
+                    <input type="text" id="configFileUrl"
+                           placeholder="https://raw.githubusercontent.com/you/repo/main/device.yaml"
+                           class="url-input" />
+                </div>
+                <textarea id="yamlEditor" placeholder="Paste your ESPHome LVGL YAML..."></textarea>
+            </div>
+
+            <!-- LIVE TAB -->
+            <div id="tab-live" class="tab-body" style="display:none">
+                <div class="live-device-section" id="liveDeviceSection">
+                    <div class="live-device-header">
+                        Live Device
+                        <span class="live-dot live-dot--off" id="liveDot"></span>
+                        <span id="liveStatusText">Not connected</span>
+                    </div>
+                    <div class="live-device-body" id="liveDeviceBody">
+                        <label class="live-field-label">Device IP</label>
+                        <input type="text" id="liveHost" placeholder="192.168.1.100" />
+                        <label class="live-field-label">Proxy WebSocket</label>
+                        <input type="text" id="liveProxyUrl" placeholder="ws://localhost:6054" />
+                        <div class="live-btn-row">
+                            <button id="liveConnect" class="mock-btn">Connect</button>
+                            <button id="liveDisconnect" class="mock-btn" disabled>Disconnect</button>
+                        </div>
+                        <div id="liveError" class="live-error" style="display:none"></div>
+                        <div id="liveInfo" class="live-info" style="display:none"></div>
+                        <div id="liveWarn" class="live-warn" style="display:none"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE YAML TAB (JS populates) -->
+            <div id="tab-page" class="tab-body" style="display:none">
+                <p class="rail-placeholder">Load a config to see the page YAML slice.</p>
+            </div>
+
+            <!-- OVERLAY YAML TAB (JS populates) -->
+            <div id="tab-overlay" class="tab-body" style="display:none">
+                <p class="rail-placeholder">No top_layer found in this config.</p>
+            </div>
+
+            <!-- GLOBALS YAML TAB (JS populates) -->
+            <div id="tab-globals" class="tab-body" style="display:none">
+                <p class="rail-placeholder">No globals found in this config.</p>
+            </div>
+        </div><!-- /#bottom-console -->
+
+    </div><!-- /#app-layout -->
+
+    <!-- ─── TAB SWITCHING ─────────────────────────────────────────────────── -->
+    <script>
+    document.querySelectorAll('.console-tab').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.console-tab').forEach(function(b) { b.classList.remove('active'); });
+        document.querySelectorAll('.tab-body').forEach(function(b) { b.style.display = 'none'; });
+        btn.classList.add('active');
+        var body = document.getElementById('tab-' + btn.dataset.tab);
+        if (body) body.style.display = 'flex';
+      });
+    });
+
+    document.getElementById('theme-toggle').addEventListener('click', function() {
+      var html = document.documentElement;
+      if (html.getAttribute('data-theme') === 'light') {
+        html.removeAttribute('data-theme');
+        this.textContent = '☼';
+      } else {
+        html.setAttribute('data-theme', 'light');
+        this.textContent = '☾';
+      }
+    });
+    </script>
 
     <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
