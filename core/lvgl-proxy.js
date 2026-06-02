@@ -268,6 +268,15 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
       if (simulator?._screensaver) simulator._screensaver.triggerActivity();
     },
 
+    getInactiveTime() {
+      // Return ms since last pointer/keyboard activity
+      // Use the screensaver's _lastActivity if available, otherwise 0
+      if (simulator?._screensaver) {
+        return Math.round(performance.now() - simulator._screensaver._lastActivity);
+      }
+      return 0;
+    },
+
     setPaused(paused) {
       if (simulator) simulator.setPaused?.(paused);
     },

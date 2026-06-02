@@ -266,6 +266,35 @@ export class LambdaEvaluator {
         // Strip remaining component method calls (prevent ReferenceError)
         b = b.replace(/id\(\w+\)\s*->\s*\w+\s*\([^)]*\)\s*;?/g, '/* component call */');
 
+        // snprintf(buf, size, fmt, args...) → buf = _sprintf(fmt, args...)
+        b = b.replace(/\bsnprintf\s*\(\s*(\w+)\s*,\s*[^,]+,\s*((?:[^()]+|\([^()]*\))*)\)/g,
+          (_, buf, rest) => {
+            // rest = fmt, args...
+            return `${buf} = _sprintf(${rest.trim()})`;
+          });
+
+        // sizeof(x) → 0 (no-op, used only as snprintf size arg which we strip)
+        b = b.replace(/\bsizeof\s*\([^)]+\)/g, '0');
+
+        // lv_disp_get_inactive_time(NULL) → __lvgl__.getInactiveTime()
+        b = b.replace(/lv_disp_get_inactive_time\s*\([^)]*\)/g, '__lvgl__.getInactiveTime()');
+
+        // gpio_get_level(pin) → 0 (always low in simulator — no real GPIO)
+        b = b.replace(/\bgpio_get_level\s*\([^)]+\)/g, '0');
+
+        // gpio_set_level(pin, val) → no-op
+        b = b.replace(/\bgpio_set_level\s*\([^)]*\)\s*;?/g, '/* gpio_set_level */');
+
+        // pinMode, digitalWrite, digitalRead — Arduino-style GPIO
+        b = b.replace(/\bdigitalRead\s*\([^)]+\)/g, '0');
+        b = b.replace(/\bdigitalWrite\s*\([^)]*\)\s*;?/g, '/* digitalWrite */');
+
+        // ESP-IDF GPIO constants — just need to not throw
+        b = b.replace(/\bGPIO_NUM_\d+\b/g, '0');
+
+        // esp_timer_get_time() → Date.now() * 1000 (microseconds)
+        b = b.replace(/\besp_timer_get_time\s*\(\s*\)/g, '(Date.now() * 1000)');
+
         // Strip remaining unhandled lv_* function *calls* (standalone statements only)
         b = b.replace(/(^|\n)([ \t]*)(lv_\w+\s*\([^)]*\)\s*;)/g,
             (_, nl, indent, call) => `${nl}${indent}/* unhandled: ${call} */`);
@@ -399,6 +428,9 @@ export class LambdaEvaluator {
         // Pointer declarations: lv_obj_t *varname  or  lv_chart_series_t *varname
         b = b.replace(/\blv_\w+_t\s*\*\s*(\w+)/g, 'let $1');
 
+        // char buf[N] → let buf = '' (string, not array — used with snprintf)
+        b = b.replace(/\bchar\s+(\w+)\s*\[\d*\]\s*(?==|;)/g, "let $1 = ''");
+
         // Array declarations: int arr[N] — convert to let arr = new Array(N)
         b = b.replace(/\blet\s+(\w+)\s*\[(\d+)\]/g, 'let $1 = new Array($2)');
 
@@ -451,7 +483,7 @@ export class LambdaEvaluator {
     _isUntranslatable(js) {
         // Genuinely untranslatable C++ constructs.
         // Note: nullptr/NULL, for/while/switch/case/break/else-if are now handled earlier.
-        if (/\b(goto|sizeof|typedef)\b/.test(js)) return true;
+        if (/\b(goto|typedef)\b/.test(js)) return true;
         if (/\b(struct|class|namespace|template|virtual)\s+\w/.test(js)) return true;
         if (/#(?:include|define)\b/.test(js)) return true;
         // Remaining std:: after translation pass (e.g. std::vector, std::map)
