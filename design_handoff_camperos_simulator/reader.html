@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Design — Camperos Simulator Handoff</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:          #0e0e16;
+    --surface:     #16162a;
+    --surface-alt: #1e1e38;
+    --primary:     #d97706;
+    --text:        #e8e8f0;
+    --text-muted:  #7878a0;
+    --border:      #2a2a48;
+    --radius-sm:   4px;
+    --radius-md:   8px;
+    --radius-lg:   16px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    padding: 40px 24px;
+  }
+
+  h1 { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+  h2 { font-size: 18px; font-weight: 600; margin: 40px 0 16px; color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+  h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+
+  .meta { color: var(--text-muted); font-size: 13px; margin-bottom: 8px; }
+  .desc { color: var(--text-muted); margin-bottom: 32px; }
+
+  .container { max-width: 900px; margin: 0 auto; }
+
+  /* ── Token grid ─────────────────────────────────── */
+  .token-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 32px; }
+
+  .token-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px;
+  }
+  .swatch { width: 100%; height: 40px; border-radius: var(--radius-sm); margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.08); }
+  .token-name  { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 12px; color: var(--primary); }
+  .token-value { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 12px; color: var(--text-muted); }
+  .token-note  { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+  /* ── Typography scale ───────────────────────────── */
+  .type-row {
+    display: flex; align-items: baseline; gap: 16px;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .type-row:last-child { border-bottom: none; }
+  .type-label { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 11px; color: var(--text-muted); width: 100px; flex-shrink: 0; }
+  .type-sample { color: var(--text); }
+
+  /* ── Spacing scale ──────────────────────────────── */
+  .spacing-row { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; }
+  .spacing-bar { background: var(--primary); height: 16px; border-radius: 2px; flex-shrink: 0; }
+  .spacing-label { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 12px; color: var(--text-muted); }
+
+  /* ── Components ─────────────────────────────────── */
+  .component-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .component-card h3 { color: var(--text); }
+  .component-desc { color: var(--text-muted); font-size: 13px; margin-bottom: 12px; }
+  .prop-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .prop-table td { padding: 4px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .prop-table td:first-child { font-family: 'JetBrains Mono', 'Fira Code', monospace; color: var(--primary); white-space: nowrap; }
+  .prop-table tr:last-child td { border-bottom: none; }
+
+  /* ── Layout diagram ─────────────────────────────── */
+  .layout-diagram { display: flex; gap: 4px; height: 180px; margin-bottom: 16px; }
+  .col-editor  { flex: 1 1 0;   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 13px; }
+  .col-preview { flex: 0 0 200px; background: #000; border: 2px solid var(--border); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; color: #444; font-size: 13px; }
+  .col-sidebar { flex: 0 0 120px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 13px; }
+
+  /* ── States badge strip ─────────────────────────── */
+  .badge-strip { display: flex; gap: 10px; flex-wrap: wrap; }
+  .badge { padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
+
+  /* ── Error state ────────────────────────────────── */
+  #error { color: #ef4444; background: #1c0a0a; border: 1px solid #ef4444; border-radius: var(--radius-md); padding: 16px; }
+
+  .section-note { font-size: 12px; color: var(--text-muted); font-style: italic; margin-top: -10px; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<div class="container" id="root">
+  <p style="color:#7878a0">Loading design spec…</p>
+</div>
+
+<script type="module">
+  async function loadDesign() {
+    const res = await fetch('./claude-design.json');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  function swatch(color) {
+    const d = document.createElement('div');
+    d.className = 'swatch';
+    d.style.background = color;
+    return d;
+  }
+
+  function section(title) {
+    const h = document.createElement('h2');
+    h.textContent = title;
+    return h;
+  }
+
+  function tokenCard(name, tok) {
+    const card = document.createElement('div');
+    card.className = 'token-card';
+    if (tok.value && tok.value.startsWith('#')) card.appendChild(swatch(tok.value));
+    card.innerHTML += `
+      <div class="token-name">${name}</div>
+      <div class="token-value">${tok.value}</div>
+      ${tok.note ? `<div class="token-note">${tok.note}</div>` : ''}
+    `;
+    return card;
+  }
+
+  function renderColors(colors) {
+    const grid = document.createElement('div');
+    grid.className = 'token-grid';
+    for (const [k, v] of Object.entries(colors)) grid.appendChild(tokenCard(k, v));
+    return grid;
+  }
+
+  function renderTypography(typo) {
+    const sizes = ['xs','sm','base','lg','xl'].map(s => [`size-${s}`, typo[`size-${s}`]]).filter(([,v]) => v);
+    const families = [['family-ui', typo['family-ui']], ['family-mono', typo['family-mono']]];
+
+    const wrap = document.createElement('div');
+
+    const fNote = document.createElement('p');
+    fNote.className = 'section-note';
+    fNote.textContent = 'Families';
+    wrap.appendChild(fNote);
+
+    for (const [name, tok] of families) {
+      const row = document.createElement('div');
+      row.className = 'type-row';
+      row.innerHTML = `<span class="type-label">${name}</span><span class="type-sample" style="font-family:${tok.value};font-size:14px">${tok.value.split(',')[0]}</span>`;
+      wrap.appendChild(row);
+    }
+
+    const sNote = document.createElement('p');
+    sNote.className = 'section-note';
+    sNote.style.marginTop = '20px';
+    sNote.textContent = 'Scale';
+    wrap.appendChild(sNote);
+
+    for (const [name, tok] of sizes) {
+      const row = document.createElement('div');
+      row.className = 'type-row';
+      row.innerHTML = `<span class="type-label">${name} — ${tok.value}</span><span class="type-sample" style="font-size:${tok.value}">The quick brown fox</span>`;
+      wrap.appendChild(row);
+    }
+    return wrap;
+  }
+
+  function renderSpacing(spacing) {
+    const wrap = document.createElement('div');
+    for (const [name, tok] of Object.entries(spacing)) {
+      const px = parseInt(tok.value);
+      const row = document.createElement('div');
+      row.className = 'spacing-row';
+      row.innerHTML = `<div class="spacing-bar" style="width:${Math.min(px * 4, 300)}px"></div><span class="spacing-label">${name} — ${tok.value}</span>`;
+      wrap.appendChild(row);
+    }
+    return wrap;
+  }
+
+  function renderComponents(components) {
+    const wrap = document.createElement('div');
+    for (const comp of components) {
+      const card = document.createElement('div');
+      card.className = 'component-card';
+      card.innerHTML = `<h3>${comp.name}</h3><p class="component-desc">${comp.description}</p>`;
+
+      if (comp.properties) {
+        const tbl = document.createElement('table');
+        tbl.className = 'prop-table';
+        for (const [k, v] of Object.entries(comp.properties)) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${k}</td><td>${v}</td>`;
+          tbl.appendChild(tr);
+        }
+        card.appendChild(tbl);
+      }
+
+      if (comp.variants) {
+        const strip = document.createElement('div');
+        strip.className = 'badge-strip';
+        strip.style.marginTop = '12px';
+        for (const v of comp.variants) {
+          const b = document.createElement('span');
+          b.className = 'badge';
+          b.textContent = v.label;
+          b.style.background = v.background;
+          b.style.color = v.color;
+          strip.appendChild(b);
+        }
+        card.appendChild(strip);
+      }
+
+      if (comp.notes) {
+        const n = document.createElement('p');
+        n.style.cssText = 'font-size:12px;color:#7878a0;margin-top:12px;font-style:italic';
+        n.textContent = comp.notes;
+        card.appendChild(n);
+      }
+
+      wrap.appendChild(card);
+    }
+    return wrap;
+  }
+
+  function renderLayout(layout) {
+    const wrap = document.createElement('div');
+    const diag = document.createElement('div');
+    diag.className = 'layout-diagram';
+    diag.innerHTML = `
+      <div class="col-editor">editor</div>
+      <div class="col-preview">preview canvas</div>
+      <div class="col-sidebar">sidebar</div>
+    `;
+    wrap.appendChild(diag);
+
+    const bp = document.createElement('table');
+    bp.className = 'prop-table';
+    for (const [k, v] of Object.entries(layout.breakpoints)) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${k}</td><td>${v.pattern}</td>`;
+      bp.appendChild(tr);
+    }
+    wrap.appendChild(bp);
+    return wrap;
+  }
+
+  async function render() {
+    const root = document.getElementById('root');
+    try {
+      const d = await loadDesign();
+
+      root.innerHTML = '';
+
+      const header = document.createElement('div');
+      header.innerHTML = `
+        <h1>${d.project}</h1>
+        <p class="meta">v${d.version} · authored by ${d.author}</p>
+        <p class="desc">${d.description}</p>
+      `;
+      root.appendChild(header);
+
+      root.appendChild(section('Colors'));
+      root.appendChild(renderColors(d.tokens.colors));
+
+      root.appendChild(section('Typography'));
+      root.appendChild(renderTypography(d.tokens.typography));
+
+      root.appendChild(section('Spacing'));
+      root.appendChild(renderSpacing(d.tokens.spacing));
+
+      root.appendChild(section('Components'));
+      root.appendChild(renderComponents(d.components));
+
+      root.appendChild(section('Layout'));
+      root.appendChild(renderLayout(d.layout));
+
+    } catch (err) {
+      root.innerHTML = `<div id="error"><strong>Could not load design spec:</strong> ${err.message}<br><br>Serve this folder over HTTP: <code>python3 -m http.server 8080</code></div>`;
+    }
+  }
+
+  render();
+</script>
+</body>
+</html>

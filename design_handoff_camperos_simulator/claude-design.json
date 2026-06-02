@@ -1,0 +1,144 @@
+{
+  "project": "ESPHome LVGL Simulator — Camperos",
+  "version": "1.0",
+  "author": "Claude AI",
+  "description": "Design specification for the ESPHome LVGL Simulator UI. Covers tokens, component anatomy, and layout structure.",
+
+  "tokens": {
+    "colors": {
+      "background":   { "value": "#0e0e16", "note": "App background" },
+      "surface":      { "value": "#16162a", "note": "Panel / card background" },
+      "surface-alt":  { "value": "#1e1e38", "note": "Alternating rows, hover state" },
+      "primary":      { "value": "#d97706", "note": "Primary action / brand accent (Claude amber)" },
+      "primary-dark": { "value": "#b45309", "note": "Primary pressed / active state" },
+      "text":         { "value": "#e8e8f0", "note": "Body text" },
+      "text-muted":   { "value": "#7878a0", "note": "Labels, placeholders, secondary info" },
+      "border":       { "value": "#2a2a48", "note": "Dividers and outlines" },
+      "success":      { "value": "#22c55e", "note": "Connected / OK state" },
+      "warning":      { "value": "#f59e0b", "note": "Degraded / partial state" },
+      "error":        { "value": "#ef4444", "note": "Error / disconnected state" }
+    },
+
+    "typography": {
+      "family-ui":   { "value": "Inter, system-ui, sans-serif",            "note": "UI labels, controls, panels" },
+      "family-mono": { "value": "JetBrains Mono, Fira Code, monospace",    "note": "YAML editor, code output" },
+      "size-xs":     { "value": "11px", "note": "Micro-labels, badge text" },
+      "size-sm":     { "value": "13px", "note": "Secondary labels" },
+      "size-base":   { "value": "15px", "note": "Body / default" },
+      "size-lg":     { "value": "18px", "note": "Section headings" },
+      "size-xl":     { "value": "24px", "note": "Page-level headings" },
+      "weight-regular": { "value": "400" },
+      "weight-medium":  { "value": "500" },
+      "weight-bold":    { "value": "700" }
+    },
+
+    "spacing": {
+      "xs":  { "value": "4px"  },
+      "sm":  { "value": "8px"  },
+      "md":  { "value": "16px" },
+      "lg":  { "value": "24px" },
+      "xl":  { "value": "40px" },
+      "2xl": { "value": "64px" }
+    },
+
+    "radius": {
+      "sm":   { "value": "4px"    },
+      "md":   { "value": "8px"    },
+      "lg":   { "value": "16px"   },
+      "full": { "value": "9999px" }
+    }
+  },
+
+  "components": [
+    {
+      "name": "YAML Editor Panel",
+      "description": "Left-column code editor. User pastes or types ESPHome YAML here.",
+      "properties": {
+        "background":   "#surface",
+        "font":         "#family-mono",
+        "font-size":    "#size-sm",
+        "line-height":  "1.6",
+        "padding":      "#md",
+        "border-right": "1px solid #border"
+      },
+      "states": {
+        "parse-error": { "border-left": "3px solid #error" },
+        "parse-ok":    { "border-left": "3px solid #success" }
+      }
+    },
+    {
+      "name": "Preview Canvas",
+      "description": "Centre column. Black rectangle representing the physical LVGL display.",
+      "properties": {
+        "background":    "#000000",
+        "border":        "2px solid #border",
+        "border-radius": "#md",
+        "overflow":      "hidden"
+      },
+      "notes": "Width/height set dynamically from display: dimensions: in YAML."
+    },
+    {
+      "name": "Mock Data Sidebar",
+      "description": "Right column. Sliders and toggles that feed sensor values into lambda evaluation.",
+      "properties": {
+        "background": "#surface",
+        "width":      "280px",
+        "padding":    "#md",
+        "border-left": "1px solid #border"
+      }
+    },
+    {
+      "name": "Primary Button",
+      "description": "Render, Connect, and other primary CTA buttons.",
+      "states": {
+        "default": { "background": "#primary",      "color": "#ffffff", "border-radius": "#md", "padding": "8px 20px" },
+        "hover":   { "background": "#primary-dark"  },
+        "disabled":{ "opacity": "0.4",              "cursor": "not-allowed" }
+      }
+    },
+    {
+      "name": "Sensor Control Row",
+      "description": "A labelled slider or toggle inside the Mock Data Sidebar for a single entity.",
+      "properties": {
+        "display":         "flex",
+        "align-items":     "center",
+        "gap":             "#sm",
+        "padding":         "#xs #sm",
+        "border-radius":   "#sm"
+      },
+      "states": {
+        "hover": { "background": "#surface-alt" }
+      }
+    },
+    {
+      "name": "Status Badge",
+      "description": "Connection status pill shown in the toolbar.",
+      "variants": [
+        { "label": "Connected",    "background": "#success", "color": "#000" },
+        { "label": "Disconnected", "background": "#error",   "color": "#fff" },
+        { "label": "Connecting",   "background": "#warning", "color": "#000" }
+      ]
+    }
+  ],
+
+  "layout": {
+    "type": "three-column",
+    "columns": [
+      { "id": "editor",   "flex": "1 1 0",  "min-width": "300px", "description": "YAML editor" },
+      { "id": "preview",  "flex": "0 0 auto","description": "LVGL display canvas, sized to config" },
+      { "id": "sidebar",  "flex": "0 0 280px","description": "Mock data controls" }
+    ],
+    "breakpoints": {
+      "mobile":  { "pattern": "stacked — editor → preview → sidebar" },
+      "tablet":  { "pattern": "editor + preview, sidebar hidden behind toggle" },
+      "desktop": { "pattern": "all three columns side by side" }
+    }
+  },
+
+  "interactions": {
+    "render-trigger":   "Render button click OR Ctrl+Enter in editor",
+    "live-re-render":   "Auto re-render 300 ms after last keypress when enabled",
+    "sidebar-controls": "Changing any control immediately re-renders the preview",
+    "page-navigation":  "Dot indicators below canvas — click to switch pages"
+  }
+}
