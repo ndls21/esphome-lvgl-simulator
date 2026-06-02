@@ -79,6 +79,7 @@ function _drawChartInternal(c) {
 
 export function buildLVGLProxy(elements, navigateFn, simulator) {
   function getEl(id) {
+    if (!id || id === 'null' || id === 'undefined') return null;
     const el = elements[id];
     if (!el) { console.warn(`[lvgl] element not found: ${id}`); return null; }
     return el;

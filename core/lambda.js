@@ -328,17 +328,41 @@ export class LambdaEvaluator {
         b = b.replace(/lv_obj_get_child_cnt\s*\(\s*id\s*\(\s*(\w+)\s*\)\s*\)/g,
             (_, parentId) => `__lvgl__.getChildCount('${parentId}')`);
 
-        // lv_obj_set_style_text_color / bg_color with a plain variable (child from getChild)
-        b = b.replace(/lv_obj_set_style_text_color\s*\(\s*(\w+)\s*,\s*([^,]+),\s*\d+\s*\)/g,
+        // Generic variable-form translations (vars holding widget IDs, e.g. panels[0], child, etc.)
+        // These run AFTER id(x) translations so they only catch what's left.
+        // anyWidget matches: varname, arr[i], func(), chained like arr[i].foo
+        const anyWidget = `([\\w]+(?:\\[[^\\]]+\\])?)`;
+
+        // lv_obj_set_style_text_color with variable
+        b = b.replace(new RegExp(`lv_obj_set_style_text_color\\s*\\(\\s*${anyWidget}\\s*,\\s*([^,]+),\\s*\\d+\\s*\\)`, 'g'),
             (_, varOrId, color) => `__lvgl__.setTextColor(${varOrId}, ${color})`);
-        b = b.replace(/lv_obj_set_style_bg_color\s*\(\s*(\w+)\s*,\s*([^,]+),\s*\d+\s*\)/g,
+        // lv_obj_set_style_bg_color with variable
+        b = b.replace(new RegExp(`lv_obj_set_style_bg_color\\s*\\(\\s*${anyWidget}\\s*,\\s*([^,]+),\\s*\\d+\\s*\\)`, 'g'),
             (_, varOrId, color) => `__lvgl__.setBgColor(${varOrId}, ${color})`);
 
-        // lv_obj_add_flag / lv_obj_clear_flag with a plain variable
-        b = b.replace(/lv_obj_add_flag\s*\(\s*(\w+)\s*,\s*LV_OBJ_FLAG_HIDDEN\s*\)/g,
+        // lv_obj_add_flag / lv_obj_clear_flag with variable
+        b = b.replace(new RegExp(`lv_obj_add_flag\\s*\\(\\s*${anyWidget}\\s*,\\s*LV_OBJ_FLAG_HIDDEN\\s*\\)`, 'g'),
             (_, v) => `__lvgl__.hide(${v})`);
-        b = b.replace(/lv_obj_clear_flag\s*\(\s*(\w+)\s*,\s*LV_OBJ_FLAG_HIDDEN\s*\)/g,
+        b = b.replace(new RegExp(`lv_obj_clear_flag\\s*\\(\\s*${anyWidget}\\s*,\\s*LV_OBJ_FLAG_HIDDEN\\s*\\)`, 'g'),
             (_, v) => `__lvgl__.show(${v})`);
+
+        // lv_obj_align with variable
+        b = b.replace(new RegExp(`lv_obj_align\\s*\\(\\s*${anyWidget}\\s*,\\s*LV_ALIGN_(\\w+)\\s*,\\s*([^,]+),\\s*([^)]+)\\)`, 'g'),
+            (_, widget, align, dx, dy) => `__lvgl__.align(${widget}, '${align}', ${dx.trim()}, ${dy.trim()})`);
+
+        // lv_obj_set_size with variable
+        b = b.replace(new RegExp(`lv_obj_set_size\\s*\\(\\s*${anyWidget}\\s*,\\s*([^,]+),\\s*([^)]+)\\)`, 'g'),
+            (_, widget, w, h) => `__lvgl__.setSize(${widget}, ${w.trim()}, ${h.trim()})`);
+
+        // lv_obj_set_width / lv_obj_set_height with variable
+        b = b.replace(new RegExp(`lv_obj_set_width\\s*\\(\\s*${anyWidget}\\s*,\\s*([^)]+)\\)`, 'g'),
+            (_, widget, w) => `__lvgl__.setWidth(${widget}, ${w.trim()})`);
+        b = b.replace(new RegExp(`lv_obj_set_height\\s*\\(\\s*${anyWidget}\\s*,\\s*([^)]+)\\)`, 'g'),
+            (_, widget, h) => `__lvgl__.setHeight(${widget}, ${h.trim()})`);
+
+        // lv_label_set_text with variable
+        b = b.replace(new RegExp(`lv_label_set_text\\s*\\(\\s*${anyWidget}\\s*,\\s*`, 'g'),
+            (_, widget) => `__lvgl__.setText(${widget}, `);
 
         // Strip remaining component method calls (prevent ReferenceError)
         b = b.replace(/id\(\w+\)\s*->\s*\w+\s*\([^)]*\)\s*;?/g, '/* component call */');
