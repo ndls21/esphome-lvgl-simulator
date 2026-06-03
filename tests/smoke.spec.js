@@ -3780,3 +3780,800 @@ lvgl:
   });
 
 });
+
+// ─── Arc widget (extended) ───────────────────────────────────────────────────
+
+test.describe('Arc widget (extended)', () => {
+
+  test('arc renders SVG background path element', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - arc:
+            id: my_arc
+            width: 100
+            height: 100
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const pathCount = await page.locator('[data-lvgl-id="my_arc"] path, [data-lvgl-id="my_arc"] circle').count();
+    expect(pathCount).toBeGreaterThanOrEqual(1);
+  });
+
+  test('arc with indicator section renders arc-indicator element', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - arc:
+            id: ind_arc
+            width: 100
+            height: 100
+            value: 50
+            align: CENTER
+            indicator:
+              arc_color: 0x4DA6FF
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const count = await page.locator('[data-lvgl-id="ind_arc"] .arc-indicator').count();
+    expect(count).toBe(1);
+  });
+
+  test('arc without indicator block renders no arc-indicator', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - arc:
+            id: no_ind_arc
+            width: 100
+            height: 100
+            value: 75
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const count = await page.locator('[data-lvgl-id="no_ind_arc"] .arc-indicator').count();
+    expect(count).toBe(0);
+  });
+
+});
+
+// ─── Slider widget (extended) ────────────────────────────────────────────────
+
+test.describe('Slider widget (extended)', () => {
+
+  test('slider indicator width matches value percentage', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - slider:
+            id: half_slider
+            width: 200
+            height: 20
+            min_value: 0
+            max_value: 100
+            value: 50
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const width = await page.locator('[data-lvgl-id="half_slider"] .lvgl-slider__indicator').evaluate(
+      el => el.style.width
+    );
+    expect(width).toBe('50%');
+  });
+
+  test('slider at max value has full-width indicator', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - slider:
+            id: full_slider
+            width: 200
+            height: 20
+            min_value: 0
+            max_value: 100
+            value: 100
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const width = await page.locator('[data-lvgl-id="full_slider"] .lvgl-slider__indicator').evaluate(
+      el => el.style.width
+    );
+    expect(width).toBe('100%');
+  });
+
+  test('slider at min value has zero-width indicator', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - slider:
+            id: empty_slider
+            width: 200
+            height: 20
+            min_value: 0
+            max_value: 100
+            value: 0
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const width = await page.locator('[data-lvgl-id="empty_slider"] .lvgl-slider__indicator').evaluate(
+      el => el.style.width
+    );
+    expect(width).toBe('0%');
+  });
+
+});
+
+// ─── Checkbox widget (extended) ──────────────────────────────────────────────
+
+test.describe('Checkbox widget (extended)', () => {
+
+  test('checkbox checked: true adds box--checked class', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - checkbox:
+            id: checked_cb
+            text: "Accept"
+            checked: true
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const hasClass = await page.locator('[data-lvgl-id="checked_cb"] .lvgl-checkbox__box').evaluate(
+      el => el.classList.contains('lvgl-checkbox__box--checked')
+    );
+    expect(hasClass).toBe(true);
+  });
+
+  test('checkbox text renders in label span', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - checkbox:
+            id: text_cb
+            text: "Remember me"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const text = await page.locator('[data-lvgl-id="text_cb"] .lvgl-checkbox__label').textContent();
+    expect(text).toBe('Remember me');
+  });
+
+  test('checkbox indicator bg_color applies to box background', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - checkbox:
+            id: color_cb
+            text: "Colored"
+            checked: true
+            indicator:
+              bg_color: 0x00AA00
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const bg = await page.locator('[data-lvgl-id="color_cb"] .lvgl-checkbox__box').evaluate(
+      el => el.style.backgroundColor
+    );
+    expect(bg).toBe('rgb(0, 170, 0)');
+  });
+
+});
+
+// ─── Button widget (extended) ────────────────────────────────────────────────
+
+test.describe('Button widget (extended)', () => {
+
+  test('button with text property renders text content', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - button:
+            id: text_btn
+            text: "Submit"
+            width: 100
+            height: 40
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const text = await page.locator('[data-lvgl-id="text_btn"]').textContent();
+    expect(text.trim()).toBe('Submit');
+  });
+
+  test('button with checkable: true and checked: true has lvgl-button--checked class', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - button:
+            id: checked_btn
+            text: "Active"
+            width: 100
+            height: 40
+            checkable: true
+            checked: true
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const hasClass = await page.locator('[data-lvgl-id="checked_btn"]').evaluate(
+      el => el.classList.contains('lvgl-button--checked')
+    );
+    expect(hasClass).toBe(true);
+  });
+
+});
+
+// ─── Font rendering ──────────────────────────────────────────────────────────
+
+test.describe('Font rendering', () => {
+
+  test('montserrat_140 font scales to 70px', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: big_label
+            text: "0"
+            text_font: montserrat_140
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const fs = await page.locator('[data-lvgl-id="big_label"]').evaluate(
+      el => el.style.fontSize
+    );
+    expect(fs).toBe('70px');
+  });
+
+  test('montserrat_20 font renders as 20px', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: small_label
+            text: "Hi"
+            text_font: montserrat_20
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const fs = await page.locator('[data-lvgl-id="small_label"]').evaluate(
+      el => el.style.fontSize
+    );
+    expect(fs).toBe('20px');
+  });
+
+  test('montserrat font applies Montserrat font-family', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: mont_label
+            text: "Montserrat"
+            text_font: montserrat_20
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const ff = await page.locator('[data-lvgl-id="mont_label"]').evaluate(
+      el => el.style.fontFamily
+    );
+    expect(ff.toLowerCase()).toContain('montserrat');
+  });
+
+});
+
+// ─── Alignment (extended) ────────────────────────────────────────────────────
+
+test.describe('Alignment (extended)', () => {
+
+  test('align: TOP_MID positions widget horizontally centered at top', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: top_mid_obj
+            width: 80
+            height: 40
+            align: TOP_MID
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const [pos, left, top] = await page.locator('[data-lvgl-id="top_mid_obj"]').evaluate(
+      el => [el.style.position, el.style.left, el.style.top]
+    );
+    expect(pos).toBe('absolute');
+    expect(left).toContain('50%');
+    expect(top).toBe('0px');
+  });
+
+  test('align: RIGHT_MID positions widget at right edge, vertically centered', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: right_mid_obj
+            width: 50
+            height: 50
+            align: RIGHT_MID
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const [pos, top] = await page.locator('[data-lvgl-id="right_mid_obj"]').evaluate(
+      el => [el.style.position, el.style.top]
+    );
+    expect(pos).toBe('absolute');
+    expect(top).toContain('50%');
+  });
+
+  test('align: CENTER with x/y offset includes offset in transform', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: offset_center
+            width: 60
+            height: 40
+            align: CENTER
+            x: 20
+            y: -10
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const transform = await page.locator('[data-lvgl-id="offset_center"]').evaluate(
+      el => el.style.transform
+    );
+    // Browser normalizes calc(-50% + -10px) → calc(-50% - 10px), so check for both offsets
+    expect(transform).toContain('20px');
+    expect(transform).toContain('10px');
+    expect(transform).toMatch(/calc\(-50%.*-.*10px/);
+  });
+
+});
+
+// ─── FLEX alignment ──────────────────────────────────────────────────────────
+
+test.describe('FLEX alignment', () => {
+
+  test('flex_align_main: SPACE_BETWEEN applies justify-content: space-between', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: spaced_flex
+            width: 300
+            height: 60
+            layout:
+              type: FLEX
+              flex_flow: ROW
+              flex_align_main: SPACE_BETWEEN
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const jc = await page.locator('[data-lvgl-id="spaced_flex"]').evaluate(
+      el => el.style.justifyContent
+    );
+    expect(jc).toBe('space-between');
+  });
+
+  test('flex_align_cross: CENTER applies align-items: center', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: cross_center
+            width: 300
+            height: 80
+            layout:
+              type: FLEX
+              flex_flow: ROW
+              flex_align_cross: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const ai = await page.locator('[data-lvgl-id="cross_center"]').evaluate(
+      el => el.style.alignItems
+    );
+    expect(ai).toBe('center');
+  });
+
+});
+
+// ─── Shadow offset ───────────────────────────────────────────────────────────
+
+test.describe('Shadow offset', () => {
+
+  test('shadow_offset_x and shadow_offset_y apply offset in box-shadow', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: offset_shadow
+            width: 100
+            height: 60
+            shadow_width: 8
+            shadow_offset_x: 5
+            shadow_offset_y: 3
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const shadow = await page.locator('[data-lvgl-id="offset_shadow"]').evaluate(
+      el => el.style.boxShadow
+    );
+    expect(shadow).toContain('5px');
+    expect(shadow).toContain('3px');
+  });
+
+});
+
+// ─── Swipe up ────────────────────────────────────────────────────────────────
+
+test.describe('Swipe up', () => {
+
+  test('swipe-up arrow is present in DOM', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#swipe-up')).toBeAttached();
+  });
+
+  test('on_swipe_up lambda navigates to target page', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: ground_page
+      on_swipe_up: !lambda "id(lvgl_comp)->show_page(id(sky_page)->index, LV_SCR_LOAD_ANIM_MOVE_TOP, 200);"
+      widgets:
+        - label:
+            text: "Ground"
+            align: CENTER
+    - id: sky_page
+      widgets:
+        - label:
+            id: sky_label
+            text: "Sky"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    await page.locator('#swipe-up').click();
+    await expect(page.locator('[data-lvgl-id="sky_label"]')).toBeVisible({ timeout: 3000 });
+  });
+
+});
+
+// ─── Edge cases ──────────────────────────────────────────────────────────────
+
+test.describe('Edge cases', () => {
+
+  test('opacity: 0 applies CSS opacity 0 to widget', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: invisible_obj
+            width: 80
+            height: 40
+            opacity: 0
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const opacity = await page.locator('[data-lvgl-id="invisible_obj"]').evaluate(
+      el => parseFloat(el.style.opacity)
+    );
+    expect(opacity).toBe(0);
+  });
+
+  test('label with numeric text value renders as string', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: num_label
+            text: 42
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const text = await page.locator('[data-lvgl-id="num_label"]').textContent();
+    expect(text.trim()).toBe('42');
+  });
+
+  test('border_width: 0 does not apply border-style to widget', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: no_border_obj
+            width: 100
+            height: 60
+            border_width: 0
+            border_color: 0xFF0000
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const borderStyle = await page.locator('[data-lvgl-id="no_border_obj"]').evaluate(
+      el => el.style.borderStyle
+    );
+    expect(borderStyle).not.toBe('solid');
+  });
+
+  test('deeply nested widgets render all levels correctly', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: level1
+            width: 280
+            height: 200
+            align: CENTER
+            widgets:
+              - obj:
+                  id: level2
+                  width: 200
+                  height: 140
+                  widgets:
+                    - obj:
+                        id: level3
+                        width: 120
+                        height: 80
+                        widgets:
+                          - label:
+                              id: deep_label
+                              text: "Deep"
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const text = await page.locator('[data-lvgl-id="deep_label"]').textContent();
+    expect(text).toBe('Deep');
+    const isDeep = await page.locator('[data-lvgl-id="level1"]').evaluate(
+      el => el.querySelector('[data-lvgl-id="level3"]') !== null
+    );
+    expect(isDeep).toBe(true);
+  });
+
+  test('config re-render with fewer pages removes extra page list rows', async ({ page }) => {
+    const yaml3 = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: page_a
+      widgets: []
+    - id: page_b
+      widgets: []
+    - id: page_c
+      widgets: []
+`.trim();
+    const yaml1 = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: only_page
+      widgets: []
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml3);
+    let rows = await page.locator('#page-list .page-list-row').count();
+    expect(rows).toBe(3);
+    await renderYAML(page, yaml1);
+    rows = await page.locator('#page-list .page-list-row').count();
+    expect(rows).toBe(1);
+  });
+
+  test('page count badge updates when re-rendering with different page count', async ({ page }) => {
+    const yaml5 = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p1
+      widgets: []
+    - id: p2
+      widgets: []
+    - id: p3
+      widgets: []
+    - id: p4
+      widgets: []
+    - id: p5
+      widgets: []
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml5);
+    const badge = await page.locator('#page-count-badge').textContent();
+    expect(badge).toBe('5');
+  });
+
+});
