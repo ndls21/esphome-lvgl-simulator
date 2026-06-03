@@ -143,6 +143,12 @@ export class LambdaEvaluator {
             helpers.push("const strcmp=(a,b)=>{const sa=String(a??''),sb=String(b??'');return sa<sb?-1:sa>sb?1:0;};");
         if (/\bstrtol\s*\(/.test(js))
             helpers.push('const strtol=(s,_,b)=>parseInt(String(s??\'\'),(b||10));');
+        if (/\bstoi\s*\(/.test(js))
+            helpers.push('const stoi=(s)=>parseInt(String(s??\'\'),(10));');
+        if (/\bstof\s*\(/.test(js))
+            helpers.push('const stof=(s)=>parseFloat(String(s??\'\')||\'0\');');
+        if (/\blv_color_make\s*\(/.test(js))
+            helpers.push('const lv_color_make=(r,g,b)=>\'#\'+[r,g,b].map(v=>(\'0\'+Math.min(255,Math.max(0,v|0)).toString(16)).slice(-2)).join(\'\');');
         const preamble = helpers.join('');
 
         if (isMultiStatement) {
@@ -201,6 +207,10 @@ export class LambdaEvaluator {
         // Text
         b = b.replace(new RegExp(`lv_label_set_text_static\\s*\\(\\s*${id}\\s*,\\s*`, 'g'),
             (_, wid) => `__lvgl__.setText('${wid}', `);
+        // lv_label_set_text_fmt(id(wid), "fmt", args...) → __lvgl__.setText('wid', _sprintf("fmt", args...))
+        // Match the full call up to ); to rewrite both parens correctly
+        b = b.replace(new RegExp(`lv_label_set_text_fmt\\s*\\(\\s*${id}\\s*,(.*?)\\)\\s*;`, 'gs'),
+            (_, wid, args) => `__lvgl__.setText('${wid}', _sprintf(${args.trim()}));`);
         b = b.replace(new RegExp(`lv_label_set_text\\s*\\(\\s*${id}\\s*,\\s*`, 'g'),
             (_, wid) => `__lvgl__.setText('${wid}', `);
 
@@ -612,6 +622,7 @@ export class LambdaEvaluator {
         js = js.replace(/\bstd::log\s*\(/g, 'Math.log(');
         // Bare C math functions (no std:: prefix) — also catches std:: names after the
         // generic namespace::name stripper in _translateLVGLCalls reduces std::round to round, etc.
+        js = js.replace(/\broundf\s*\(/g, 'Math.round(');  // roundf before round to avoid prefix match
         js = js.replace(/(?<!Math\.)\bround\s*\(/g, 'Math.round(');
         js = js.replace(/(?<!Math\.)\bceil\s*\(/g, 'Math.ceil(');
         js = js.replace(/(?<!Math\.)\bfloor\s*\(/g, 'Math.floor(');
@@ -660,9 +671,10 @@ export class LambdaEvaluator {
         // Integer float literals: 1f → 1  (skip when preceded by '.' to avoid corrupting %.2f format specs)
         js = js.replace(/(?<!\.)\b(\d+)f\b/g, '$1');
 
-        // sprintf / esphome::str_sprintf → _sprintf
+        // sprintf(buf, fmt, args...) → buf = _sprintf(fmt, args...)  (like snprintf without size)
+        js = js.replace(/\bsprintf\s*\(\s*(\w+)\s*,\s*/g, (_, buf) => `${buf} = _sprintf(`);
+        // esphome::str_sprintf → _sprintf  (returns string directly, no buffer)
         js = js.replace(/\besphome::str_sprintf\s*\(/g, '_sprintf(');
-        js = js.replace(/\bsprintf\s*\(/g, '_sprintf(');
 
         // std::to_string / to_string → String
         js = js.replace(/\bstd::to_string\s*\(/g, 'String(');

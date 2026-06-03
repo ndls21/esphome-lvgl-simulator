@@ -15367,3 +15367,242 @@ test.describe('Lambda adversarial: Sendspin / SEN6X patterns', () => {
     expect(typeof r).toBe('boolean');
   });
 });
+
+// ─── Lambda adversarial: stdlib / color / fmt patterns ───────────────────────
+// Exercises: std::stoi, std::stof, sprintf (buffer-write), lv_color_make,
+//            lv_label_set_text_fmt, lv_color_hex in lambda context
+
+test.describe('Lambda adversarial: stdlib / color / fmt patterns', () => {
+  const evalDirect = (page, body) =>
+    page.evaluate((b) =>
+      window.__sim.lambda.evaluate('__lambda__:' + btoa(b), null),
+      body
+    );
+
+  test('std::stoi parses integer string', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page, 'std::string s = "42"; return std::stoi(s) + 1;');
+    expect(r).toBe(43);
+  });
+
+  test('std::stoi with negative string', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page, 'return std::stoi("-7") * 2;');
+    expect(r).toBe(-14);
+  });
+
+  test('std::stof parses float string', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page, 'std::string s = "3.14"; return std::stof(s) > 3.0f;');
+    expect(r).toBe(true);
+  });
+
+  test('std::stof used in arithmetic', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page, 'return std::stof("2.5") * 4.0f;');
+    expect(r).toBe(10);
+  });
+
+  test('sprintf writes formatted string into buffer (real: embedded status)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page, 'char buf[32]; sprintf(buf, "%d items", 7); return buf;');
+    expect(r).toBe('7 items');
+  });
+
+  test('sprintf float format', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page, 'char buf[32]; sprintf(buf, "%.2f", 1.5f); return buf;');
+    expect(r).toBe('1.50');
+  });
+
+  test('lv_color_make returns CSS hex color', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page, 'lv_color_t c = lv_color_make(255, 0, 0); return c;');
+    expect(r).toBe('#ff0000');
+  });
+
+  test('lv_color_make green channel', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page, 'return lv_color_make(0, 128, 0);');
+    expect(r).toBe('#008000');
+  });
+
+  test('lv_color_make used in expression is valid color string', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page, 'bool ok = true; if (ok) return lv_color_make(0, 255, 0); return lv_color_make(255, 0, 0);');
+    expect(r).toBe('#00ff00');
+  });
+
+  test('lv_label_set_text_fmt runs without JS error (real: Sendspin status label)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - label:
+            id: status_lbl
+            text: "init"
+`.trim());
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    // Should execute without crash — sets label text to formatted string
+    await page.evaluate((b) =>
+      window.__sim.lambda.evaluate('__lambda__:' + btoa(b), null),
+      'lv_label_set_text_fmt(id(status_lbl), "%d%%", 42);'
+    );
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+
+  test('lv_label_set_text_fmt updates label text (readable via lv_label_get_text)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - label:
+            id: fmt_lbl
+            text: "before"
+`.trim());
+    // Write via lv_label_set_text_fmt
+    await page.evaluate((b) =>
+      window.__sim.lambda.evaluate('__lambda__:' + btoa(b), null),
+      'lv_label_set_text_fmt(id(fmt_lbl), "val=%d", 99);'
+    );
+    // Read back via lv_label_get_text
+    const text = await page.evaluate((b) =>
+      window.__sim.lambda.evaluate('__lambda__:' + btoa(b), null),
+      'const char* t = lv_label_get_text(id(fmt_lbl)); return t;'
+    );
+    expect(text).toBe('val=99');
+  });
+});
+
+// ─── Lambda adversarial: math rounding / real-world sensor patterns ───────────
+// Exercises: roundf, cross-sensor id(A).state, id(sensor).has_state(),
+//            id(sensor).state.c_str(), lv_disp_trig_activity no-op
+// Patterns sourced from: jtenniswood/esphome-lvgl, agillis/esphome-modular-lvgl-buttons
+
+test.describe('Lambda adversarial: rounding / sensor patterns', () => {
+  const evalDirect = (page, body) =>
+    page.evaluate((b) =>
+      window.__sim.lambda.evaluate('__lambda__:' + btoa(b), null),
+      body
+    );
+
+  test('roundf rounds up on 0.5+ (real: jtenniswood heating delta arc)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page, 'float cur = 21.3f; return (int)roundf(cur * 2.0f);');
+    expect(r).toBe(43);
+  });
+
+  test('roundf rounds down on < 0.5', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page, 'return roundf(2.1f);');
+    expect(r).toBe(2);
+  });
+
+  test('roundf in ternary comparison (real: jtenniswood hvac)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    // int cur_v = (int)roundf(cur * 2.0f); int tgt_v = (int)roundf(tgt * 2.0f); return cur_v > tgt_v ? cur_v : tgt_v;
+    const r = await evalDirect(page,
+      'float cur = 22.5f; float tgt = 21.0f; int cur_v = (int)roundf(cur * 2.0f); int tgt_v = (int)roundf(tgt * 2.0f); return cur_v > tgt_v ? cur_v : tgt_v;'
+    );
+    expect(r).toBe(45);  // roundf(22.5 * 2) = 45, roundf(21.0 * 2) = 42, max = 45
+  });
+
+  test('cross-sensor state read in lambda (real: jtenniswood heating delta)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - label:
+            id: temp_lbl
+            text: "0"
+sensor:
+  - platform: homeassistant
+    id: current_temp
+    entity_id: sensor.temp
+  - platform: homeassistant
+    id: target_temp
+    entity_id: sensor.target
+`.trim());
+    // Cross-sensor arithmetic: combine two sensor states
+    const r = await evalDirect(page,
+      'float a = id(current_temp).state; float b = id(target_temp).state; return a + b;'
+    );
+    // Both sensors unset → state = 0, sum = 0
+    expect(typeof r).toBe('number');
+  });
+
+  test('id(sensor).has_state() returns boolean without crash', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - label:
+            id: lbl
+            text: "x"
+sensor:
+  - platform: homeassistant
+    id: probe_sensor
+    entity_id: sensor.probe
+`.trim());
+    const r = await evalDirect(page, 'bool hs = id(probe_sensor).has_state(); return hs;');
+    expect(typeof r).toBe('boolean');
+  });
+
+  test('id(sensor).state.c_str() strips .c_str() and returns string', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    // .c_str() on a string value is a no-op in JS
+    const r = await evalDirect(page, 'std::string s = "heating"; return s.c_str();');
+    expect(r).toBe('heating');
+  });
+
+  test('lv_disp_trig_activity runs without crash (real: esphome discussions #3543)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await evalDirect(page, 'lv_disp_trig_activity(NULL); return 1;');
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+});
