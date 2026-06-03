@@ -1072,6 +1072,11 @@ lvgl:
                 this.theme[type] = themeCfg[type];
             });
 
+            // Global defaults from the lvgl: root (lowest priority, overridden by widget config)
+            this._globalWidgetDefaults = {};
+            if (this.config.lvgl.text_font) this._globalWidgetDefaults.text_font = this.config.lvgl.text_font;
+            if (this.config.lvgl.align)     this._globalWidgetDefaults.align     = this.config.lvgl.align;
+
             this.parseGlobals();
             this.parseSensorComponents();
             this.setupDisplay();
@@ -1607,12 +1612,14 @@ lvgl:
     }
 
     resolveStyles(config) {
+        const globalDefaults = this._globalWidgetDefaults || {};
         const themeDefaults = (this.theme || {})[this.currentWidgetType] || {};
         const mainPart = (typeof config.main === 'object' && !Array.isArray(config.main)) ? config.main : {};
         const ids = config.styles
             ? (Array.isArray(config.styles) ? config.styles : [config.styles])
             : [];
         let resolved = {};
+        resolved = deepMergeStyles(resolved, globalDefaults);
         resolved = deepMergeStyles(resolved, themeDefaults);
         resolved = deepMergeStyles(resolved, mainPart);
         ids.forEach(id => {
