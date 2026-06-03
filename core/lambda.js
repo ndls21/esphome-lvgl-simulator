@@ -355,9 +355,9 @@ export class LambdaEvaluator {
 
         // LVGL pointer variable assignment: auto w = id(widget) or lv_obj_t* w = id(widget)
         // → let w = 'widget' so the variable holds the string ID for proxy lookup.
-        // The negative lookahead prevents matching id(x).state or id(x)() (sensor reads).
+        // The negative lookahead prevents matching id(x).state, id(x)(), or id(x)->method (sensor/method reads).
         // This must run before anyWidget translations and before _translateIdGlobal.
-        b = b.replace(/(?:auto|lv_\w+_t\s*\*)\s*(\w+)\s*=\s*id\s*\(\s*(\w+)\s*\)(?!\s*[.(])\s*;?/g,
+        b = b.replace(/(?:auto|lv_\w+_t\s*\*)\s*(\w+)\s*=\s*id\s*\(\s*(\w+)\s*\)(?!\s*[.(]|->)\s*;?/g,
             (_, varname, widgetId) => `let ${varname} = '${widgetId}';`);
 
         // Generic variable-form translations (vars holding widget IDs, e.g. panels[0], child, etc.)

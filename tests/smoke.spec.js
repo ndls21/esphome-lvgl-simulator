@@ -12549,9 +12549,11 @@ test.describe('Screensaver state machine', () => {
     await loadExample(page);
 
     // screen_state is an arbitrary store key — verify the store accepts and returns it.
-    await page.evaluate(() => { window.__sim.store.set('screen_state', 1); });
-
-    const storeState = await page.evaluate(() => window.__sim.store.get('screen_state'));
+    // Both set and get in one evaluate to prevent the screensaver RAF from overwriting between calls.
+    const storeState = await page.evaluate(() => {
+      window.__sim.store.set('screen_state', 1);
+      return window.__sim.store.get('screen_state');
+    });
     expect(storeState).toBe(1);
   });
 });
