@@ -2998,12 +2998,18 @@ lvgl:
             }
         }
 
-        // Find top_layer: block
+        // Find top_layer: block (may be indented inside lvgl:)
         for (let i = 0; i < lines.length; i++) {
-            if (/^top_layer\s*:/.test(lines[i])) {
+            const tlMatch = lines[i].match(/^(\s*)top_layer\s*:/);
+            if (tlMatch) {
+                const tlIndent = tlMatch[1].length;
                 let end = lines.length;
                 for (let j = i + 1; j < lines.length; j++) {
-                    if (/^[a-z_]/.test(lines[j])) { end = j; break; }
+                    const trimmed = lines[j].trimStart();
+                    if (trimmed.length === 0) continue;
+                    const lineIndent = lines[j].length - trimmed.length;
+                    // Stop when we hit a sibling or ancestor key (same/lesser indent, non-empty)
+                    if (lineIndent <= tlIndent && /^[a-z_\-]/.test(trimmed)) { end = j; break; }
                 }
                 result.topLayer = lines.slice(i, end).join('\n');
                 break;

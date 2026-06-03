@@ -5370,3 +5370,432 @@ lvgl:
   });
 
 });
+
+// ─── lv_label_set_text lambda (proxy setText) ────────────────────────────────
+
+test.describe('lv_label_set_text lambda', () => {
+
+  test('lv_label_set_text in on_value lambda updates label text content', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: temp_s
+    on_value:
+      - lambda: |
+          lv_label_set_text(id(temp_display), _sprintf("%.0f°", x).c_str());
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: temp_display
+            text: "---"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // Set sensor value via Drive panel
+    await page.click('.console-tab[data-tab="drive"]');
+    const slider = page.locator('#mockControls input[type="range"]').first();
+    await slider.evaluate(el => {
+      el.value = '42';
+      el.dispatchEvent(new Event('input'));
+      el.dispatchEvent(new Event('change'));
+    });
+    await page.waitForTimeout(300);
+
+    const text = await page.locator('[data-lvgl-id="temp_display"]').textContent();
+    // Should contain the formatted value (42°)
+    expect(text).toContain('42');
+  });
+
+});
+
+// ─── Overlay YAML tab ────────────────────────────────────────────────────────
+
+test.describe('Overlay YAML tab', () => {
+
+  test('overlay tab is present after loading config with top_layer', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  top_layer:
+    widgets:
+      - label:
+          id: overlay_widget
+          text: "Overlay"
+          align: TOP_MID
+  pages:
+    - id: main
+      widgets:
+        - label:
+            text: "Page"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const overlayTab = page.locator('.console-tab[data-tab="overlay"]');
+    await expect(overlayTab).toBeAttached();
+  });
+
+  test('overlay tab content shows top_layer YAML when top_layer present', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  top_layer:
+    widgets:
+      - label:
+          id: persist_label
+          text: "Persistent"
+          align: TOP_MID
+  pages:
+    - id: main
+      widgets:
+        - label:
+            text: "Page"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    await page.click('.console-tab[data-tab="overlay"]');
+    const content = await page.locator('#tab-overlay').textContent();
+    expect(content.trim().length).toBeGreaterThan(10);
+    expect(content).toContain('top_layer');
+  });
+
+});
+
+// ─── Arc with nested child widgets ───────────────────────────────────────────
+
+test.describe('Arc with nested widgets', () => {
+
+  test('arc with children renders wrapper div containing SVG and child widgets', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - arc:
+            id: arc_with_child
+            width: 120
+            height: 120
+            align: CENTER
+            widgets:
+              - label:
+                  id: arc_center_label
+                  text: "50%"
+                  align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    // The child label should be present
+    const label = page.locator('[data-lvgl-id="arc_center_label"]');
+    await expect(label).toBeAttached();
+    const text = await label.textContent();
+    expect(text).toBe('50%');
+  });
+
+});
+
+// ─── Dropdown options string format ──────────────────────────────────────────
+
+test.describe('Dropdown and Roller string options', () => {
+
+  test('dropdown with newline-separated options string renders correctly', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - dropdown:
+            id: str_dropdown
+            options: "Red\\nGreen\\nBlue"
+            selected_index: 1
+            width: 120
+            height: 40
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const text = await page.locator('[data-lvgl-id="str_dropdown"] .lvgl-dropdown__text').textContent();
+    expect(text).toBe('Green');
+  });
+
+  test('roller with newline-separated options string renders selected item', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - roller:
+            id: str_roller
+            options: "Jan\\nFeb\\nMar\\nApr\\nMay"
+            selected_index: 3
+            visible_row_count: 3
+            width: 80
+            height: 90
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const text = await page.locator('[data-lvgl-id="str_roller"] .lvgl-roller__option--selected').textContent();
+    expect(text).toBe('Apr');
+  });
+
+});
+
+// ─── Number entity Drive panel ───────────────────────────────────────────────
+
+test.describe('Number entity Drive panel', () => {
+
+  test('number entity with min/max shows correct range in slider control', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+number:
+  - platform: template
+    id: volume
+    name: "Volume"
+    min_value: 0
+    max_value: 100
+    step: 1
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: vol_label
+            text: !lambda "return String(id(volume).state);"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    await page.click('.console-tab[data-tab="drive"]');
+    const rangeInput = page.locator('#mockControls input[type="range"]').first();
+    const min = await rangeInput.getAttribute('min');
+    const max = await rangeInput.getAttribute('max');
+    expect(Number(min)).toBe(0);
+    expect(Number(max)).toBe(100);
+  });
+
+  test('number entity default value appears as 0 in Drive panel slider', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+number:
+  - platform: template
+    id: speed
+    name: "Speed"
+    min_value: 0
+    max_value: 200
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: speed_label
+            text: !lambda "return String(id(speed).state);"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    await page.click('.console-tab[data-tab="drive"]');
+    const rangeInput = page.locator('#mockControls input[type="range"]').first();
+    const val = await rangeInput.evaluate(el => parseFloat(el.value));
+    expect(val).toBe(0);
+  });
+
+});
+
+// ─── LED defaults ────────────────────────────────────────────────────────────
+
+test.describe('LED defaults', () => {
+
+  test('led with no color defaults to white background', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - led:
+            id: default_led
+            width: 24
+            height: 24
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const bg = await page.locator('[data-lvgl-id="default_led"]').evaluate(
+      el => el.style.backgroundColor
+    );
+    // Default color is #ffffff
+    expect(bg).toBe('rgb(255, 255, 255)');
+  });
+
+  test('bright LED (brightness > 128) has box-shadow glow', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - led:
+            id: bright_led
+            color: 0x00FF00
+            brightness: 200
+            width: 24
+            height: 24
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const shadow = await page.locator('[data-lvgl-id="bright_led"]').evaluate(
+      el => el.style.boxShadow
+    );
+    // Bright LED should have box-shadow glow
+    expect(shadow.length).toBeGreaterThan(0);
+    expect(shadow).not.toBe('');
+  });
+
+  test('dim LED (brightness = 0) has no box-shadow', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - led:
+            id: dim_led2
+            color: 0xFF0000
+            brightness: 0
+            width: 24
+            height: 24
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const shadow = await page.locator('[data-lvgl-id="dim_led2"]').evaluate(
+      el => el.style.boxShadow
+    );
+    expect(shadow).toBe('');
+  });
+
+});
+
+// ─── Page list navigation correctness ────────────────────────────────────────
+
+test.describe('Page list navigation correctness', () => {
+
+  test('clicking non-first page row navigates and renders that page content', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: page_one
+      widgets:
+        - label:
+            id: one_label
+            text: "One"
+            align: CENTER
+    - id: page_two
+      widgets:
+        - label:
+            id: two_label
+            text: "Two"
+            align: CENTER
+    - id: page_three
+      widgets:
+        - label:
+            id: three_label
+            text: "Three"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // Click the third page row
+    const rows = page.locator('#page-list .page-list-row');
+    await rows.nth(2).click();
+    await page.waitForTimeout(200);
+
+    const label = await page.locator('[data-lvgl-id="three_label"]').textContent();
+    expect(label).toBe('Three');
+    const pillIndex = await page.locator('#page-selector-index').textContent();
+    expect(pillIndex).toBe('3/3');
+  });
+
+  test('10-page config shows correct count badge', async ({ page }) => {
+    const pages = Array.from({ length: 10 }, (_, i) => `
+    - id: page_${i + 1}
+      widgets:
+        - label:
+            text: "Page ${i + 1}"
+            align: CENTER`).join('');
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:${pages}
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const badge = await page.locator('#page-count-badge').textContent();
+    expect(badge).toBe('10');
+  });
+
+});
