@@ -188,6 +188,9 @@ class ESPHomeLVGLSimulator {
         this.pageSelect = document.getElementById('pageSelect');
         this.pageInfo = document.getElementById('pageInfo');
 
+        // Expose globally for test access (Playwright, devtools)
+        window.__sim = this;
+
         this.init();
         if (!this.loadFromHash()) this.loadExampleConfig();
     }
@@ -468,6 +471,19 @@ class ESPHomeLVGLSimulator {
         document.getElementById('swipe-right')?.addEventListener('click', () => this._handleSwipe('right'));
         document.getElementById('swipe-up')?.addEventListener('click',    () => this._handleSwipe('up'));
 
+        // Mobile rail toggles
+        document.getElementById('toggle-left-rail')?.addEventListener('click', () => {
+            document.getElementById('left-rail')?.classList.toggle('rail-open');
+        });
+        document.getElementById('toggle-right-rail')?.addEventListener('click', () => {
+            document.getElementById('right-rail')?.classList.toggle('rail-open');
+        });
+        // Tap outside an open rail to close it
+        document.getElementById('hero-canvas')?.addEventListener('click', () => {
+            document.getElementById('left-rail')?.classList.remove('rail-open');
+            document.getElementById('right-rail')?.classList.remove('rail-open');
+        });
+
         document.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
             const map = { ArrowLeft: 'right', ArrowRight: 'left', ArrowUp: 'down', ArrowDown: 'up' };
@@ -609,18 +625,65 @@ class ESPHomeLVGLSimulator {
         const animMap = { left: 'MOVE_LEFT', right: 'MOVE_RIGHT', up: 'MOVE_TOP', down: 'MOVE_BOTTOM' };
 
         if (page[handlerKey]) {
-            this.lambda.evaluate(page[handlerKey], null);
-        } else {
-            if (dir === 'left' && this.currentPageIndex < this.pages.length - 1) {
-                this.currentPageIndex++;
-                this.syncPageSelect();
-                this.renderCurrentPage(animMap[dir]);
-            } else if (dir === 'right' && this.currentPageIndex > 0) {
-                this.currentPageIndex--;
-                this.syncPageSelect();
-                this.renderCurrentPage(animMap[dir]);
+            // Try to parse a show_page(id(X)->index, ...) call from the lambda body.
+            // This lets us honour the YAML author's navigation intent without executing C++.
+            const nav = this._parseShowPageNav(page[handlerKey]);
+            if (nav !== null) {
+                const targetIdx = this.pages.findIndex(p => p.id === nav.pageId);
+                if (targetIdx !== -1) {
+                    this.currentPageIndex = targetIdx;
+                    this.syncPageSelect();
+                    this.renderCurrentPage(nav.anim || animMap[dir], nav.duration ?? null);
+                }
+            } else {
+                // Lambda exists but doesn't contain a show_page call — evaluate as-is
+                this.lambda.evaluate(page[handlerKey], null);
             }
         }
+        // No handler → no navigation. The YAML author decides what swipes do;
+        // we don't assume a default direction mapping.
+    }
+
+    /**
+     * Extract the decoded body from a preprocessed lambda value.
+     * Handles both inline string ("__lambda__:BASE64") and action-list
+     * ([{lambda: "__lambda__:BASE64"}, ...]) forms.
+     */
+    _extractLambdaBody(handler) {
+        let encoded = null;
+        if (typeof handler === 'string' && handler.startsWith('__lambda__:')) {
+            encoded = handler.slice(11);
+        } else if (Array.isArray(handler)) {
+            for (const item of handler) {
+                if (item && typeof item.lambda === 'string' && item.lambda.startsWith('__lambda__:')) {
+                    encoded = item.lambda.slice(11);
+                    break;
+                }
+            }
+        }
+        if (!encoded) return null;
+        try {
+            return decodeURIComponent(escape(atob(encoded)));
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * If the lambda body contains a show_page(id(PAGE_ID)->index, ...) call,
+     * return { pageId, anim } so _handleSwipe can navigate directly.
+     * Returns null if no navigable show_page call is found.
+     */
+    _parseShowPageNav(handler) {
+        const body = this._extractLambdaBody(handler);
+        if (!body) return null;
+        const pageMatch = body.match(/show_page\s*\(\s*id\s*\(\s*(\w+)\s*\)\s*->\s*index/);
+        if (!pageMatch) return null;
+        const animMatch = body.match(/LV_SCR_LOAD_ANIM_MOVE_(\w+)/);
+        const anim = animMatch ? `MOVE_${animMatch[1]}` : null;
+        const durationMatch = body.match(/LV_SCR_LOAD_ANIM_\w+\s*,\s*(\d+)\s*\)/);
+        const duration = durationMatch ? parseInt(durationMatch[1], 10) : null;
+        return { pageId: pageMatch[1], anim, duration };
     }
 
     async loadConfigFile(file) {
@@ -920,9 +983,11 @@ lvgl:
         this._onValueHandlers = {}; // { sensorId: lambdaStr }
 
         const componentTypes = ['sensor', 'binary_sensor', 'text_sensor', 'number', 'switch', 'select'];
-        for (const type of componentTypes) {
-            const components = this.config[type] || [];
-            for (const comp of [].concat(components)) {
+        // globals uses plural key; include it alongside the standard component types
+        const allComponents = componentTypes.flatMap(t => [].concat(this.config[t] || []));
+        allComponents.push(...[].concat(this.config.globals || []));
+
+        for (const comp of allComponents) {
                 const id = comp.id;
                 if (!id) continue;
 
@@ -956,7 +1021,6 @@ lvgl:
                 }
 
                 if (lambdaStr) this._onValueHandlers[id] = lambdaStr;
-            }
         }
     }
 
@@ -1011,6 +1075,11 @@ lvgl:
             Object.keys(themeCfg).forEach(type => {
                 this.theme[type] = themeCfg[type];
             });
+
+            // Global defaults from the lvgl: root (lowest priority, overridden by widget config)
+            this._globalWidgetDefaults = {};
+            if (this.config.lvgl.text_font) this._globalWidgetDefaults.text_font = this.config.lvgl.text_font;
+            if (this.config.lvgl.align)     this._globalWidgetDefaults.align     = this.config.lvgl.align;
 
             this.parseGlobals();
             this.parseSensorComponents();
@@ -1146,17 +1215,32 @@ lvgl:
         const baseW = this.displayWidth || 466;
         const baseH = this.displayHeight || 466;
 
+        // Effective visual dimensions after rotation
+        const effectiveW = (rot === 90 || rot === 270) ? baseH : baseW;
+        const effectiveH = (rot === 90 || rot === 270) ? baseW : baseH;
+
+        // Auto-scale: fit display within hero-void container (12px margin each side)
+        const container = document.getElementById('hero-void');
+        let scale = 1;
+        if (container && container.clientWidth > 0) {
+            const availW = container.clientWidth - 24;
+            const availH = container.clientHeight - 24;
+            if (availW > 0 && availH > 0) {
+                scale = Math.min(1, availW / effectiveW, availH / effectiveH);
+            }
+        }
+        // CSS zoom affects layout (unlike transform), so flex centering works naturally;
+        // margin compensation for rotation is specified pre-zoom (zoom auto-scales it)
+        display.style.zoom = scale < 0.999 ? scale.toFixed(4) : '';
+        display.style.width = baseW + 'px';
+        display.style.height = baseH + 'px';
+        display.style.transform = rot !== 0 ? `rotate(${rot}deg)` : '';
+
         if (rot === 90 || rot === 270) {
-            display.style.width = baseH + 'px';
-            display.style.height = baseW + 'px';
-            display.style.transform = `rotate(${rot}deg)`;
             const offset = (baseW - baseH) / 2;
             display.style.marginLeft = offset + 'px';
             display.style.marginRight = offset + 'px';
         } else {
-            display.style.width = baseW + 'px';
-            display.style.height = baseH + 'px';
-            display.style.transform = `rotate(${rot}deg)`;
             display.style.marginLeft = '';
             display.style.marginRight = '';
         }
@@ -1254,6 +1338,9 @@ lvgl:
             this._screensaver._proxy = proxy;
         }
 
+        // Expose for test access
+        this._proxy = proxy;
+
         return proxy;
     }
 
@@ -1262,7 +1349,7 @@ lvgl:
         if (!paused && this._screensaver) this._screensaver.triggerActivity();
     }
 
-    renderCurrentPage(animType = 'NONE') {
+    renderCurrentPage(animType = 'NONE', duration = null) {
         if (this._onLoadTimer) {
             clearTimeout(this._onLoadTimer);
             this._onLoadTimer = null;
@@ -1313,13 +1400,16 @@ lvgl:
         this.displayElement.appendChild(newWrapper);
 
         // Double-rAF to ensure initial classes are painted before transition starts
+        const transMs = duration ?? 200;
+        oldWrapper.style.transition = `transform ${transMs}ms ease-in-out`;
+        newWrapper.style.transition = `transform ${transMs}ms ease-in-out`;
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 oldWrapper.classList.add(exitClass);
                 newWrapper.classList.remove(enterClass);
                 setTimeout(() => {
                     oldWrapper.remove();
-                }, 210);
+                }, transMs + 10);
             });
         });
 
@@ -1406,6 +1496,7 @@ lvgl:
             if (el) {
                 // Top-layer widgets need pointer events for buttons/interactive elements
                 el.style.pointerEvents = 'auto';
+                topEl.appendChild(el);
             }
         });
 
@@ -1422,7 +1513,7 @@ lvgl:
             setTimeout(() => {
                 this.lambda._proxy = this._buildLVGLProxy();
                 this.lambda.evaluate(topLayerCfg.on_load, null);
-            }, 60);
+            }, 50);
         }
     }
 
@@ -1531,10 +1622,13 @@ lvgl:
                 this._renderedElements[cfg.id] = el;
                 el.dataset.lvglId = cfg.id;
                 el.dataset.widgetId = cfg.id;
+            }
+            if (cfg) {
+                const widgetType = type;
                 el.style.cursor = 'pointer';
                 el.addEventListener('click', e => {
                     e.stopPropagation();
-                    this.selectWidget(cfg.id, cfg);
+                    this.selectWidget(cfg.id || null, cfg, widgetType);
                 });
             }
             if (cfg && cfg.align_to) this._deferredAlignments.push({ el, alignTo: cfg.align_to });
@@ -1543,12 +1637,14 @@ lvgl:
     }
 
     resolveStyles(config) {
+        const globalDefaults = this._globalWidgetDefaults || {};
         const themeDefaults = (this.theme || {})[this.currentWidgetType] || {};
         const mainPart = (typeof config.main === 'object' && !Array.isArray(config.main)) ? config.main : {};
         const ids = config.styles
             ? (Array.isArray(config.styles) ? config.styles : [config.styles])
             : [];
         let resolved = {};
+        resolved = deepMergeStyles(resolved, globalDefaults);
         resolved = deepMergeStyles(resolved, themeDefaults);
         resolved = deepMergeStyles(resolved, mainPart);
         ids.forEach(id => {
@@ -1605,6 +1701,31 @@ lvgl:
             el.style.borderColor = 'transparent';
         }
 
+        if (config.border_side !== undefined) {
+            const sides = (typeof config.border_side === 'string' ? config.border_side : String(config.border_side)).toUpperCase();
+            if (sides === 'NONE') {
+                el.style.borderWidth = '0';
+            } else if (sides !== 'FULL') {
+                const bw = (config.border_width || 0) + 'px';
+                el.style.borderTopWidth    = sides.includes('TOP')    ? bw : '0';
+                el.style.borderBottomWidth = sides.includes('BOTTOM') ? bw : '0';
+                el.style.borderLeftWidth   = sides.includes('LEFT')   ? bw : '0';
+                el.style.borderRightWidth  = sides.includes('RIGHT')  ? bw : '0';
+            }
+        }
+
+        if (config.shadow_width > 0) {
+            const sx = config.shadow_offset_x ?? 0;
+            const sy = config.shadow_offset_y ?? 0;
+            const shadowHex = config.shadow_color ? this.parseColor(config.shadow_color) : '#000000';
+            const opa = config.shadow_opa !== undefined ? this.parseOpacity(config.shadow_opa) : 0.5;
+            const m = shadowHex.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+            const shadowColor = m
+                ? `rgba(${parseInt(m[1],16)},${parseInt(m[2],16)},${parseInt(m[3],16)},${opa.toFixed(2)})`
+                : shadowHex;
+            el.style.boxShadow = `${sx}px ${sy}px ${config.shadow_width}px ${shadowColor}`;
+        }
+
         if (config.radius !== undefined) {
             el.style.borderRadius = config.radius >= 100 ? '50%' : config.radius + 'px';
         }
@@ -1620,6 +1741,10 @@ lvgl:
 
         if (config.clip_corner || config.scrollable === false) {
             el.style.overflow = 'hidden';
+        }
+
+        if (config.opacity !== undefined) {
+            el.style.opacity = this.parseOpacity(config.opacity).toFixed(3);
         }
 
         // Grid child placement
@@ -1722,6 +1847,10 @@ lvgl:
             else el.style.height = typeof config.height === 'string' && config.height.includes('%')
                 ? config.height : config.height + 'px';
         }
+        if (config.min_width  !== undefined) el.style.minWidth  = config.min_width  + 'px';
+        if (config.max_width  !== undefined) el.style.maxWidth  = config.max_width  + 'px';
+        if (config.min_height !== undefined) el.style.minHeight = config.min_height + 'px';
+        if (config.max_height !== undefined) el.style.maxHeight = config.max_height + 'px';
     }
 
     applyLayout(el, config) {
@@ -2776,25 +2905,25 @@ lvgl:
 
     // ── Widget Inspector ─────────────────────────────────────────────────────
 
-    selectWidget(id, cfg) {
+    selectWidget(id, cfg, widgetType) {
         this._selectedWidgetId = id;
         // Update right rail subtitle
         const nameEl = document.getElementById('inspector-widget-name');
-        if (nameEl) nameEl.textContent = id;
+        if (nameEl) nameEl.textContent = id || '(anonymous)';
         // Highlight tree node
         document.querySelectorAll('.tree-node').forEach(n => {
-            n.classList.toggle('tree-node--selected', n.dataset.widgetId === id);
+            n.classList.toggle('tree-node--selected', id && n.dataset.widgetId === id);
         });
         // Populate inspector
-        this.buildInspector(cfg);
+        this.buildInspector(cfg, widgetType);
     }
 
-    buildInspector(cfg) {
+    buildInspector(cfg, widgetType) {
         const el = document.getElementById('inspector-body');
         if (!el) return;
         el.innerHTML = '';
 
-        const type = this.currentWidgetType || 'widget';
+        const type = widgetType || this.currentWidgetType || 'widget';
         const isLambda = v => v && String(v).includes('__lambda__');
 
         // Header chip
@@ -2835,8 +2964,8 @@ lvgl:
             for (const { k, v } of fields) {
                 const row = document.createElement('div');
                 row.className = 'inspector-row';
-                const isColor = String(v).startsWith('0x') || String(v).startsWith('#');
-                const hexColor = isColor ? '#' + String(v).replace(/^0x/i,'') : null;
+                const isColor = (typeof v === 'number') || String(v).startsWith('0x') || String(v).startsWith('#');
+                const hexColor = isColor ? this.parseColor(v) : null;
                 const isDriven = isLambda(v);
                 row.innerHTML = `
                     <span class="inspector-key">${k}</span>
@@ -2876,12 +3005,18 @@ lvgl:
             }
         }
 
-        // Find top_layer: block
+        // Find top_layer: block (may be indented inside lvgl:)
         for (let i = 0; i < lines.length; i++) {
-            if (/^top_layer\s*:/.test(lines[i])) {
+            const tlMatch = lines[i].match(/^(\s*)top_layer\s*:/);
+            if (tlMatch) {
+                const tlIndent = tlMatch[1].length;
                 let end = lines.length;
                 for (let j = i + 1; j < lines.length; j++) {
-                    if (/^[a-z_]/.test(lines[j])) { end = j; break; }
+                    const trimmed = lines[j].trimStart();
+                    if (trimmed.length === 0) continue;
+                    const lineIndent = lines[j].length - trimmed.length;
+                    // Stop when we hit a sibling or ancestor key (same/lesser indent, non-empty)
+                    if (lineIndent <= tlIndent && /^[a-z_\-]/.test(trimmed)) { end = j; break; }
                 }
                 result.topLayer = lines.slice(i, end).join('\n');
                 break;

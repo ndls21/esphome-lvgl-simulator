@@ -6,6 +6,8 @@ export function renderBar(config, parent) {
 
     const min = cfg.min_value ?? 0;
     const max = cfg.max_value ?? 100;
+    el.dataset.barMin = min;
+    el.dataset.barMax = max;
     const rawVal = cfg.value;
     const isLambda = rawVal !== undefined && String(rawVal).includes('__lambda__');
     const val = isLambda

@@ -31,11 +31,11 @@ lvgl:
             border_opa: TRANSP
             scrollable: false
             layout:
-            type: FLEX
-            flex_flow: COLUMN
-            flex_align_main: CENTER
-            flex_align_cross: CENTER
-            pad_row: 10
+              type: FLEX
+              flex_flow: COLUMN
+              flex_align_main: CENTER
+              flex_align_cross: CENTER
+              pad_row: 10
             widgets:
               # Status info
               - obj:

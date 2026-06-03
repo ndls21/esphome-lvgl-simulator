@@ -14,6 +14,7 @@ export function renderRoller(config, parent) {
     const selectedPartStyle = cfg.selected || {};
 
     const visibleRows = cfg.visible_row_count ?? 3;
+    el.dataset.visibleRows = visibleRows;
 
     // Show a window of visibleRows items centred on selectedIdx
     const half = Math.floor(visibleRows / 2);

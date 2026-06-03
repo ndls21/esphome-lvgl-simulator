@@ -190,13 +190,40 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
       }));
     },
 
+    // Bar value
+    setBarValue(id, val) {
+      const el = getEl(id);
+      if (!el) return;
+      const indicator = el.querySelector('.lvgl-bar__indicator');
+      if (!indicator) return;
+      const min = parseFloat(el.dataset.barMin ?? 0);
+      const max = parseFloat(el.dataset.barMax ?? 100);
+      const pct = max > min ? Math.max(0, Math.min(100, (Number(val) - min) / (max - min) * 100)) : 0;
+      indicator.style.width = pct.toFixed(2) + '%';
+    },
+
+    // Slider value
+    setSliderValue(id, val) {
+      const el = getEl(id);
+      if (!el) return;
+      const indicator = el.querySelector('.lvgl-slider__indicator');
+      const knob = el.querySelector('.lvgl-slider__knob');
+      if (!indicator) return;
+      const min = parseFloat(el.dataset.sliderMin ?? 0);
+      const max = parseFloat(el.dataset.sliderMax ?? 100);
+      const pct = max > min ? Math.max(0, Math.min(100, (Number(val) - min) / (max - min) * 100)) : 0;
+      indicator.style.width = pct.toFixed(2) + '%';
+      if (knob) knob.style.left = pct.toFixed(2) + '%';
+    },
+
     // Arc value
     setArcValue(id, val) {
       const el = getEl(id);
       if (!el) return;
       el.dataset.arcValue = val;
-      const svg = el.querySelector('svg');
-      if (svg) {
+      // Dispatch on el itself when el is SVG, or on el when it wraps an SVG
+      const isSvg = el.tagName && el.tagName.toLowerCase() === 'svg';
+      if (isSvg || el.querySelector('svg')) {
         el.dispatchEvent(new CustomEvent('lvgl-arc-update', { detail: { value: val } }));
       }
     },
