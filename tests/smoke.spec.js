@@ -3858,6 +3858,205 @@ lvgl:
     expect(count).toBe(0);
   });
 
+  test('arc mode NORMAL renders indicator starting at start_angle end of arc', async ({ page }) => {
+    // NORMAL mode: indicator starts at svgStartAngle (135-90=45 degrees in SVG space)
+    // value=50 with default range 0-100, totalSpan=270° → indicatorSpan=135°
+    // indicator path should start at svgStartAngle (45°) → x = cx + r*cos(45°)
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - arc:
+            id: normal_arc
+            width: 100
+            height: 100
+            value: 50
+            mode: NORMAL
+            align: CENTER
+            indicator:
+              arc_color: 0x4DA6FF
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const d = await page.locator('[data-lvgl-id="normal_arc"] .arc-indicator').getAttribute('d');
+    expect(d).not.toBeNull();
+    // NORMAL: path starts near svgStartAngle=45°, cx=50, cy=50, r≈41
+    // x1 ≈ 50 + 41*cos(45°) ≈ 78.98 → roughly 79
+    const parts = d.split(' ');
+    const x1 = parseFloat(parts[1]);
+    const y1 = parseFloat(parts[2]);
+    expect(x1).toBeGreaterThan(75);
+    expect(x1).toBeLessThan(82);
+    expect(y1).toBeGreaterThan(75);
+    expect(y1).toBeLessThan(82);
+  });
+
+  test('arc mode REVERSE renders indicator ending at end_angle', async ({ page }) => {
+    // REVERSE mode: indicator ends at svgEndAngle (45-90=-45° = 315° in SVG space)
+    // value=50 with default range, totalSpan=270° → indicatorSpan=135°
+    // indicator starts at svgEndAngle - indicatorSpan = -45 - 135 = -180° (180°)
+    // x1 ≈ 50 + r*cos(180°) ≈ 50 - 41 = 9
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - arc:
+            id: reverse_arc
+            width: 100
+            height: 100
+            value: 50
+            mode: REVERSE
+            align: CENTER
+            indicator:
+              arc_color: 0xFF4444
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const d = await page.locator('[data-lvgl-id="reverse_arc"] .arc-indicator').getAttribute('d');
+    expect(d).not.toBeNull();
+    // REVERSE: path starts near svgEndAngle - indicatorSpan = -45 - 135 = -180° (same as 180°)
+    // x1 ≈ 50 + 41*cos(180°) ≈ 9
+    const parts = d.split(' ');
+    const x1 = parseFloat(parts[1]);
+    expect(x1).toBeGreaterThan(5);
+    expect(x1).toBeLessThan(12);
+  });
+
+  test('arc mode SYMMETRICAL renders indicator centered on arc midpoint', async ({ page }) => {
+    // SYMMETRICAL: midAngle = svgStartAngle + totalSpan/2 = 45 + 135 = 180°
+    // value=50 → indicatorSpan=135°, halfSpan=67.5°
+    // indicator starts at 180 - 67.5 = 112.5°
+    // x1 ≈ 50 + 41*cos(112.5°) ≈ 50 - 15.66 ≈ 34
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - arc:
+            id: sym_arc
+            width: 100
+            height: 100
+            value: 50
+            mode: SYMMETRICAL
+            align: CENTER
+            indicator:
+              arc_color: 0x44FF44
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const d = await page.locator('[data-lvgl-id="sym_arc"] .arc-indicator').getAttribute('d');
+    expect(d).not.toBeNull();
+    // SYMMETRICAL at 50%: indicator centered, starts at midpoint - halfSpan (112.5°)
+    // x1 ≈ 50 + 41*cos(112.5°) ≈ 34.3
+    const parts = d.split(' ');
+    const x1 = parseFloat(parts[1]);
+    expect(x1).toBeGreaterThan(30);
+    expect(x1).toBeLessThan(40);
+  });
+
+  test('arc mode is case-insensitive', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - arc:
+            id: ci_arc
+            width: 100
+            height: 100
+            value: 50
+            mode: reverse
+            align: CENTER
+            indicator:
+              arc_color: 0xFF4444
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const d = await page.locator('[data-lvgl-id="ci_arc"] .arc-indicator').getAttribute('d');
+    expect(d).not.toBeNull();
+    // Lowercase 'reverse' should work identically to REVERSE
+    const parts = d.split(' ');
+    const x1 = parseFloat(parts[1]);
+    expect(x1).toBeGreaterThan(5);
+    expect(x1).toBeLessThan(12);
+  });
+
+  test('arc REVERSE at 0% renders no indicator', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - arc:
+            id: rev_zero_arc
+            width: 100
+            height: 100
+            value: 0
+            mode: REVERSE
+            align: CENTER
+            indicator:
+              arc_color: 0xFF4444
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const count = await page.locator('[data-lvgl-id="rev_zero_arc"] .arc-indicator').count();
+    expect(count).toBe(0);
+  });
+
+  test('arc SYMMETRICAL at 0% renders no indicator', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - arc:
+            id: sym_zero_arc
+            width: 100
+            height: 100
+            value: 0
+            mode: SYMMETRICAL
+            align: CENTER
+            indicator:
+              arc_color: 0x44FF44
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const count = await page.locator('[data-lvgl-id="sym_zero_arc"] .arc-indicator').count();
+    expect(count).toBe(0);
+  });
+
 });
 
 // ─── Slider widget (extended) ────────────────────────────────────────────────
