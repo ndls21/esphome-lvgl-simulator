@@ -54,6 +54,7 @@ export function renderArc(config, parent) {
     }
 
     const el = svg;
+    el.dataset.arcValue = value.toString();
 
     el.addEventListener('lvgl-arc-update', (e) => {
         const newVal = e.detail.value;

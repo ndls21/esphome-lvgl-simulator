@@ -9,7 +9,7 @@ function _sprintfImpl(fmt, args) {
         const prec = spec && spec.includes('.') ? parseInt(spec.split('.')[1]) : undefined;
         const padCh = spec && spec.startsWith('0') ? '0' : ' ';
         switch (baseType) {
-            case 'd': case 'i': { const n = String(Math.round(Number(val) || 0)); return width ? n.padStart(Math.abs(width), padCh) : n; }
+            case 'd': case 'i': { const n = String(Math.trunc(Number(val) || 0)); return width ? n.padStart(Math.abs(width), padCh) : n; }
             case 'u': { const n = String(Math.abs(Math.trunc(Number(val) || 0))); return width ? n.padStart(Math.abs(width), padCh) : n; }
             case 'f': return (Number(val) || 0).toFixed(prec ?? 6);
             case 's': return String(val ?? '');
@@ -137,22 +137,66 @@ export class LambdaEvaluator {
 
         if (this._isUntranslatable(js)) return null;
 
+        // Inject C stdlib helpers for any remaining untranslated functions
+        const helpers = [];
+        if (/\bstrcmp\s*\(/.test(js))
+            helpers.push("const strcmp=(a,b)=>{const sa=String(a??''),sb=String(b??'');return sa<sb?-1:sa>sb?1:0;};");
+        if (/\bstrtol\s*\(/.test(js))
+            helpers.push('const strtol=(s,_,b)=>parseInt(String(s??\'\'),(b||10));');
+        if (/\bstoi\s*\(/.test(js))
+            helpers.push('const stoi=(s)=>parseInt(String(s??\'\'),(10));');
+        if (/\bstof\s*\(/.test(js))
+            helpers.push('const stof=(s)=>parseFloat(String(s??\'\')||\'0\');');
+        if (/\blv_color_make\s*\(/.test(js))
+            helpers.push('const lv_color_make=(r,g,b)=>\'#\'+[r,g,b].map(v=>(\'0\'+Math.min(255,Math.max(0,v|0)).toString(16)).slice(-2)).join(\'\');');
+        const preamble = helpers.join('');
+
         if (isMultiStatement) {
-            // Multi-statement: emit as a statement block (no return wrapper)
-            return js;
+            return preamble + js;
         }
-        return `return (${js});`;
+        return preamble + `return (${js});`;
     }
 
     _translateLVGLCalls(body) {
         let b = body;
         const id = String.raw`id\((\w+)\)`;
 
+        // Preprocessor directives — strip to comments (keep both branches; branch bodies are no-ops in sim)
+        b = b.replace(/#if\s+[^\n]*/g, '/* #if */');
+        b = b.replace(/#else\b[^\n]*/g, '/* #else */');
+        b = b.replace(/#endif\b[^\n]*/g, '/* #endif */');
+
+        // C++ static_cast<T>(expr) → (expr)
+        b = b.replace(/\bstatic_cast\s*<[^>]+>\s*\(/g, '(');
+
+        // C-style string array initializers: {"a","b","c"} → ["a","b","c"]
+        // Only converts braces containing string literals (safe — doesn't affect code blocks)
+        b = b.replace(/\{\s*("[^"]*"(?:\s*,\s*"[^"]*")*)\s*\}/g, (_, items) => `[${items}]`);
+
+        // strcpy(dst, src) → dst = src  (C string copy; src preserved)
+        b = b.replace(/\bstrcpy\s*\(\s*(\w+)\s*,\s*((?:[^()]+|\([^()]*\))*)\)/g, '$1 = $2');
+
         // No-ops first (so they don't partially match other patterns)
         b = b.replace(/lv_refr_now\s*\([^)]*\)\s*;?/g, '/* lv_refr_now */');
         b = b.replace(/lv_indev_wait_release\s*\([^)]*\)\s*;?/g, '/* lv_indev_wait_release */');
         b = b.replace(/lv_disp_trig_activity\s*\([^)]*\)\s*;?/g, '__lvgl__.triggerActivity();');
         b = b.replace(/lv_indev_get_act\s*\(\s*\)/g, 'null');
+        b = b.replace(/lv_indev_get_next\s*\([^)]*\)/g, 'null');
+        b = b.replace(/lv_indev_set_scroll_limit\s*\([^)]*\)\s*;?/g, '/* lv_indev_set_scroll_limit */');
+        b = b.replace(/lv_obj_set_scroll_dir\s*\([^)]*\)\s*;?/g, '/* lv_obj_set_scroll_dir */');
+        b = b.replace(/lv_obj_clear_flag\s*\([^,)]+,\s*LV_OBJ_FLAG_SCROLL_\w+\s*\)\s*;?/g, '/* lv_obj_clear_flag scroll */');
+        b = b.replace(/lv_obj_set_style_pad_\w+\s*\([^)]*LV_PART_SCROLLBAR[^)]*\)\s*;?/g, '/* scrollbar pad */');
+
+        // LVGL getters — read DOM widget state via proxy
+        b = b.replace(new RegExp(`lv_arc_get_value\\s*\\(\\s*${id}\\s*\\)`, 'g'),
+            (_, wid) => `__lvgl__.arcGetValue('${wid}')`);
+        b = b.replace(new RegExp(`lv_slider_get_value\\s*\\(\\s*${id}\\s*\\)`, 'g'),
+            (_, wid) => `__lvgl__.sliderGetValue('${wid}')`);
+        b = b.replace(new RegExp(`lv_label_get_text\\s*\\(\\s*${id}\\s*\\)`, 'g'),
+            (_, wid) => `__lvgl__.labelGetText('${wid}')`);
+        // Arc range getters — return 0/100 stubs; handle nested parens like id(arc_id)
+        b = b.replace(/lv_arc_get_min_value\s*\((?:[^()]*|\([^()]*\))*\)/g, '0');
+        b = b.replace(/lv_arc_get_max_value\s*\((?:[^()]*|\([^()]*\))*\)/g, '100');
 
         // Visibility
         b = b.replace(new RegExp(`lv_obj_add_flag\\s*\\(\\s*${id}\\s*,\\s*LV_OBJ_FLAG_HIDDEN\\s*\\)`, 'g'),
@@ -163,6 +207,10 @@ export class LambdaEvaluator {
         // Text
         b = b.replace(new RegExp(`lv_label_set_text_static\\s*\\(\\s*${id}\\s*,\\s*`, 'g'),
             (_, wid) => `__lvgl__.setText('${wid}', `);
+        // lv_label_set_text_fmt(id(wid), "fmt", args...) → __lvgl__.setText('wid', _sprintf("fmt", args...))
+        // Match the full call up to ); to rewrite both parens correctly
+        b = b.replace(new RegExp(`lv_label_set_text_fmt\\s*\\(\\s*${id}\\s*,(.*?)\\)\\s*;`, 'gs'),
+            (_, wid, args) => `__lvgl__.setText('${wid}', _sprintf(${args.trim()}));`);
         b = b.replace(new RegExp(`lv_label_set_text\\s*\\(\\s*${id}\\s*,\\s*`, 'g'),
             (_, wid) => `__lvgl__.setText('${wid}', `);
 
@@ -270,13 +318,19 @@ export class LambdaEvaluator {
         b = b.replace(/lv_chart_get_series_next\s*\((\w+)\s*,\s*(\w+)\s*\)/g,
             (_, chart, series) => `__lvgl__.chartGetSeriesNext(${chart}, ${series})`);
 
-        // lv_chart_set_next_value(chart, series, val)
-        b = b.replace(/lv_chart_set_next_value\s*\((\w+)\s*,\s*(\w+)\s*,\s*([^)]+)\)/g,
-            (_, _chart, series, val) => `__lvgl__.chartSetNextValue(${series}, ${val.trim()})`);
+        // lv_chart_set_next_value(chart, series, val) — args may be id(...) calls or bare vars
+        // Use (?:[^,()]+|\([^()]*\))+ to handle one level of nested parens in args
+        b = b.replace(/lv_chart_set_next_value\s*\((?:[^,()]+|\([^()]*\))+,\s*((?:[^,()]+|\([^()]*\))+),\s*((?:[^,()]+|\([^()]*\))+)\)/g,
+            (_, series, val) => `__lvgl__.chartSetNextValue(${series.trim()}, ${val.trim()})`);
 
         // lv_chart_refresh
-        b = b.replace(/lv_chart_refresh\s*\((\w+)\s*\)/g,
-            (_, v) => `__lvgl__.chartRefresh(${v})`);
+        b = b.replace(/lv_chart_refresh\s*\([^)]*\)/g,
+            (_) => `__lvgl__.chartRefresh(null)`);
+
+        // lv_obj_invalidate — no-op (forces redraw in hardware; not needed in sim)
+        b = b.replace(/lv_obj_invalidate\s*\((?:[^()]*|\([^()]*\))*\)\s*;?/g, '/* lv_obj_invalidate */');
+        // lv_obj_set_size, lv_obj_set_pos, lv_pct — sim ignores runtime size/pos changes from lambdas
+        b = b.replace(/lv_pct\s*\(([^)]+)\)/g, (_, v) => `(${v.trim()} * 0.01)`);
 
         // id(xxx_chart) global reads (chart handles stored in __store__)
         // No || 0 fallback — null must remain null so nullptr checks work correctly
@@ -572,11 +626,47 @@ export class LambdaEvaluator {
         js = js.replace(/\bstd::sqrt\s*\(/g, 'Math.sqrt(');
         js = js.replace(/\bstd::pow\s*\(/g, 'Math.pow(');
         js = js.replace(/\bstd::log\s*\(/g, 'Math.log(');
-        // Bare C math functions (no std:: prefix)
+        // Bare C math functions (no std:: prefix) — also catches std:: names after the
+        // generic namespace::name stripper in _translateLVGLCalls reduces std::round to round, etc.
+        js = js.replace(/\broundf\s*\(/g, 'Math.round(');  // roundf before round to avoid prefix match
+        js = js.replace(/(?<!Math\.)\bround\s*\(/g, 'Math.round(');
+        js = js.replace(/(?<!Math\.)\bceil\s*\(/g, 'Math.ceil(');
+        js = js.replace(/(?<!Math\.)\bfloor\s*\(/g, 'Math.floor(');
+        js = js.replace(/(?<!Math\.)\bpow\s*\(/g, 'Math.pow(');
+        js = js.replace(/(?<!Math\.)\blog\s*\(/g, 'Math.log(');
+        js = js.replace(/(?<!Math\.)\bsin\s*\(/g, 'Math.sin(');
+        js = js.replace(/(?<!Math\.)\bcos\s*\(/g, 'Math.cos(');
+        js = js.replace(/(?<!Math\.)\btan\s*\(/g, 'Math.tan(');
         js = js.replace(/(?<!Math\.)\babs\s*\(/g, 'Math.abs(');
         js = js.replace(/(?<!Math\.)\bsqrt\s*\(/g, 'Math.sqrt(');
         js = js.replace(/(?<!Math\.)\bfabs\s*\(/g, 'Math.abs(');
         js = js.replace(/(?<!Math\.)\bfmod\s*\(/g, '((a,b)=>a%b)(');
+
+        // std::max/min (stripped to bare max/min by generic :: stripper)
+        js = js.replace(/(?<!Math\.)\bmax\s*\(/g, 'Math.max(');
+        js = js.replace(/(?<!Math\.)\bmin\s*\(/g, 'Math.min(');
+
+        // std::isnan/isinf (stripped to isnan/isinf by generic :: stripper)
+        js = js.replace(/\bisnan\s*\(/g, 'isNaN(');
+        js = js.replace(/\bisinf\s*\(/g, '((v)=>!Number.isFinite(v))(');
+
+        // std::string("lit") / std::string(expr) — bare form after :: stripping
+        js = js.replace(/\bstring\s*\(\s*("[^"]*")\s*\)/g, '$1');
+        js = js.replace(/\bstring\s*\(/g, 'String(');
+
+        // lroundf / lround / llroundf → Math.round
+        js = js.replace(/\bll?round(?:f|l)?\s*\(/g, 'Math.round(');
+
+        // atof → parseFloat
+        js = js.replace(/\batof\s*\(/g, 'parseFloat(');
+
+        // clamp(v, lo, hi) → _constrain(v, lo, hi)
+        js = js.replace(/\bclamp\s*\(/g, '_constrain(');
+
+        // C++ brace-init return: return {buf}; → return buf;
+        // In ESPHome lambdas, return {charBuf} is short for return std::string(charBuf)
+        // Only applies when braces contain a single identifier (no commas, no colons)
+        js = js.replace(/\breturn\s*\{(\s*\w+\s*)\}\s*;/g, 'return $1;');
 
         // C float math functions (f-suffixed variants) → Math.*
         js = js.replace(/\bsinf\s*\(/g, 'Math.sin(');
@@ -592,9 +682,10 @@ export class LambdaEvaluator {
         // Integer float literals: 1f → 1  (skip when preceded by '.' to avoid corrupting %.2f format specs)
         js = js.replace(/(?<!\.)\b(\d+)f\b/g, '$1');
 
-        // sprintf / esphome::str_sprintf → _sprintf
+        // sprintf(buf, fmt, args...) → buf = _sprintf(fmt, args...)  (like snprintf without size)
+        js = js.replace(/\bsprintf\s*\(\s*(\w+)\s*,\s*/g, (_, buf) => `${buf} = _sprintf(`);
+        // esphome::str_sprintf → _sprintf  (returns string directly, no buffer)
         js = js.replace(/\besphome::str_sprintf\s*\(/g, '_sprintf(');
-        js = js.replace(/\bsprintf\s*\(/g, '_sprintf(');
 
         // std::to_string / to_string → String
         js = js.replace(/\bstd::to_string\s*\(/g, 'String(');
@@ -612,10 +703,10 @@ export class LambdaEvaluator {
         js = js.replace(/\.size\s*\(\s*\)/g, '.length');
         js = js.replace(/\.empty\s*\(\s*\)/g, '.length === 0');
 
-        // C-style casts: (int)expr → Math.round(expr), (float)/(double) → no-op
-        js = js.replace(/\(int\)\s*([^\s;,)]+)/g, 'Math.round($1)');
-        js = js.replace(/\(float\)\s*/g, '');
-        js = js.replace(/\(double\)\s*/g, '');
+        // (int)/(float)/(double) C-style casts are already stripped in _translateStrings.
+        // C++ functional casts: int(expr) → Math.trunc(expr), float(expr) → strip
+        js = js.replace(/\b(?:int|uint8_t|uint16_t|uint32_t|int8_t|int16_t|int32_t)\s*\(/g, 'Math.trunc(');
+        js = js.replace(/\b(?:float|double)\s*\((?![\w$])/g, '(');
 
         return js;
     }
@@ -689,7 +780,8 @@ export class LambdaEvaluator {
             'uint8_t','uint16_t','uint32_t','uint64_t',
             'int8_t','int16_t','int32_t','int64_t',
             'size_t','lv_coord_t','lv_color_t','lv_opa_t',
-            'ESPTime'
+            'ESPTime',
+            'string'  // catches std::string after generic :: stripper reduces it
         ].join('|') + ')';
 
         // Simple declaration: type varname = ...  or  type varname;
@@ -698,6 +790,16 @@ export class LambdaEvaluator {
 
         // Pointer declarations: lv_obj_t *varname  or  lv_chart_series_t *varname
         b = b.replace(/\blv_\w+_t\s*\*\s*(\w+)/g, 'let $1');
+        // void* pointer declarations (e.g. globals typed as void*)
+        b = b.replace(/\bvoid\s*\*\s*(\w+)/g, 'let $1');
+
+        // const char* / char* pointer variable (but not char buf[] which is handled below)
+        // \b after (\w+) anchors to full word boundary, preventing prefix-match backtracking
+        b = b.replace(/\b(?:static\s+)?const\s+char\s*\*\s*(\w+)\b(?!\s*\[)/g, 'let $1');
+        b = b.replace(/\bchar\s*\*\s*(\w+)\b(?!\s*\[)/g, 'let $1');
+
+        // const char* name[] = [...] array declaration
+        b = b.replace(/\b(?:static\s+)?const\s+char\s*\*\s*(\w+)\s*\[\s*\]\s*=/g, 'let $1 =');
 
         // char buf[N] → let buf = '' (string, not array — used with snprintf)
         b = b.replace(/\bchar\s+(\w+)\s*\[\d*\]\s*(?==|;)/g, "let $1 = ''");

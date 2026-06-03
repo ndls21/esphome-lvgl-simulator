@@ -122,6 +122,13 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
       textEl.textContent = String(text);
     },
 
+    labelGetText(id) {
+      const el = getEl(id);
+      if (!el) return '';
+      const textEl = el.querySelector('.lvgl-label-text') || el;
+      return textEl.textContent || '';
+    },
+
     // Colors
     setTextColor(id, hex) { const el = getEl(id); if (el) el.style.color = hex; },
     setBgColor(id, hex) { const el = getEl(id); if (el) el.style.backgroundColor = hex; },
@@ -206,6 +213,7 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
     setSliderValue(id, val) {
       const el = getEl(id);
       if (!el) return;
+      el.dataset.sliderValue = val;
       const indicator = el.querySelector('.lvgl-slider__indicator');
       const knob = el.querySelector('.lvgl-slider__knob');
       if (!indicator) return;
@@ -217,6 +225,18 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
     },
 
     // Arc value
+    arcGetValue(id) {
+      const el = getEl(id);
+      if (!el) return 0;
+      return parseFloat(el.dataset.arcValue ?? 0);
+    },
+
+    sliderGetValue(id) {
+      const el = getEl(id);
+      if (!el) return 0;
+      return parseFloat(el.dataset.sliderValue ?? 0);
+    },
+
     setArcValue(id, val) {
       const el = getEl(id);
       if (!el) return;
