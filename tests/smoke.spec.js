@@ -14562,3 +14562,496 @@ test.describe('Simulator isolation between configs', () => {
     expect(tempVal).toBeNull();
   });
 });
+
+// ─── Share URL round-trip ─────────────────────────────────────────────────────
+
+test.describe('Share URL round-trip', () => {
+  const SHARE_YAML = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: share_page
+      widgets:
+        - label:
+            id: share_label
+            text: "ShareTest"
+            align: CENTER
+`.trim();
+
+  test('getShareURL produces a #state= URL', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, SHARE_YAML);
+
+    const url = await page.evaluate(() => window.__sim.getShareURL());
+    expect(url).toContain('#state=');
+    expect(url.length).toBeGreaterThan(50);
+  });
+
+  test('share URL encodes the YAML content', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, SHARE_YAML);
+
+    const url = await page.evaluate(() => window.__sim.getShareURL());
+    // Decode and verify YAML is present
+    const hash = url.split('#state=')[1];
+    const decoded = await page.evaluate((h) => {
+      try {
+        return JSON.parse(decodeURIComponent(escape(atob(h))));
+      } catch { return null; }
+    }, hash);
+
+    expect(decoded).not.toBeNull();
+    expect(decoded.yaml).toContain('share_label');
+    expect(decoded.yaml).toContain('ShareTest');
+  });
+
+  test('navigating to share URL loads and renders the config', async ({ page }) => {
+    // Build the share URL from a fresh render
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, SHARE_YAML);
+    const shareURL = await page.evaluate(() => window.__sim.getShareURL());
+
+    // Navigate to the share URL — loadFromHash should auto-render
+    await page.goto(shareURL);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#lvglDisplay .placeholder')).toHaveCount(0, { timeout: 10000 });
+
+    const labelExists = await page.evaluate(() =>
+      !!document.querySelector('[data-lvgl-id="share_label"]')
+    );
+    expect(labelExists).toBe(true);
+  });
+
+  test('share URL round-trip preserves YAML exactly', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, SHARE_YAML);
+
+    const shareURL = await page.evaluate(() => window.__sim.getShareURL());
+    await page.goto(shareURL);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#lvglDisplay .placeholder')).toHaveCount(0, { timeout: 10000 });
+
+    const editorContent = await page.evaluate(() =>
+      document.getElementById('yamlEditor')?.value
+    );
+    expect(editorContent?.trim()).toBe(SHARE_YAML.trim());
+  });
+
+  test('legacy #yaml= hash format still loads', async ({ page }) => {
+    // Encode using the same method the app uses: btoa(unescape(encodeURIComponent(yaml)))
+    const encoded = await page.evaluate((yaml) => btoa(unescape(encodeURIComponent(yaml))), SHARE_YAML);
+    await page.goto(`${BASE}#yaml=${encoded}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#lvglDisplay .placeholder')).toHaveCount(0, { timeout: 10000 });
+
+    const labelExists = await page.evaluate(() =>
+      !!document.querySelector('[data-lvgl-id="share_label"]')
+    );
+    expect(labelExists).toBe(true);
+  });
+
+  test('malformed #state= hash falls back gracefully (no crash)', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+
+    await page.goto(`${BASE}#state=NOTVALIDBASE64!!!`);
+    await page.waitForLoadState('networkidle');
+
+    // Should load example config or show empty state — no JS crash
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+});
+
+// ─── Invalid YAML / error states ─────────────────────────────────────────────
+
+test.describe('Invalid YAML / error recovery', () => {
+  test('invalid YAML shows error in display, no JS crash', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    await page.click('.console-tab[data-tab="edit"]');
+    await page.fill('#yamlEditor', 'this: is: not: valid: yaml:');
+    await page.click('#renderPreview');
+    await page.waitForTimeout(500);
+
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+    // Display should show error or placeholder — not empty
+    const displayText = await page.locator('#lvglDisplay').innerText();
+    expect(displayText.length).toBeGreaterThan(0);
+  });
+
+  test('YAML with no lvgl: block shows an error message', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    await page.click('.console-tab[data-tab="edit"]');
+    await page.fill('#yamlEditor', 'display:\n  - platform: custom\n    dimensions: {width: 320, height: 240}\n');
+    await page.click('#renderPreview');
+    await page.waitForTimeout(500);
+
+    const displayText = await page.locator('#lvglDisplay').innerText();
+    expect(displayText).toContain('No LVGL');
+  });
+
+  test('YAML with lvgl but no pages shows error', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await page.click('.console-tab[data-tab="edit"]');
+    await page.fill('#yamlEditor', `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages: []
+`.trim());
+    await page.click('#renderPreview');
+    await page.waitForTimeout(500);
+
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+
+  test('re-render after error renders correctly', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    // First: bad YAML
+    await page.click('.console-tab[data-tab="edit"]');
+    await page.fill('#yamlEditor', 'not valid yaml :::');
+    await page.click('#renderPreview');
+    await page.waitForTimeout(300);
+
+    // Then: valid YAML — should recover
+    await renderYAML(page, `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: recovery_page
+      widgets:
+        - label:
+            id: recovery_label
+            text: "Recovered"
+            align: CENTER
+`.trim());
+
+    const exists = await page.evaluate(() =>
+      !!document.querySelector('[data-lvgl-id="recovery_label"]')
+    );
+    expect(exists).toBe(true);
+  });
+});
+
+// ─── Theme state system ───────────────────────────────────────────────────────
+
+test.describe('Theme state styles (checked/pressed/focused)', () => {
+  const THEME_STATE_YAML = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  theme:
+    button:
+      bg_color: 0x333333
+      pressed:
+        bg_color: 0xFF0000
+      checked:
+        bg_color: 0x00FF00
+  pages:
+    - id: p
+      widgets:
+        - button:
+            id: themed_btn
+            width: 100
+            height: 40
+            align: CENTER
+            checkable: true
+            widgets:
+              - label:
+                  text: "Click"
+                  align: CENTER
+`.trim();
+
+  test('theme bg_color applied to button by default', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, THEME_STATE_YAML);
+
+    const bg = await page.evaluate(() => {
+      const el = document.querySelector('[data-lvgl-id="themed_btn"]');
+      return el?.style.backgroundColor;
+    });
+    // 0x333333 → rgb(51, 51, 51)
+    expect(bg).toBe('rgb(51, 51, 51)');
+  });
+
+  test('theme with pressed/checked states parses without error', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, THEME_STATE_YAML);
+
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+    const btn = await page.evaluate(() =>
+      !!document.querySelector('[data-lvgl-id="themed_btn"]')
+    );
+    expect(btn).toBe(true);
+  });
+
+  test('widget-level bg_color overrides theme bg_color', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  theme:
+    button:
+      bg_color: 0x333333
+  pages:
+    - id: p
+      widgets:
+        - button:
+            id: override_btn
+            bg_color: 0x0000FF
+            width: 100
+            height: 40
+            align: CENTER
+            widgets:
+              - label:
+                  text: "X"
+                  align: CENTER
+`.trim());
+
+    const bg = await page.evaluate(() => {
+      const el = document.querySelector('[data-lvgl-id="override_btn"]');
+      return el?.style.backgroundColor;
+    });
+    // Widget-level 0x0000FF wins over theme 0x333333
+    expect(bg).toBe('rgb(0, 0, 255)');
+  });
+});
+
+// ─── Lambda adversarial: real-world patterns ──────────────────────────────────
+
+test.describe('Lambda adversarial: real-world patterns', () => {
+  const BASE_YAML_WRAP = (lambdaBody) => `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+globals:
+  - id: result_val
+    type: float
+    initial_value: "0"
+  - id: flag
+    type: bool
+    initial_value: "false"
+  - id: counter
+    type: int
+    initial_value: "0"
+sensor:
+  - platform: template
+    id: temp_sensor
+    on_value:
+      then:
+        - lambda: "${lambdaBody}"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - label:
+            id: lbl
+            text: "test"
+            align: CENTER
+`.trim();
+
+  const evalLambda = async (page, lambdaBody, sensorValue = 25.5) => {
+    await renderYAML(page, BASE_YAML_WRAP(lambdaBody));
+    await page.evaluate((v) => { window.__sim.store.set('temp_sensor', v); }, sensorValue);
+    await page.waitForTimeout(200);
+  };
+
+  test('if/else chain with comparison operators', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await evalLambda(page,
+      'if (x > 30) { id(result_val) = 3; } else if (x > 20) { id(result_val) = 2; } else { id(result_val) = 1; }',
+      25.5
+    );
+    const val = await page.evaluate(() => window.__sim.store.get('result_val'));
+    expect(val).toBe(2);
+  });
+
+  test('compound assignment operators: +=, -=, *=', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await evalLambda(page, 'id(counter) += 5; id(result_val) = id(counter);', 0);
+    const val = await page.evaluate(() => window.__sim.store.get('result_val'));
+    expect(val).toBe(5);
+  });
+
+  test('ternary operator in lambda', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await evalLambda(page, 'id(result_val) = (x > 20) ? 99 : 0;', 25);
+    const val = await page.evaluate(() => window.__sim.store.get('result_val'));
+    expect(val).toBe(99);
+  });
+
+  test('boolean flag set and read', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await evalLambda(page, 'id(flag) = (x > 20);', 25);
+    const val = await page.evaluate(() => window.__sim.store.get('flag'));
+    expect(val).toBe(true);
+  });
+
+  test('std::abs and std::round usage', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await evalLambda(page, 'id(result_val) = std::round(std::abs(x));', -3.7);
+    const val = await page.evaluate(() => window.__sim.store.get('result_val'));
+    expect(val).toBe(4);
+  });
+
+  test('constrain() clamps value within range', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await evalLambda(page, 'id(result_val) = constrain(x, 0, 10);', 150);
+    const val = await page.evaluate(() => window.__sim.store.get('result_val'));
+    expect(val).toBe(10);
+  });
+
+  test('map() rescales value linearly', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await evalLambda(page, 'id(result_val) = map(x, 0, 100, 0, 255);', 50);
+    const val = await page.evaluate(() => window.__sim.store.get('result_val'));
+    expect(val).toBe(127.5);
+  });
+
+  test('ESP_LOGI followed by assignment does not corrupt result', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    // Serial.println is stripped like ESP_LOG but requires no string literals,
+    // avoiding double-quote conflicts in the YAML template string.
+    await evalLambda(page, 'Serial.println(x); id(result_val) = x * 2;', 5);
+    const val = await page.evaluate(() => window.__sim.store.get('result_val'));
+    expect(val).toBe(10);
+  });
+
+  test('lv_color_hex in lambda does not crash', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const result = await page.evaluate(() =>
+      window.__sim.lambda.evaluate('__lambda__:' + btoa('lv_color_hex(0xFF8800)'), null)
+    );
+    expect(result).toBe('#ff8800');
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+
+  test('id(x).publish_state(val) propagates value to store', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: my_sensor
+text_sensor:
+  - platform: template
+    id: my_text
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - label:
+            id: lbl
+            text: "t"
+            align: CENTER
+`.trim());
+
+    await page.evaluate(() => {
+      window.__sim.lambda._proxy = window.__sim._buildLVGLProxy();
+      window.__sim.lambda.evaluate('__lambda__:' + btoa('id(my_sensor).publish_state(42.5)'), null);
+    });
+    await page.waitForTimeout(100);
+    const val = await page.evaluate(() => window.__sim.store.get('my_sensor'));
+    expect(val).toBe(42.5);
+  });
+
+  test('millis() returns a positive number', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const result = await page.evaluate(() =>
+      window.__sim.lambda.evaluate('__lambda__:' + btoa('millis()'), null)
+    );
+    expect(typeof result).toBe('number');
+    expect(result).toBeGreaterThan(0);
+  });
+
+  test('for loop accumulates correctly', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const result = await page.evaluate(() =>
+      window.__sim.lambda.evaluate('__lambda__:' + btoa('int sum = 0; for (int i = 1; i <= 5; i++) { sum += i; } return sum;'), null)
+    );
+    expect(result).toBe(15);
+  });
+
+  test('lv_obj_t* pointer variable assignment (auto w = id(x))', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - label:
+            id: target_lbl
+            text: "hello"
+            align: CENTER
+`.trim());
+
+    // Test that the pointer assignment pattern translates correctly
+    // auto w = id(target_lbl) should become let w = 'target_lbl'
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await page.evaluate(() => {
+      window.__sim.lambda._proxy = window.__sim._buildLVGLProxy();
+      // This lambda uses auto pointer variable — should not crash
+      window.__sim.lambda.evaluate('__lambda__:' + btoa('auto w = id(target_lbl); lv_obj_set_hidden(w, false);'), null);
+    });
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+});

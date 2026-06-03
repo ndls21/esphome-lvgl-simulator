@@ -19,5 +19,7 @@ module.exports = defineConfig({
   },
   projects: [
     { name: 'chromium', use: { browserName: 'chromium' } },
+    // Firefox: run locally with `npx playwright install firefox` then add:
+    // { name: 'firefox', use: { browserName: 'firefox' } },
   ],
 });

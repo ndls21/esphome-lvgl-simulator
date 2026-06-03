@@ -572,7 +572,16 @@ export class LambdaEvaluator {
         js = js.replace(/\bstd::sqrt\s*\(/g, 'Math.sqrt(');
         js = js.replace(/\bstd::pow\s*\(/g, 'Math.pow(');
         js = js.replace(/\bstd::log\s*\(/g, 'Math.log(');
-        // Bare C math functions (no std:: prefix)
+        // Bare C math functions (no std:: prefix) — also catches std:: names after the
+        // generic namespace::name stripper in _translateLVGLCalls reduces std::round to round, etc.
+        js = js.replace(/(?<!Math\.)\bround\s*\(/g, 'Math.round(');
+        js = js.replace(/(?<!Math\.)\bceil\s*\(/g, 'Math.ceil(');
+        js = js.replace(/(?<!Math\.)\bfloor\s*\(/g, 'Math.floor(');
+        js = js.replace(/(?<!Math\.)\bpow\s*\(/g, 'Math.pow(');
+        js = js.replace(/(?<!Math\.)\blog\s*\(/g, 'Math.log(');
+        js = js.replace(/(?<!Math\.)\bsin\s*\(/g, 'Math.sin(');
+        js = js.replace(/(?<!Math\.)\bcos\s*\(/g, 'Math.cos(');
+        js = js.replace(/(?<!Math\.)\btan\s*\(/g, 'Math.tan(');
         js = js.replace(/(?<!Math\.)\babs\s*\(/g, 'Math.abs(');
         js = js.replace(/(?<!Math\.)\bsqrt\s*\(/g, 'Math.sqrt(');
         js = js.replace(/(?<!Math\.)\bfabs\s*\(/g, 'Math.abs(');
