@@ -114,7 +114,11 @@ export class LambdaEvaluator {
 
         // Detect multi-statement bodies: contains a semicolon not at the very end,
         // or contains block-control keywords that imply multiple statements.
+        // Also count line-terminating semicolons — multi-line lambdas (YAML | block scalar)
+        // put each statement on its own line, which the inline check misses.
+        const lineTermSemis = (js.match(/;\s*$/gm) || []).length;
         const isMultiStatement = /;[^'"\n]*\S/.test(js) ||
+            lineTermSemis >= 2 ||
             /\b(for|while|if|switch)\s*\(/.test(js) ||
             /\belse\b/.test(js);
 
