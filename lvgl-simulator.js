@@ -1439,6 +1439,7 @@ lvgl:
         pageEl.style.cssText = 'position:absolute;width:100%;height:100%;top:0;left:0;';
 
         if (page.bg_color) pageEl.style.backgroundColor = this.parseColor(page.bg_color);
+        this.applyLayout(pageEl, page);
 
         if (page.scrollable === true) {
             pageEl.style.overflowY = 'auto';
@@ -1856,21 +1857,30 @@ lvgl:
     applyLayout(el, config) {
         if (!config.layout) return;
         const layout = config.layout;
+        const ltype = (layout.type || '').toUpperCase();
+        const toPx = (val) => {
+            if (val === undefined) return undefined;
+            const n = typeof val === 'number' ? val : parseFloat(String(val));
+            return isNaN(n) ? '0px' : n + 'px';
+        };
 
-        if (layout.type === 'FLEX') {
+        if (ltype === 'FLEX') {
             el.style.display = 'flex';
             const flow = (layout.flex_flow || 'ROW').toUpperCase();
             el.style.flexDirection = flow.includes('COLUMN')
                 ? (flow.includes('REVERSE') ? 'column-reverse' : 'column')
                 : (flow.includes('REVERSE') ? 'row-reverse' : 'row');
+            if (flow.includes('WRAP')) el.style.flexWrap = 'wrap';
 
             el.style.justifyContent = this.flexAlign(layout.flex_align_main);
             el.style.alignItems     = this.flexAlign(layout.flex_align_cross);
 
-            if (layout.pad_row !== undefined || layout.pad_column !== undefined) {
-                el.style.gap = `${layout.pad_row ?? 0}px ${layout.pad_column ?? 0}px`;
+            const rowGap = toPx(layout.pad_row);
+            const colGap = toPx(layout.pad_column);
+            if (rowGap !== undefined || colGap !== undefined) {
+                el.style.gap = `${rowGap ?? '0px'} ${colGap ?? '0px'}`;
             }
-        } else if (layout.type === 'GRID') {
+        } else if (ltype === 'GRID') {
             el.style.display = 'grid';
             if (layout.grid_columns) {
                 el.style.gridTemplateColumns = this.parseLvglGridTrack(layout.grid_columns);
@@ -1878,8 +1888,10 @@ lvgl:
             if (layout.grid_rows) {
                 el.style.gridTemplateRows = this.parseLvglGridTrack(layout.grid_rows);
             }
-            if (layout.pad_column !== undefined) el.style.columnGap = layout.pad_column + 'px';
-            if (layout.pad_row    !== undefined) el.style.rowGap    = layout.pad_row    + 'px';
+            const colGap = toPx(layout.pad_column);
+            const rowGap = toPx(layout.pad_row);
+            if (colGap !== undefined) el.style.columnGap = colGap;
+            if (rowGap !== undefined) el.style.rowGap    = rowGap;
         }
     }
 

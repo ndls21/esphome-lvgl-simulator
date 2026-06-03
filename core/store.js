@@ -45,7 +45,9 @@ export class SimulatorStateStore {
     if (!this._listeners[id]) this._listeners[id] = [];
     this._listeners[id].push(callback);
     return () => {
-      this._listeners[id] = this._listeners[id].filter(cb => cb !== callback);
+      if (this._listeners[id]) {
+        this._listeners[id] = this._listeners[id].filter(cb => cb !== callback);
+      }
     };
   }
 

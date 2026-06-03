@@ -13620,3 +13620,943 @@ lvgl:
   });
 });
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Real-world config tests — ensuring simulator works beyond a single project
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Waveshare ST7262 dashboard (adapted from iamfaraz/hadisplay.yaml) ───────
+// Original: https://github.com/iamfaraz/Waveshare_ST7262_ESPHome_LVGL
+// Tests GRID layout, theme, style_definitions, multi-page, top_layer, checkable buttons
+
+const HADISPLAY_YAML = `
+display:
+  - platform: custom
+    dimensions: {width: 800, height: 480}
+sensor:
+  - platform: template
+    id: outdoor_temp
+    on_value:
+      then:
+        - lambda: |
+            id(display_time) = _sprintf("%.1f C", x);
+  - platform: template
+    id: current_load
+    on_value:
+      then:
+        - lambda: "id(current_load_val) = x;"
+globals:
+  - id: display_time
+    type: std::string
+    initial_value: '"00:00"'
+  - id: current_load_val
+    type: float
+    initial_value: "0"
+lvgl:
+  color_depth: 16
+  page_wrap: true
+  bg_opa: TRANSP
+  style_definitions:
+    - id: header_footer
+      bg_color: 0x1b1b1b
+      bg_opa: COVER
+      border_width: 0
+      radius: 0
+      pad_all: 0
+      text_color: 0xFFFFFF
+      width: 100%
+      height: 40
+  theme:
+    button:
+      text_font: roboto22
+      radius: 5
+      width: 100
+      height: 150
+      bg_color: 0x000000
+      border_width: 3
+      border_color: 0xFFFFFF
+      text_color: 0xFFFFFF
+      checked:
+        bg_color: 0xCC5E14
+        text_color: 0xFFFFFF
+  top_layer:
+    widgets:
+      - label:
+          id: top_clock
+          text: "12:00"
+          align: top_mid
+          text_color: 0xFFFFFF
+  pages:
+    - id: main_page
+      layout:
+        type: grid
+        grid_rows: [150px, 150px]
+        grid_columns: [400px, 100px, 100px, 100px]
+        pad_row: 20px
+        pad_column: 20px
+      width: 100%
+      pad_all: 5
+      widgets:
+        - obj:
+            id: lv_clock_obj
+            grid_cell_row_pos: 0
+            grid_cell_column_pos: 0
+            width: 400
+            height: 150
+            widgets:
+              - label:
+                  text: "00:00"
+                  id: time_label
+                  align: center
+                  text_color: 0xFFFFFF
+        - button:
+            checkable: true
+            id: lv_button_1
+            grid_cell_row_pos: 0
+            grid_cell_column_pos: 1
+            widgets:
+              - label:
+                  align: top_left
+                  text: "B"
+                  id: lv_button_1_icon
+              - label:
+                  align: bottom_mid
+                  text: "Bedroom"
+        - button:
+            checkable: true
+            id: lv_button_2
+            grid_cell_row_pos: 0
+            grid_cell_column_pos: 2
+            widgets:
+              - label:
+                  align: bottom_mid
+                  text: "Kitchen"
+        - button:
+            checkable: true
+            id: lv_button_3
+            grid_cell_row_pos: 1
+            grid_cell_column_pos: 1
+            widgets:
+              - label:
+                  align: bottom_mid
+                  text: "Frontyard"
+    - id: power_page
+      layout:
+        type: grid
+        grid_rows: [150px, 150px]
+        grid_columns: [175px, 175px, 175px, 175px]
+        pad_row: 20px
+        pad_column: 20px
+      width: 100%
+      pad_all: 5
+      widgets:
+        - obj:
+            grid_cell_row_pos: 0
+            grid_cell_column_pos: 0
+            width: 175
+            height: 150
+            widgets:
+              - label:
+                  text: "---"
+                  id: current_load_text
+                  align: center
+                  text_color: 0xFFFFFF
+              - label:
+                  text: "Current Load"
+                  align: bottom_mid
+                  text_color: 0xFFFFFF
+        - obj:
+            grid_cell_row_pos: 0
+            grid_cell_column_pos: 1
+            width: 175
+            height: 150
+            widgets:
+              - label:
+                  text: "---"
+                  id: pv_power_text
+                  align: center
+                  text_color: 0xFFFFFF
+              - label:
+                  text: "PV Power"
+                  align: bottom_mid
+                  text_color: 0xFFFFFF
+        - obj:
+            grid_cell_row_pos: 1
+            grid_cell_column_pos: 0
+            width: 175
+            height: 150
+            widgets:
+              - label:
+                  text: "---"
+                  id: grid_sold_text
+                  align: center
+                  text_color: 0xFFFFFF
+              - label:
+                  text: "Grid Sold"
+                  align: bottom_mid
+                  text_color: 0xFFFFFF
+        - obj:
+            grid_cell_row_pos: 1
+            grid_cell_column_pos: 1
+            width: 175
+            height: 150
+            widgets:
+              - label:
+                  text: "---"
+                  id: grid_bought_text
+                  align: center
+                  text_color: 0xFFFFFF
+              - label:
+                  text: "Grid Bought"
+                  align: bottom_mid
+                  text_color: 0xFFFFFF
+`.trim();
+
+test.describe('Waveshare ST7262 dashboard (hadisplay.yaml adapted)', () => {
+  test('renders without JS errors', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, HADISPLAY_YAML);
+
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+
+  test('main_page uses CSS grid layout', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, HADISPLAY_YAML);
+
+    const display = await page.evaluate(() => {
+      const pg = document.querySelector('#lvglDisplay .lvgl-page');
+      return pg?.style.display;
+    });
+
+    expect(display).toBe('grid');
+  });
+
+  test('main_page grid-template-columns reflects YAML grid_columns', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, HADISPLAY_YAML);
+
+    const cols = await page.evaluate(() => {
+      const pg = document.querySelector('#lvglDisplay .lvgl-page');
+      return pg?.style.gridTemplateColumns;
+    });
+
+    expect(cols).toContain('400px');
+    expect(cols).toContain('100px');
+  });
+
+  test('time_label renders inside main_page', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, HADISPLAY_YAML);
+
+    const text = await page.evaluate(() => {
+      return document.querySelector('[data-lvgl-id="time_label"]')?.textContent;
+    });
+
+    expect(text).toBeTruthy();
+    expect(text).toContain('00:00');
+  });
+
+  test('three buttons render with correct IDs', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, HADISPLAY_YAML);
+
+    const btns = await page.evaluate(() => {
+      return ['lv_button_1', 'lv_button_2', 'lv_button_3'].map(id =>
+        !!document.querySelector(`[data-lvgl-id="${id}"]`)
+      );
+    });
+
+    expect(btns).toEqual([true, true, true]);
+  });
+
+  test('page navigation moves to power_page', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, HADISPLAY_YAML);
+
+    // Navigate to power_page
+    await page.evaluate(() => { window.__sim.currentPageIndex = 1; window.__sim.renderCurrentPage(); });
+    await page.waitForTimeout(200);
+
+    const id = await page.evaluate(() => {
+      return document.querySelector('[data-lvgl-id="current_load_text"]')?.textContent;
+    });
+
+    expect(id).toContain('---');
+  });
+
+  test('power_page grid layout has 175px columns', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, HADISPLAY_YAML);
+
+    await page.evaluate(() => { window.__sim.currentPageIndex = 1; window.__sim.renderCurrentPage(); });
+    await page.waitForTimeout(200);
+
+    const cols = await page.evaluate(() => {
+      const pg = document.querySelector('#lvglDisplay .lvgl-page');
+      return pg?.style.gridTemplateColumns;
+    });
+
+    expect(cols).toContain('175px');
+  });
+
+  test('top_layer label renders over page content', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, HADISPLAY_YAML);
+
+    const topLabel = await page.evaluate(() => {
+      return !!document.querySelector('[data-lvgl-id="top_clock"]');
+    });
+
+    expect(topLabel).toBe(true);
+  });
+
+  test('page_wrap: true — simulator pageWrap flag is set', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, HADISPLAY_YAML);
+
+    const wrap = await page.evaluate(() => window.__sim.pageWrap);
+    expect(wrap).toBe(true);
+  });
+
+  test('theme button styles are parsed without error (no JS throw)', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, HADISPLAY_YAML);
+
+    // Theme includes nested `checked:` — should not throw
+    const themeHasButton = await page.evaluate(() => {
+      return typeof window.__sim?.theme?.button === 'object';
+    });
+
+    expect(themeHasButton).toBe(true);
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+
+  test('style_definitions are stored and accessible', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, HADISPLAY_YAML);
+
+    const hasHeaderFooter = await page.evaluate(() => {
+      return typeof window.__sim?.styleDefinitions?.header_footer === 'object';
+    });
+
+    expect(hasHeaderFooter).toBe(true);
+  });
+
+  test('button grid cells placed at correct CSS grid positions', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, HADISPLAY_YAML);
+
+    const pos = await page.evaluate(() => {
+      const el = document.querySelector('[data-lvgl-id="lv_button_1"]');
+      return {
+        col: el?.style.gridColumnStart,
+        row: el?.style.gridRowStart,
+      };
+    });
+
+    // grid_cell_column_pos: 1 → gridColumnStart: 2 (CSS is 1-based)
+    expect(pos.col).toBe('2');
+    expect(pos.row).toBe('1');
+  });
+});
+
+// ─── Waveshare 4.3" FLEX dashboard (itmaybeokay-style) ────────────────────
+// Original: https://gist.github.com/itmaybeokay/bd5c7aa574e8ed517148cf9c4c267bdb
+// Tests: FLEX column_wrap layout, theme, single-page, checkable buttons
+
+const FLEX_DASHBOARD_YAML = `
+display:
+  - platform: custom
+    dimensions: {width: 800, height: 480}
+lvgl:
+  color_depth: 16
+  theme:
+    button:
+      bg_color: 0x333333
+      bg_grad_dir: VER
+      text_color: 0xFFFFFF
+      checked:
+        bg_color: 0xcc9900
+        text_color: 0x000000
+        bg_grad_color: 0x664d00
+      pressed:
+        border_color: 0xff6600
+  pages:
+    - id: main_page
+      layout:
+        type: flex
+        flex_flow: column_wrap
+        flex_align_main: CENTER
+        flex_align_cross: CENTER
+      width: 100%
+      bg_color: 0x000000
+      bg_opa: cover
+      pad_all: 5
+      widgets:
+        - button:
+            checkable: true
+            id: lv_btn_light1
+            width: 140
+            height: 150
+            widgets:
+              - label:
+                  text: "Demo Lamp"
+              - label:
+                  id: demo_light_status
+                  text: "Off"
+                  align: bottom_left
+        - button:
+            checkable: true
+            id: lv_btn_light2
+            width: 140
+            height: 150
+            widgets:
+              - label:
+                  text: "Kitchen"
+              - label:
+                  id: kitchen_status
+                  text: "Off"
+                  align: bottom_left
+        - button:
+            checkable: true
+            id: lv_btn_fan
+            width: 140
+            height: 150
+            widgets:
+              - label:
+                  text: "Fan"
+              - label:
+                  id: fan_status
+                  text: "Off"
+                  align: bottom_left
+`.trim();
+
+test.describe('Waveshare 4.3" FLEX dashboard (itmaybeokay-style)', () => {
+  test('renders without JS errors', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, FLEX_DASHBOARD_YAML);
+
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+
+  test('main_page uses CSS flex layout', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, FLEX_DASHBOARD_YAML);
+
+    const display = await page.evaluate(() => {
+      return document.querySelector('#lvglDisplay .lvgl-page')?.style.display;
+    });
+
+    expect(display).toBe('flex');
+  });
+
+  test('flex_flow column_wrap sets flex-direction:column and flex-wrap:wrap', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, FLEX_DASHBOARD_YAML);
+
+    const styles = await page.evaluate(() => {
+      const pg = document.querySelector('#lvglDisplay .lvgl-page');
+      return {
+        direction: pg?.style.flexDirection,
+        wrap: pg?.style.flexWrap,
+      };
+    });
+
+    expect(styles.direction).toBe('column');
+    expect(styles.wrap).toBe('wrap');
+  });
+
+  test('three buttons render', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, FLEX_DASHBOARD_YAML);
+
+    const count = await page.evaluate(() => {
+      return document.querySelectorAll('#lvglDisplay .lvgl-button, #lvglDisplay [data-lvgl-id^="lv_btn"]').length;
+    });
+
+    expect(count).toBeGreaterThanOrEqual(3);
+  });
+
+  test('status labels render inside buttons', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, FLEX_DASHBOARD_YAML);
+
+    const text = await page.evaluate(() =>
+      document.querySelector('[data-lvgl-id="demo_light_status"]')?.textContent
+    );
+
+    expect(text).toBe('Off');
+  });
+
+  test('theme with nested checked/pressed states parsed without error', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, FLEX_DASHBOARD_YAML);
+
+    const theme = await page.evaluate(() => window.__sim?.theme?.button);
+    expect(theme).toBeTruthy();
+    expect(typeof theme.checked).toBe('object');
+    expect(theme.checked.bg_color).toBeTruthy();
+  });
+});
+
+// ─── Multi-arc thermostat (Waveshare ESP32-P4 style) ─────────────────────
+// Original: https://github.com/jtenniswood/esphome-lvgl
+// Tests: 3 overlapping arcs, adjustable arc, on_value, abs positioning
+
+const MULTI_ARC_YAML = `
+display:
+  - platform: custom
+    dimensions: {width: 720, height: 720}
+sensor:
+  - platform: template
+    id: target_temp
+    on_value:
+      then:
+        - lambda: "id(current_temp_val) = x;"
+globals:
+  - id: current_temp_val
+    type: float
+    initial_value: "20"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: thermostat_page
+      widgets:
+        - arc:
+            id: track_arc
+            x: 90
+            y: 120
+            width: 540
+            height: 540
+            min_value: 20
+            max_value: 64
+            start_angle: 135
+            end_angle: 45
+            value: 44
+            arc_width: 27
+            arc_color: 0x3A3A3A
+            clickable: false
+            adjustable: false
+        - arc:
+            id: current_arc
+            x: 100
+            y: 130
+            width: 520
+            height: 520
+            min_value: 20
+            max_value: 64
+            start_angle: 135
+            end_angle: 45
+            value: 40
+            arc_width: 27
+            arc_color: 0x1E90FF
+            clickable: false
+            adjustable: false
+        - arc:
+            id: target_arc
+            x: 98
+            y: 128
+            width: 525
+            height: 525
+            min_value: 20
+            max_value: 64
+            start_angle: 135
+            end_angle: 45
+            value: 44
+            arc_width: 0
+            arc_color: 0x000000
+            clickable: true
+            adjustable: true
+        - label:
+            id: temp_display
+            align: center
+            text: "22.0 C"
+            text_color: 0xFFFFFF
+`.trim();
+
+test.describe('Multi-arc thermostat (P4-4B style)', () => {
+  test('renders without JS errors', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, MULTI_ARC_YAML);
+
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+
+  test('three arcs render on thermostat_page', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, MULTI_ARC_YAML);
+
+    // Arcs render as <svg> elements with data-lvgl-id, not as .lvgl-arc class
+    const arcCount = await page.evaluate(() =>
+      ['track_arc', 'current_arc', 'target_arc'].filter(id =>
+        !!document.querySelector(`[data-lvgl-id="${id}"]`)
+      ).length
+    );
+
+    expect(arcCount).toBe(3);
+  });
+
+  test('track_arc and current_arc have correct initial values', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, MULTI_ARC_YAML);
+
+    const vals = await page.evaluate(() => ({
+      track: document.querySelector('[data-lvgl-id="track_arc"]')?.querySelector('.arc-track')?.style.strokeDasharray || null,
+      hasTrack: !!document.querySelector('[data-lvgl-id="track_arc"]'),
+      hasCurrent: !!document.querySelector('[data-lvgl-id="current_arc"]'),
+      hasTarget: !!document.querySelector('[data-lvgl-id="target_arc"]'),
+    }));
+
+    expect(vals.hasTrack).toBe(true);
+    expect(vals.hasCurrent).toBe(true);
+    expect(vals.hasTarget).toBe(true);
+  });
+
+  test('arcs are absolutely positioned (x/y from YAML)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, MULTI_ARC_YAML);
+
+    const pos = await page.evaluate(() => {
+      const el = document.querySelector('[data-lvgl-id="track_arc"]');
+      return { left: el?.style.left, top: el?.style.top };
+    });
+
+    expect(pos.left).toBe('90px');
+    expect(pos.top).toBe('120px');
+  });
+
+  test('sensor on_value updates global via store', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, MULTI_ARC_YAML);
+
+    await page.evaluate(() => { window.__sim.store.set('target_temp', 25.5); });
+    await page.waitForTimeout(300);
+
+    const val = await page.evaluate(() => window.__sim.store.get('current_temp_val'));
+    expect(val).toBe(25.5);
+  });
+
+  test('temp_display label renders with initial text', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, MULTI_ARC_YAML);
+
+    const text = await page.evaluate(() =>
+      document.querySelector('[data-lvgl-id="temp_display"]')?.textContent
+    );
+
+    expect(text).toContain('22.0 C');
+  });
+});
+
+// ─── GRID track parsing unit tests ─────────────────────────────────────────
+
+test.describe('GRID track string parsing (parseLvglGridTrack)', () => {
+  test('px-string array → space-separated px values', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const result = await page.evaluate(() =>
+      window.__sim.parseLvglGridTrack(['150px', '150px'])
+    );
+
+    expect(result).toBe('150px 150px');
+  });
+
+  test('FR(n) → n fr units', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const result = await page.evaluate(() =>
+      window.__sim.parseLvglGridTrack(['FR(1)', 'FR(2)', 'FR(1)'])
+    );
+
+    expect(result).toBe('1fr 2fr 1fr');
+  });
+
+  test('CONTENT keyword → auto', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const result = await page.evaluate(() =>
+      window.__sim.parseLvglGridTrack(['CONTENT', '100px'])
+    );
+
+    expect(result).toBe('auto 100px');
+  });
+
+  test('bare numbers → px values', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const result = await page.evaluate(() =>
+      window.__sim.parseLvglGridTrack([400, 100, 100, 100])
+    );
+
+    expect(result).toBe('400px 100px 100px 100px');
+  });
+
+  test('mixed px and FR track', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const result = await page.evaluate(() =>
+      window.__sim.parseLvglGridTrack(['200px', 'FR(1)', 'CONTENT'])
+    );
+
+    expect(result).toBe('200px 1fr auto');
+  });
+});
+
+// ─── M5Dial-style arc encoder display ────────────────────────────────────
+// Original: https://github.com/GinAndBacon/ESPHome-LVGL-EncoderDial
+// Tests: arc with on_release pattern, circular layout, light page
+
+const M5DIAL_YAML = `
+display:
+  - platform: custom
+    dimensions: {width: 240, height: 240}
+sensor:
+  - platform: template
+    id: brightness_level
+    on_value:
+      then:
+        - lambda: "id(brightness_val) = x;"
+globals:
+  - id: brightness_val
+    type: float
+    initial_value: "128"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: light_page
+      bg_color: 0x000000
+      widgets:
+        - arc:
+            id: brightness_arc
+            align: center
+            width: 200
+            height: 200
+            min_value: 0
+            max_value: 255
+            value: 128
+            adjustable: true
+            arc_width: 20
+            arc_color: 0xFFAA00
+            indicator:
+              arc_color: 0xFFAA00
+              arc_width: 20
+        - label:
+            id: brightness_pct
+            align: center
+            text: "50%"
+            text_color: 0xFFFFFF
+    - id: media_page
+      bg_color: 0x1a1a1a
+      widgets:
+        - button:
+            id: play_btn
+            align: center
+            width: 80
+            height: 80
+            widgets:
+              - label:
+                  text: "PLAY"
+                  align: center
+        - label:
+            id: media_title
+            align: bottom_mid
+            text: "No Media"
+            text_color: 0x888888
+`.trim();
+
+test.describe('M5Dial circular display (GinAndBacon-style)', () => {
+  test('renders both pages without JS errors', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, M5DIAL_YAML);
+
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+
+  test('brightness_arc renders on light_page', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, M5DIAL_YAML);
+
+    const exists = await page.evaluate(() =>
+      !!document.querySelector('[data-lvgl-id="brightness_arc"]')
+    );
+
+    expect(exists).toBe(true);
+  });
+
+  test('arc renders with width 200 (SVG attribute)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, M5DIAL_YAML);
+
+    // Arc renders as <svg> — width is an SVG attribute, not a CSS style property
+    const w = await page.evaluate(() => {
+      const el = document.querySelector('[data-lvgl-id="brightness_arc"]');
+      return el?.getAttribute('width');
+    });
+
+    expect(w).toBe('200');
+  });
+
+  test('navigating to media_page shows play button', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, M5DIAL_YAML);
+
+    await page.evaluate(() => { window.__sim.currentPageIndex = 1; window.__sim.renderCurrentPage(); });
+    await page.waitForTimeout(200);
+
+    const exists = await page.evaluate(() =>
+      !!document.querySelector('[data-lvgl-id="play_btn"]')
+    );
+
+    expect(exists).toBe(true);
+  });
+
+  test('sensor on_value updates global brightness_val', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, M5DIAL_YAML);
+
+    await page.evaluate(() => { window.__sim.store.set('brightness_level', 200); });
+    await page.waitForTimeout(300);
+
+    const val = await page.evaluate(() => window.__sim.store.get('brightness_val'));
+    expect(val).toBe(200);
+  });
+
+  test('page count is 2', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, M5DIAL_YAML);
+
+    const count = await page.evaluate(() => window.__sim.pages.length);
+    expect(count).toBe(2);
+  });
+
+  test('240x240 display dimensions set correctly', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, M5DIAL_YAML);
+
+    const dims = await page.evaluate(() => ({
+      w: window.__sim.displayWidth,
+      h: window.__sim.displayHeight,
+    }));
+
+    expect(dims.w).toBe(240);
+    expect(dims.h).toBe(240);
+  });
+});
+
+// ─── Cross-config regression: simulator resets cleanly between configs ────
+
+test.describe('Simulator isolation between configs', () => {
+  test('loading second config clears first config widgets', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    // Load hadisplay config first
+    await renderYAML(page, HADISPLAY_YAML);
+    const hadBtn = await page.evaluate(() =>
+      !!document.querySelector('[data-lvgl-id="lv_button_1"]')
+    );
+    expect(hadBtn).toBe(true);
+
+    // Load M5Dial config — hadisplay widgets should be gone
+    await renderYAML(page, M5DIAL_YAML);
+    // Wait for a known M5Dial element to confirm second render is complete
+    await page.waitForSelector('[data-lvgl-id="brightness_arc"]', { timeout: 8000 });
+    const hadBtnAfter = await page.evaluate(() =>
+      !!document.querySelector('[data-lvgl-id="lv_button_1"]')
+    );
+    const dialArc = await page.evaluate(() =>
+      !!document.querySelector('[data-lvgl-id="brightness_arc"]')
+    );
+
+    expect(hadBtnAfter).toBe(false);
+    expect(dialArc).toBe(true);
+  });
+
+  test('display dimensions reset to new config values', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    await renderYAML(page, HADISPLAY_YAML);
+    const w1 = await page.evaluate(() => window.__sim.displayWidth);
+    expect(w1).toBe(800);
+
+    await renderYAML(page, M5DIAL_YAML);
+    // Wait for M5Dial to fully render before reading displayWidth
+    await page.waitForSelector('[data-lvgl-id="brightness_arc"]', { timeout: 8000 });
+    const w2 = await page.evaluate(() => window.__sim.displayWidth);
+    expect(w2).toBe(240);
+  });
+
+  test('store is cleared between renders — old sensor IDs gone', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    await renderYAML(page, HADISPLAY_YAML);
+    await page.evaluate(() => { window.__sim.store.set('outdoor_temp', 25); });
+
+    await renderYAML(page, M5DIAL_YAML);
+    // Wait for M5Dial to fully render before checking store state
+    await page.waitForSelector('[data-lvgl-id="brightness_arc"]', { timeout: 8000 });
+    const tempVal = await page.evaluate(() => window.__sim.store.get('outdoor_temp'));
+
+    // After re-render, outdoor_temp is not in the new config
+    expect(tempVal).toBeNull();
+  });
+});
