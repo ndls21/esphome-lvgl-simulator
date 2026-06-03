@@ -902,3 +902,643 @@ lvgl:
   });
 
 });
+
+// ─── YAML fixtures for deeper tests ──────────────────────────────────────────
+
+/** All eight non-basic widget types on one page. */
+const WIDGET_GALLERY_YAML = `
+display:
+  - platform: custom
+    dimensions: {width: 480, height: 480}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: gallery_page
+      widgets:
+        - arc:
+            id: my_arc
+            width: 80
+            height: 80
+            x: 10
+            y: 10
+            value: 50
+        - slider:
+            id: my_slider
+            width: 120
+            height: 20
+            x: 100
+            y: 10
+        - checkbox:
+            id: my_checkbox
+            text: "Check me"
+            x: 10
+            y: 100
+        - switch:
+            id: my_switch
+            x: 10
+            y: 150
+        - dropdown:
+            id: my_dropdown
+            options: "Option A\\nOption B\\nOption C"
+            x: 10
+            y: 200
+        - roller:
+            id: my_roller
+            options: "X\\nY\\nZ"
+            x: 200
+            y: 200
+        - spinner:
+            id: my_spinner
+            width: 50
+            height: 50
+            x: 300
+            y: 10
+        - led:
+            id: my_led
+            width: 20
+            height: 20
+            x: 300
+            y: 100
+`.trim();
+
+/** Two-page config with a persistent top_layer label. */
+const TOP_LAYER_YAML = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: tl_page1
+      widgets:
+        - label:
+            id: tl_label1
+            text: "Page One"
+            align: CENTER
+    - id: tl_page2
+      widgets:
+        - label:
+            id: tl_label2
+            text: "Page Two"
+            align: CENTER
+  top_layer:
+    widgets:
+      - label:
+          id: persistent_label
+          text: "Always Here"
+          align: BOTTOM_MID
+          y: -10
+`.trim();
+
+/** FLEX and GRID layout containers with children. */
+const LAYOUT_YAML = `
+display:
+  - platform: custom
+    dimensions: {width: 480, height: 320}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: layout_page
+      widgets:
+        - obj:
+            id: flex_row_box
+            width: 280
+            height: 50
+            x: 10
+            y: 10
+            layout:
+              type: FLEX
+              flex_flow: ROW
+            widgets:
+              - label:
+                  id: flex_child_a
+                  text: "A"
+              - label:
+                  id: flex_child_b
+                  text: "B"
+              - label:
+                  id: flex_child_c
+                  text: "C"
+        - obj:
+            id: flex_col_box
+            width: 60
+            height: 200
+            x: 310
+            y: 10
+            layout:
+              type: FLEX
+              flex_flow: COLUMN
+            widgets:
+              - label:
+                  id: col_child_x
+                  text: "X"
+              - label:
+                  id: col_child_y
+                  text: "Y"
+`.trim();
+
+// ─── Widget gallery ──────────────────────────────────────────────────────────
+
+test.describe('Widget gallery', () => {
+
+  test('arc widget: SVG element renders at data-lvgl-id', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, WIDGET_GALLERY_YAML);
+
+    // Arc renders as an SVG (or wraps one)
+    const arc = page.locator('[data-lvgl-id="my_arc"]');
+    await expect(arc).toHaveCount(1);
+    const tag = await arc.evaluate(el => el.tagName.toLowerCase());
+    // arc.js returns the SVG element directly
+    expect(tag).toBe('svg');
+  });
+
+  test('slider widget: .lvgl-slider in DOM', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, WIDGET_GALLERY_YAML);
+    await expect(page.locator('[data-lvgl-id="my_slider"].lvgl-slider')).toHaveCount(1);
+  });
+
+  test('checkbox widget: .lvgl-checkbox in DOM', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, WIDGET_GALLERY_YAML);
+    await expect(page.locator('[data-lvgl-id="my_checkbox"].lvgl-checkbox')).toHaveCount(1);
+  });
+
+  test('switch widget: .lvgl-switch in DOM', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, WIDGET_GALLERY_YAML);
+    await expect(page.locator('[data-lvgl-id="my_switch"].lvgl-switch')).toHaveCount(1);
+  });
+
+  test('dropdown widget: .lvgl-dropdown in DOM', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, WIDGET_GALLERY_YAML);
+    await expect(page.locator('[data-lvgl-id="my_dropdown"].lvgl-dropdown')).toHaveCount(1);
+  });
+
+  test('roller widget: .lvgl-roller in DOM with option rows', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, WIDGET_GALLERY_YAML);
+    await expect(page.locator('[data-lvgl-id="my_roller"].lvgl-roller')).toHaveCount(1);
+    // Roller renders one row per option (X, Y, Z)
+    const optCount = await page.locator('[data-lvgl-id="my_roller"] .lvgl-roller__option').count();
+    expect(optCount).toBe(3);
+  });
+
+  test('spinner widget: SVG with .lvgl-spinner class', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, WIDGET_GALLERY_YAML);
+    await expect(page.locator('[data-lvgl-id="my_spinner"].lvgl-spinner')).toHaveCount(1);
+  });
+
+  test('led widget: .lvgl-led in DOM', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, WIDGET_GALLERY_YAML);
+    await expect(page.locator('[data-lvgl-id="my_led"].lvgl-led')).toHaveCount(1);
+  });
+
+});
+
+// ─── top_layer ───────────────────────────────────────────────────────────────
+
+test.describe('top_layer', () => {
+
+  test('top_layer widget appears in #lvgl-top-layer after render', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, TOP_LAYER_YAML);
+
+    await expect(page.locator('#lvgl-top-layer')).toHaveCount(1);
+    await expect(page.locator('[data-lvgl-id="persistent_label"]')).toHaveCount(1);
+  });
+
+  test('top_layer widget persists after navigating to page 2', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, TOP_LAYER_YAML);
+
+    // Confirm top_layer label exists on page 1
+    await expect(page.locator('[data-lvgl-id="persistent_label"]')).toHaveCount(1);
+
+    // Navigate to page 2 via left-rail row click
+    await page.locator('#page-list .page-list-row').nth(1).click();
+    await page.waitForTimeout(300);
+
+    // persistent_label must still exist (top_layer doesn't get replaced)
+    await expect(
+      page.locator('[data-lvgl-id="persistent_label"]'),
+      'top_layer widget should persist after page navigation'
+    ).toHaveCount(1);
+
+    // tl_label2 should now be visible and tl_label1 gone
+    await expect(page.locator('[data-lvgl-id="tl_label2"]')).toHaveCount(1);
+    await expect(page.locator('[data-lvgl-id="tl_label1"]')).toHaveCount(0);
+  });
+
+});
+
+// ─── Layout system ───────────────────────────────────────────────────────────
+
+test.describe('Layout system', () => {
+
+  test('FLEX ROW container has display:flex and flex-direction:row', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, LAYOUT_YAML);
+
+    const styles = await page.locator('[data-lvgl-id="flex_row_box"]').evaluate(el => ({
+      display: el.style.display,
+      direction: el.style.flexDirection,
+    }));
+    expect(styles.display).toBe('flex');
+    expect(styles.direction).toBe('row');
+  });
+
+  test('FLEX COLUMN container has flex-direction:column', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, LAYOUT_YAML);
+
+    const dir = await page.locator('[data-lvgl-id="flex_col_box"]').evaluate(
+      el => el.style.flexDirection
+    );
+    expect(dir).toBe('column');
+  });
+
+  test('FLEX container children all render inside parent', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, LAYOUT_YAML);
+
+    // flex_child_a/b/c should be descendants of flex_row_box
+    const count = await page.locator('[data-lvgl-id="flex_row_box"] .lvgl-label').count();
+    expect(count).toBe(3);
+  });
+
+  test('nested obj: children render inside parent element', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, SINGLE_PAGE_YAML);
+
+    // container_box has hello_label as a child
+    const nested = await page.locator(
+      '[data-lvgl-id="container_box"] [data-lvgl-id="hello_label"]'
+    ).count();
+    expect(nested, 'hello_label should be inside container_box').toBe(1);
+  });
+
+});
+
+// ─── Inspector ───────────────────────────────────────────────────────────────
+
+test.describe('Inspector', () => {
+
+  test('clicking a widget sets #inspector-widget-name to the widget id', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, SINGLE_PAGE_YAML);
+
+    await page.locator('[data-lvgl-id="container_box"]').click();
+    await page.waitForTimeout(100);
+
+    const name = await page.locator('#inspector-widget-name').textContent();
+    expect(name).toBe('container_box');
+  });
+
+  test('inspector body is populated after widget click', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, SINGLE_PAGE_YAML);
+
+    await page.locator('[data-lvgl-id="my_button"]').click();
+    await page.waitForTimeout(100);
+
+    // Inspector should no longer show the placeholder text
+    const placeholder = await page.locator('#inspector-body p.rail-placeholder').count();
+    expect(placeholder, 'inspector should have content after click').toBe(0);
+  });
+
+  test('widget tree (right-rail) is populated after render', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, SINGLE_PAGE_YAML);
+
+    // Tree nodes are created for each widget with an id
+    const nodes = await page.locator('#tree-body .tree-node').count();
+    expect(nodes, 'tree should have at least one node').toBeGreaterThan(0);
+  });
+
+});
+
+// ─── Style property coverage ─────────────────────────────────────────────────
+
+test.describe('Style property coverage', () => {
+
+  test('text_color applies CSS color to label element', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: test_page
+      widgets:
+        - label:
+            id: colored_label
+            text: "Hello"
+            text_color: 0x00FF00
+            align: CENTER
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const color = await page.locator('[data-lvgl-id="colored_label"]').evaluate(
+      el => el.style.color
+    );
+    expect(color).toMatch(/rgb\(0,\s*255,\s*0\)/i);
+  });
+
+  test('border_width applies CSS border-style:solid to widget', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: test_page
+      widgets:
+        - obj:
+            id: bordered_box
+            width: 100
+            height: 100
+            align: CENTER
+            border_width: 3
+            border_color: 0xFF0000
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const el = page.locator('[data-lvgl-id="bordered_box"]');
+    const borderStyle = await el.evaluate(e => e.style.borderStyle);
+    const borderWidth = await el.evaluate(e => e.style.borderWidth);
+    expect(borderStyle).toBe('solid');
+    expect(borderWidth).toBe('3px');
+  });
+
+  test('pad_all applies CSS padding to widget', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: test_page
+      widgets:
+        - obj:
+            id: padded_box
+            width: 100
+            height: 100
+            align: CENTER
+            pad_all: 12
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const padding = await page.locator('[data-lvgl-id="padded_box"]').evaluate(
+      el => el.style.padding
+    );
+    expect(padding).toBe('12px');
+  });
+
+  test('page bg_color applied to page container element', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: test_page
+      bg_color: 0x0000FF
+      widgets: []
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // The .lvgl-page element gets the page-level bg_color
+    const bg = await page.locator('#lvglDisplay .lvgl-page').evaluate(
+      el => el.style.backgroundColor
+    );
+    expect(bg).toMatch(/rgb\(0,\s*0,\s*255\)/i);
+  });
+
+  test('align CENTER sets left:50% and top:50% on widget', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: test_page
+      widgets:
+        - obj:
+            id: centered_box
+            width: 80
+            height: 80
+            align: CENTER
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const styles = await page.locator('[data-lvgl-id="centered_box"]').evaluate(el => ({
+      left: el.style.left,
+      top: el.style.top,
+    }));
+    expect(styles.left).toBe('50%');
+    expect(styles.top).toBe('50%');
+  });
+
+  test('border_side TOP: only top border is non-zero', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: test_page
+      widgets:
+        - obj:
+            id: top_border_box
+            width: 120
+            height: 60
+            align: CENTER
+            border_width: 4
+            border_side: TOP
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const el = page.locator('[data-lvgl-id="top_border_box"]');
+    const borderTop    = await el.evaluate(e => e.style.borderTopWidth);
+    const borderBottom = await el.evaluate(e => e.style.borderBottomWidth);
+    expect(borderTop).toBe('4px');
+    expect(borderBottom).toBe('0px');
+  });
+
+});
+
+// ─── Resilience ──────────────────────────────────────────────────────────────
+
+test.describe('Resilience', () => {
+
+  test('config without lvgl key shows error without JS crash', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', err => errors.push(err.message));
+
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: gpio
+    id: my_sensor
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await page.click('.console-tab[data-tab="edit"]');
+    await page.fill('#yamlEditor', yaml);
+    await page.click('#renderPreview');
+    await page.waitForTimeout(500);
+
+    // No JS crash
+    const real = errors.filter(e => !e.includes('favicon') && !e.includes('net::ERR_'));
+    expect(real, `crashed: ${real.join('\n')}`).toHaveLength(0);
+
+    // Should show an error element (displayError sets innerHTML)
+    const hasError = await page.locator('#lvglDisplay .render-error, [class*="error"]').count() > 0;
+    const placeholder = await page.locator('#lvglDisplay .placeholder').count() > 0;
+    expect(hasError || placeholder, 'should show error or placeholder').toBeTruthy();
+  });
+
+  test('one bad widget does not prevent other page widgets from rendering', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: test_page
+      widgets:
+        - label:
+            id: good_label
+            text: "Good"
+            align: TOP_MID
+        - frobnicate:
+            id: bad_widget
+            x: 10
+            y: 100
+        - label:
+            id: another_label
+            text: "Also Good"
+            align: BOTTOM_MID
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // good_label and another_label should render
+    await expect(page.locator('[data-lvgl-id="good_label"]')).toHaveCount(1);
+    await expect(page.locator('[data-lvgl-id="another_label"]')).toHaveCount(1);
+    // bad_widget renders as .lvgl-unsupported
+    await expect(page.locator('[data-lvgl-id="bad_widget"].lvgl-unsupported')).toHaveCount(1);
+  });
+
+  test('rendering with empty widgets list produces empty page without crash', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', err => errors.push(err.message));
+
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: empty_page
+      widgets: []
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const real = errors.filter(e => !e.includes('favicon') && !e.includes('net::ERR_'));
+    expect(real, `crashed: ${real.join('\n')}`).toHaveLength(0);
+    // Page still renders (pill shows 1/1)
+    expect(await page.locator('#page-selector-index').textContent()).toBe('1/1');
+  });
+
+  test('bar with lambda value shows midpoint indicator with unknown class', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: test_page
+      widgets:
+        - bar:
+            id: lambda_bar
+            width: 200
+            height: 20
+            align: CENTER
+            min_value: 0
+            max_value: 100
+            value: !lambda "return id(some_sensor).state;"
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // Bar renders even with a lambda value — shows midpoint (50%) with --unknown class
+    await expect(page.locator('[data-lvgl-id="lambda_bar"]')).toHaveCount(1);
+    const indicator = page.locator('[data-lvgl-id="lambda_bar"] .lvgl-bar__indicator');
+    await expect(indicator).toHaveCount(1);
+    const hasUnknown = await indicator.evaluate(
+      el => el.classList.contains('lvgl-bar__indicator--unknown')
+    );
+    expect(hasUnknown, 'lambda value bar should have --unknown indicator class').toBe(true);
+  });
+
+});

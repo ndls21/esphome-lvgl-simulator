@@ -1469,6 +1469,7 @@ lvgl:
             if (el) {
                 // Top-layer widgets need pointer events for buttons/interactive elements
                 el.style.pointerEvents = 'auto';
+                topEl.appendChild(el);
             }
         });
 
