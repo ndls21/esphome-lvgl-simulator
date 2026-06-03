@@ -9292,6 +9292,130 @@ lvgl:
     expect(bg).toMatch(/rgb\(255,\s*170,\s*0\)|#ffaa00/i);
   });
 
+  test('bar direction LEFT_RIGHT: indicator width is pct%, height unset', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - bar:
+            id: bar_lr
+            min_value: 0
+            max_value: 100
+            value: 60
+            direction: LEFT_RIGHT
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const styles = await page.locator('[data-lvgl-id="bar_lr"] .lvgl-bar__indicator').evaluate(el => ({
+      width: el.style.width,
+      height: el.style.height,
+      marginLeft: el.style.marginLeft,
+    }));
+    expect(styles.width).toBe('60%');
+    expect(styles.marginLeft).toBe('');
+  });
+
+  test('bar direction RIGHT_LEFT: indicator has marginLeft auto and width pct%', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - bar:
+            id: bar_rl
+            min_value: 0
+            max_value: 100
+            value: 40
+            direction: RIGHT_LEFT
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const styles = await page.locator('[data-lvgl-id="bar_rl"] .lvgl-bar__indicator').evaluate(el => ({
+      width: el.style.width,
+      marginLeft: el.style.marginLeft,
+    }));
+    expect(styles.width).toBe('40%');
+    expect(styles.marginLeft).toBe('auto');
+  });
+
+  test('bar direction TOP_BOTTOM: indicator height is pct%, width is 100%', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - bar:
+            id: bar_tb
+            min_value: 0
+            max_value: 100
+            value: 75
+            direction: TOP_BOTTOM
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const styles = await page.locator('[data-lvgl-id="bar_tb"] .lvgl-bar__indicator').evaluate(el => ({
+      height: el.style.height,
+      width: el.style.width,
+    }));
+    expect(styles.height).toBe('75%');
+    expect(styles.width).toBe('100%');
+  });
+
+  test('bar direction BOTTOM_TOP: indicator height is pct%, container uses column-reverse', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - bar:
+            id: bar_bt
+            min_value: 0
+            max_value: 100
+            value: 30
+            direction: BOTTOM_TOP
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const indStyles = await page.locator('[data-lvgl-id="bar_bt"] .lvgl-bar__indicator').evaluate(el => ({
+      height: el.style.height,
+      width: el.style.width,
+    }));
+    expect(indStyles.height).toBe('30%');
+    expect(indStyles.width).toBe('100%');
+
+    const containerFlex = await page.locator('[data-lvgl-id="bar_bt"]').evaluate(el => el.style.flexDirection);
+    expect(containerFlex).toBe('column-reverse');
+  });
+
 });
 
 // ─── YAML error handling ──────────────────────────────────────────────────────
