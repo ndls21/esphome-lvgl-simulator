@@ -5236,3 +5236,137 @@ lvgl:
   });
 
 });
+
+// ─── on_value lambda updating bar and slider ─────────────────────────────────
+
+test.describe('on_value lambda widget updates', () => {
+
+  test('lv_bar_set_value in sensor on_value lambda updates bar indicator width', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: level_sensor
+    on_value:
+      - lambda: "lv_bar_set_value(id(level_bar), (int)x, LV_ANIM_OFF);"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - bar:
+            id: level_bar
+            width: 200
+            height: 20
+            min_value: 0
+            max_value: 100
+            value: 0
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // Set sensor to 75 → bar should show 75%
+    await page.click('.console-tab[data-tab="drive"]');
+    const slider = page.locator('#mockControls input[type="range"]').first();
+    await slider.evaluate(el => {
+      el.value = '75';
+      el.dispatchEvent(new Event('input'));
+      el.dispatchEvent(new Event('change'));
+    });
+    await page.waitForTimeout(300);
+
+    const width = await page.locator('[data-lvgl-id="level_bar"] .lvgl-bar__indicator').evaluate(
+      el => el.style.width
+    );
+    const pct = parseFloat(width);
+    expect(pct).toBeGreaterThan(70);
+    expect(pct).toBeLessThanOrEqual(100);
+  });
+
+  test('lv_bar_set_value translation produces correct JS (lambda translator)', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: pct_sensor
+    on_value:
+      - lambda: "lv_bar_set_value(id(pct_bar), (int)x, LV_ANIM_OFF);"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - bar:
+            id: pct_bar
+            width: 200
+            height: 20
+            min_value: 0
+            max_value: 100
+            value: 0
+            align: CENTER
+`.trim();
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    // Just confirm no JS crash from the lambda translation
+    expect(errors).toHaveLength(0);
+  });
+
+  test('lv_slider_set_value in on_value lambda updates slider indicator', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: slider_src
+    on_value:
+      - lambda: "lv_slider_set_value(id(driven_slider), (int)x, LV_ANIM_OFF);"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - slider:
+            id: driven_slider
+            width: 200
+            height: 20
+            min_value: 0
+            max_value: 100
+            value: 0
+            align: CENTER
+`.trim();
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    expect(errors).toHaveLength(0);
+
+    // Trigger via Drive panel
+    await page.click('.console-tab[data-tab="drive"]');
+    const slider = page.locator('#mockControls input[type="range"]').first();
+    await slider.evaluate(el => {
+      el.value = '50';
+      el.dispatchEvent(new Event('input'));
+      el.dispatchEvent(new Event('change'));
+    });
+    await page.waitForTimeout(300);
+
+    const width = await page.locator('[data-lvgl-id="driven_slider"] .lvgl-slider__indicator').evaluate(
+      el => el.style.width
+    );
+    const pct = parseFloat(width);
+    expect(pct).toBeGreaterThan(45);
+    expect(pct).toBeLessThanOrEqual(55);
+  });
+
+});

@@ -6,6 +6,8 @@ export function renderSlider(config, parent) {
 
     const min = cfg.min_value ?? 0;
     const max = cfg.max_value ?? 100;
+    el.dataset.sliderMin = min;
+    el.dataset.sliderMax = max;
     const rawVal = cfg.value;
     const isLambda = rawVal !== undefined && String(rawVal).includes('__lambda__');
     const val = isLambda

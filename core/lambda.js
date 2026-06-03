@@ -193,6 +193,16 @@ export class LambdaEvaluator {
         b = b.replace(new RegExp(`lv_arc_set_value\\s*\\(\\s*${id}\\s*,\\s*([^)]+)\\)`, 'g'),
             (_, wid, val) => `__lvgl__.setArcValue('${wid}', ${val})`);
 
+        // Bar — lv_bar_set_value(id, val, anim) — third arg ignored in sim
+        // (?:[^)]{1,20}\)\s*)? handles C casts like (int) or (uint8_t) before the value
+        b = b.replace(new RegExp(`lv_bar_set_value\\s*\\(\\s*${id}\\s*,\\s*(?:\\([^)]{1,20}\\)\\s*)?([^,)]+)[^)]*\\)`, 'g'),
+            (_, wid, val) => `__lvgl__.setBarValue('${wid}', ${val.trim()})`);
+
+        // Slider — lv_slider_set_value(id, val, anim) — third arg ignored in sim
+        b = b.replace(new RegExp(`lv_slider_set_value\\s*\\(\\s*${id}\\s*,\\s*(?:\\([^)]{1,20}\\)\\s*)?([^,)]+)[^)]*\\)`, 'g'),
+            (_, wid, val) => `__lvgl__.setSliderValue('${wid}', ${val.trim()})`);
+
+
         // Page index property: id(page_id)->index → store lookup .index
         b = b.replace(/\bid\s*\(\s*(\w+)\s*\)\s*->\s*index\b/g,
             (_, pageId) => `(__store__.get('${pageId}') || {}).index`);
@@ -540,8 +550,8 @@ export class LambdaEvaluator {
         js = js.replace(/\bNULL\b/g, 'null');
         js = js.replace(/\bnullptr\b/g, 'null');
 
-        // C++ integer type casts: (uint32_t)expr etc → strip
-        js = js.replace(/\((?:u?int(?:8|16|32|64)_t|size_t)\)\s*/g, '');
+        // C++ type casts: (uint32_t)expr, (int)x, (float)x etc → strip
+        js = js.replace(/\((?:u?int(?:8|16|32|64)_t|size_t|int|long|short|unsigned|float|double|bool|char)\)\s*/g, '');
 
         // std:: math functions → Math.*
         js = js.replace(/\bstd::isnan\s*\(/g, 'isNaN(');
