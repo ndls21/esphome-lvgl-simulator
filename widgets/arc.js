@@ -32,6 +32,7 @@ export function renderArc(config, parent) {
     const value = isLambda ? (minVal + maxVal) / 2 : (rawValue ?? minVal);
 
     const totalSpan = ((svgEndAngle - svgStartAngle) + 360) % 360 || 360;
+    const mode = String(cfg.mode || 'NORMAL').toUpperCase();
 
     const bgColor = this.parseColor(mainPart.arc_color ?? 0x333333);
     const bgArcEl = this.makeSVGArc(ns, cx, cy, r, svgStartAngle, totalSpan, arcWidth, bgColor, rounded);
@@ -40,12 +41,12 @@ export function renderArc(config, parent) {
 
     if (cfg.indicator) {
         const fraction = maxVal > minVal ? Math.max(0, Math.min(1, (value - minVal) / (maxVal - minVal))) : 0;
-        const indicatorSpan = fraction * totalSpan;
+        const { indStartAngle, indicatorSpan } = _computeIndicatorAngles(mode, svgStartAngle, totalSpan, fraction);
         if (indicatorSpan > 0) {
             const indColor = this.parseColor(cfg.indicator.arc_color ?? 0x4DA6FF);
             const indWidth = cfg.indicator.arc_width ?? arcWidth;
             const indRounded = cfg.indicator.arc_rounded ? 'round' : rounded;
-            const indicatorEl = this.makeSVGArc(ns, cx, cy, r, svgStartAngle, indicatorSpan, indWidth, indColor, indRounded);
+            const indicatorEl = this.makeSVGArc(ns, cx, cy, r, indStartAngle, indicatorSpan, indWidth, indColor, indRounded);
             indicatorEl.classList.add('arc-indicator');
             if (isLambda) indicatorEl.setAttribute('stroke-dasharray', '8 4');
             if (cfg.indicator.arc_opa !== undefined) indicatorEl.setAttribute('stroke-opacity', this.parseOpacity(cfg.indicator.arc_opa));
@@ -117,20 +118,52 @@ export function renderArc(config, parent) {
     return svg;
 }
 
+// Compute indicator start angle and span based on arc mode.
+// mode: 'NORMAL'      — fill from svgStartAngle forward by pct * totalSpan
+// mode: 'REVERSE'     — fill from svgEndAngle backward by pct * totalSpan
+// mode: 'SYMMETRICAL' — fill centered on arc midpoint, pct * totalSpan / 2 each side
+function _computeIndicatorAngles(mode, svgStartAngle, totalSpan, fraction) {
+    const svgEndAngle = svgStartAngle + totalSpan;
+    const indicatorSpan = fraction * totalSpan;
+
+    if (mode === 'REVERSE') {
+        return {
+            indStartAngle: svgEndAngle - indicatorSpan,
+            indicatorSpan,
+        };
+    }
+
+    if (mode === 'SYMMETRICAL') {
+        const midAngle = svgStartAngle + totalSpan / 2;
+        const halfSpan = indicatorSpan / 2;
+        return {
+            indStartAngle: midAngle - halfSpan,
+            indicatorSpan,
+        };
+    }
+
+    // NORMAL (default)
+    return {
+        indStartAngle: svgStartAngle,
+        indicatorSpan,
+    };
+}
+
 function _computeArcIndicatorPath(cfg, pct, cx, cy, r, arcWidth, rounded) {
     const startAngle = cfg.start_angle ?? 135;
     const endAngle = cfg.end_angle ?? 45;
     const svgStartAngle = startAngle - 90;
     const svgEndAngle = endAngle - 90;
     const totalSpan = ((svgEndAngle - svgStartAngle) + 360) % 360 || 360;
-    const indicatorSpan = pct * totalSpan;
+    const mode = String(cfg.mode || 'NORMAL').toUpperCase();
+
+    const { indStartAngle, indicatorSpan } = _computeIndicatorAngles(mode, svgStartAngle, totalSpan, pct);
     if (indicatorSpan <= 0) return null;
 
-    const ns = 'http://www.w3.org/2000/svg';
     const toRad = d => d * Math.PI / 180;
-    const endDeg = svgStartAngle + indicatorSpan;
-    const x1 = cx + r * Math.cos(toRad(svgStartAngle));
-    const y1 = cy + r * Math.sin(toRad(svgStartAngle));
+    const endDeg = indStartAngle + indicatorSpan;
+    const x1 = cx + r * Math.cos(toRad(indStartAngle));
+    const y1 = cy + r * Math.sin(toRad(indStartAngle));
     const x2 = cx + r * Math.cos(toRad(endDeg));
     const y2 = cy + r * Math.sin(toRad(endDeg));
     const largeArc = indicatorSpan > 180 ? 1 : 0;
