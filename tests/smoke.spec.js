@@ -445,7 +445,10 @@ test.describe('Error handling', () => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
 
-    const real = errors.filter(e => !e.includes('favicon'));
+    // Filter out network failures for external resources (fonts CDN, favicon, etc.)
+    const real = errors.filter(e =>
+      !e.includes('favicon') && !e.includes('net::ERR_') && !e.includes('Failed to load resource')
+    );
     expect(real, `Console errors: ${real.join('\n')}`).toHaveLength(0);
   });
 
@@ -459,6 +462,443 @@ test.describe('Error handling', () => {
 
     const real = errors.filter(e => !e.includes('favicon'));
     expect(real, `Errors during render: ${real.join('\n')}`).toHaveLength(0);
+  });
+
+  test('unknown widget type renders .lvgl-unsupported placeholder', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: test_page
+      widgets:
+        - frobnicate:
+            id: unknown_widget
+            width: 60
+            height: 40
+            align: CENTER
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await expect(page.locator('.lvgl-unsupported')).toHaveCount(1);
+    // Should show the widget type name in brackets
+    const text = await page.locator('.lvgl-unsupported').textContent();
+    expect(text).toContain('frobnicate');
+  });
+
+  test('widget without id does not get data-lvgl-id attribute', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: test_page
+      widgets:
+        - label:
+            text: "No ID label"
+            align: CENTER
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // The label renders but must NOT have data-lvgl-id (no id in YAML)
+    const label = page.locator('.lvgl-label');
+    await expect(label).toHaveCount(1);
+    const hasId = await label.evaluate(el => el.hasAttribute('data-lvgl-id'));
+    expect(hasId, 'label without YAML id should not have data-lvgl-id').toBe(false);
+  });
+
+});
+
+// ─── UI controls ────────────────────────────────────────────────────────────
+
+test.describe('UI controls', () => {
+
+  test('display preset 320x240 overrides YAML dimensions', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, SINGLE_PAGE_YAML); // YAML says 480x320
+
+    // Select a different preset
+    await page.selectOption('#displayPreset', '320x240');
+    await page.waitForTimeout(300);
+
+    const { w, h } = await page.locator('#lvglDisplay').evaluate(el => ({
+      w: el.style.width, h: el.style.height,
+    }));
+    expect(w, 'preset should override to 320px').toBe('320px');
+    expect(h, 'preset should override to 240px').toBe('240px');
+  });
+
+  test('theme toggle switches data-theme attribute', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    // Default: no data-theme (dark)
+    const before = await page.locator('html').getAttribute('data-theme');
+    expect(before).toBeNull();
+
+    await page.click('#theme-toggle');
+
+    const after = await page.locator('html').getAttribute('data-theme');
+    expect(after).toBe('light');
+
+    // Toggle back
+    await page.click('#theme-toggle');
+    const final = await page.locator('html').getAttribute('data-theme');
+    expect(final).toBeNull();
+  });
+
+  test('rotation 90° applies transform rotate to #lvglDisplay', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, SINGLE_PAGE_YAML);
+
+    await page.selectOption('#rotationSelect', '90');
+    await page.waitForTimeout(100);
+
+    const transform = await page.locator('#lvglDisplay').evaluate(el => el.style.transform);
+    expect(transform).toContain('rotate(90deg)');
+  });
+
+  test('rotation 0° removes transform after being set', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, SINGLE_PAGE_YAML);
+
+    await page.selectOption('#rotationSelect', '180');
+    await page.waitForTimeout(100);
+    await page.selectOption('#rotationSelect', '0');
+    await page.waitForTimeout(100);
+
+    const transform = await page.locator('#lvglDisplay').evaluate(el => el.style.transform);
+    // rotate(0deg) is fine, or empty — must not be 180
+    expect(transform).not.toContain('rotate(180deg)');
+  });
+
+  test('display preset Auto re-reads YAML dimensions', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, SINGLE_PAGE_YAML); // 480x320
+
+    // Override with preset, then switch back to Auto
+    await page.selectOption('#displayPreset', '320x240');
+    await page.waitForTimeout(300);
+    await page.selectOption('#displayPreset', '');
+    await page.waitForTimeout(300);
+
+    const { w, h } = await page.locator('#lvglDisplay').evaluate(el => ({
+      w: el.style.width, h: el.style.height,
+    }));
+    expect(w).toBe('480px');
+    expect(h).toBe('320px');
+  });
+
+});
+
+// ─── Re-render correctness ───────────────────────────────────────────────────
+
+test.describe('Re-render correctness', () => {
+
+  test('re-rendering different YAML removes stale widget ids', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    // First render: has container_box
+    await renderYAML(page, SINGLE_PAGE_YAML);
+    await expect(page.locator('[data-lvgl-id="container_box"]')).toHaveCount(1);
+
+    // Second render: TWO_PAGE_YAML — no container_box
+    await renderYAML(page, TWO_PAGE_YAML);
+
+    await expect(page.locator('[data-lvgl-id="container_box"]'), 'stale widget from first render should be gone').toHaveCount(0);
+  });
+
+  test('re-rendering updates display dimensions', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    await renderYAML(page, SINGLE_PAGE_YAML); // 480x320
+    const size1 = await page.locator('#lvglDisplay').evaluate(el => el.style.width);
+    expect(size1).toBe('480px');
+
+    await renderYAML(page, TWO_PAGE_YAML); // 320x240
+    const size2 = await page.locator('#lvglDisplay').evaluate(el => el.style.width);
+    expect(size2).toBe('320px');
+  });
+
+  test('re-rendering resets page selector to page 1', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    await renderYAML(page, TWO_PAGE_YAML);
+    // Navigate to page 2
+    await page.click('#swipe-left');
+    await page.waitForTimeout(400);
+    expect(await page.locator('#page-selector-index').textContent()).toBe('2/2');
+
+    // Re-render the same YAML — should reset to page 1
+    await renderYAML(page, TWO_PAGE_YAML);
+    expect(await page.locator('#page-selector-index').textContent()).toBe('1/2');
+  });
+
+});
+
+// ─── Widget styles ───────────────────────────────────────────────────────────
+
+test.describe('Widget styles', () => {
+
+  test('bg_color applies to widget background', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: test_page
+      widgets:
+        - obj:
+            id: colored_box
+            width: 100
+            height: 100
+            align: CENTER
+            bg_color: 0xFF0000
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const bg = await page.locator('[data-lvgl-id="colored_box"]').evaluate(
+      el => el.style.backgroundColor
+    );
+    // parseColor(0xFF0000) → '#FF0000' → browser normalises to rgb(255,0,0)
+    expect(bg).toMatch(/rgb\(255,\s*0,\s*0\)/i);
+  });
+
+  test('radius applies border-radius to widget', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: test_page
+      widgets:
+        - obj:
+            id: rounded_box
+            width: 80
+            height: 80
+            align: CENTER
+            radius: 10
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const radius = await page.locator('[data-lvgl-id="rounded_box"]').evaluate(
+      el => el.style.borderRadius
+    );
+    expect(radius).toBe('10px');
+  });
+
+  test('radius: 100+ applies border-radius: 50% (circle)', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: test_page
+      widgets:
+        - obj:
+            id: circle_box
+            width: 80
+            height: 80
+            align: CENTER
+            radius: 100
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const radius = await page.locator('[data-lvgl-id="circle_box"]').evaluate(
+      el => el.style.borderRadius
+    );
+    expect(radius).toBe('50%');
+  });
+
+  test('min_width and max_width apply CSS min/maxWidth', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: test_page
+      widgets:
+        - obj:
+            id: sized_box
+            min_width: 50
+            max_width: 200
+            height: 60
+            align: CENTER
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const el = page.locator('[data-lvgl-id="sized_box"]');
+    const minW = await el.evaluate(e => e.style.minWidth);
+    const maxW = await el.evaluate(e => e.style.maxWidth);
+    expect(minW).toBe('50px');
+    expect(maxW).toBe('200px');
+  });
+
+  test('shadow_width applies box-shadow to widget', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: test_page
+      widgets:
+        - obj:
+            id: shadowed_box
+            width: 100
+            height: 100
+            align: CENTER
+            shadow_width: 8
+            shadow_color: 0x000000
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const shadow = await page.locator('[data-lvgl-id="shadowed_box"]').evaluate(
+      el => el.style.boxShadow
+    );
+    expect(shadow).not.toBe('');
+    expect(shadow).toContain('8px');
+  });
+
+  test('bar value sets indicator width as percentage of bar', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: test_page
+      widgets:
+        - bar:
+            id: progress_bar
+            width: 200
+            height: 20
+            align: CENTER
+            value: 50
+            min_value: 0
+            max_value: 100
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // The bar indicator element should have approximately 50% width
+    const indicator = page.locator('[data-lvgl-id="progress_bar"] .lvgl-bar__indicator');
+    await expect(indicator).toHaveCount(1);
+    const width = await indicator.evaluate(el => el.style.width);
+    expect(width).toBe('50%');
+  });
+
+});
+
+// ─── Navigation edge cases ───────────────────────────────────────────────────
+
+test.describe('Navigation edge cases', () => {
+
+  test('swipe on page with no handler does not navigate', async ({ page }) => {
+    // A page with no on_swipe_right handler — swiping right stays on same page
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: only_page
+      widgets:
+        - label:
+            id: solo_label
+            text: "Only page"
+            align: CENTER
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const before = await page.locator('#page-selector-index').textContent();
+
+    await page.click('#swipe-right');
+    await page.waitForTimeout(300);
+    await page.click('#swipe-left');
+    await page.waitForTimeout(300);
+
+    const after = await page.locator('#page-selector-index').textContent();
+    expect(after, 'swipe without handler should not change page').toBe(before);
+  });
+
+  test('clicking page list row on current page does not break display', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, TWO_PAGE_YAML);
+
+    // Click first row (already current)
+    await page.locator('#page-list .page-list-row').first().click();
+    await page.waitForTimeout(200);
+
+    // Display should still show content (clicking current page shouldn't blank it)
+    const childCount = await page.locator('#lvglDisplay').evaluate(el => el.children.length);
+    expect(childCount).toBeGreaterThan(0);
+    expect(await page.locator('#page-selector-index').textContent()).toBe('1/2');
+  });
+
+  test('rapid swipe clicks do not leave page stuck mid-animation', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, TWO_PAGE_YAML);
+
+    // Click swipe-left multiple times in rapid succession
+    await page.click('#swipe-left');
+    await page.click('#swipe-left');
+    await page.click('#swipe-left');
+    await page.waitForTimeout(600);
+
+    // Display should not be blank after rapid clicks
+    const childCount = await page.locator('#lvglDisplay').evaluate(el => el.children.length);
+    expect(childCount, 'display should not go blank after rapid swipes').toBeGreaterThan(0);
   });
 
 });

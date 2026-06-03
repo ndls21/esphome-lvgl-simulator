@@ -630,7 +630,7 @@ class ESPHomeLVGLSimulator {
                 if (targetIdx !== -1) {
                     this.currentPageIndex = targetIdx;
                     this.syncPageSelect();
-                    this.renderCurrentPage(nav.anim || animMap[dir]);
+                    this.renderCurrentPage(nav.anim || animMap[dir], nav.duration ?? null);
                 }
             } else {
                 // Lambda exists but doesn't contain a show_page call — evaluate as-is
@@ -678,7 +678,9 @@ class ESPHomeLVGLSimulator {
         if (!pageMatch) return null;
         const animMatch = body.match(/LV_SCR_LOAD_ANIM_MOVE_(\w+)/);
         const anim = animMatch ? `MOVE_${animMatch[1]}` : null;
-        return { pageId: pageMatch[1], anim };
+        const durationMatch = body.match(/LV_SCR_LOAD_ANIM_\w+\s*,\s*(\d+)\s*\)/);
+        const duration = durationMatch ? parseInt(durationMatch[1], 10) : null;
+        return { pageId: pageMatch[1], anim, duration };
     }
 
     async loadConfigFile(file) {
@@ -1320,7 +1322,7 @@ lvgl:
         if (!paused && this._screensaver) this._screensaver.triggerActivity();
     }
 
-    renderCurrentPage(animType = 'NONE') {
+    renderCurrentPage(animType = 'NONE', duration = null) {
         if (this._onLoadTimer) {
             clearTimeout(this._onLoadTimer);
             this._onLoadTimer = null;
@@ -1371,13 +1373,16 @@ lvgl:
         this.displayElement.appendChild(newWrapper);
 
         // Double-rAF to ensure initial classes are painted before transition starts
+        const transMs = duration ?? 200;
+        oldWrapper.style.transition = `transform ${transMs}ms ease-in-out`;
+        newWrapper.style.transition = `transform ${transMs}ms ease-in-out`;
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 oldWrapper.classList.add(exitClass);
                 newWrapper.classList.remove(enterClass);
                 setTimeout(() => {
                     oldWrapper.remove();
-                }, 210);
+                }, transMs + 10);
             });
         });
 
@@ -1480,7 +1485,7 @@ lvgl:
             setTimeout(() => {
                 this.lambda._proxy = this._buildLVGLProxy();
                 this.lambda.evaluate(topLayerCfg.on_load, null);
-            }, 60);
+            }, 50);
         }
     }
 
@@ -1663,6 +1668,31 @@ lvgl:
             el.style.borderColor = 'transparent';
         }
 
+        if (config.border_side !== undefined) {
+            const sides = (typeof config.border_side === 'string' ? config.border_side : String(config.border_side)).toUpperCase();
+            if (sides === 'NONE') {
+                el.style.borderWidth = '0';
+            } else if (sides !== 'FULL') {
+                const bw = (config.border_width || 0) + 'px';
+                el.style.borderTopWidth    = sides.includes('TOP')    ? bw : '0';
+                el.style.borderBottomWidth = sides.includes('BOTTOM') ? bw : '0';
+                el.style.borderLeftWidth   = sides.includes('LEFT')   ? bw : '0';
+                el.style.borderRightWidth  = sides.includes('RIGHT')  ? bw : '0';
+            }
+        }
+
+        if (config.shadow_width > 0) {
+            const sx = config.shadow_offset_x ?? 0;
+            const sy = config.shadow_offset_y ?? 0;
+            const shadowHex = config.shadow_color ? this.parseColor(config.shadow_color) : '#000000';
+            const opa = config.shadow_opa !== undefined ? this.parseOpacity(config.shadow_opa) : 0.5;
+            const m = shadowHex.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+            const shadowColor = m
+                ? `rgba(${parseInt(m[1],16)},${parseInt(m[2],16)},${parseInt(m[3],16)},${opa.toFixed(2)})`
+                : shadowHex;
+            el.style.boxShadow = `${sx}px ${sy}px ${config.shadow_width}px ${shadowColor}`;
+        }
+
         if (config.radius !== undefined) {
             el.style.borderRadius = config.radius >= 100 ? '50%' : config.radius + 'px';
         }
@@ -1780,6 +1810,10 @@ lvgl:
             else el.style.height = typeof config.height === 'string' && config.height.includes('%')
                 ? config.height : config.height + 'px';
         }
+        if (config.min_width  !== undefined) el.style.minWidth  = config.min_width  + 'px';
+        if (config.max_width  !== undefined) el.style.maxWidth  = config.max_width  + 'px';
+        if (config.min_height !== undefined) el.style.minHeight = config.min_height + 'px';
+        if (config.max_height !== undefined) el.style.maxHeight = config.max_height + 'px';
     }
 
     applyLayout(el, config) {
