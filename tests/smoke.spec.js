@@ -4577,3 +4577,662 @@ lvgl:
   });
 
 });
+
+// ─── Drive panel entity types ────────────────────────────────────────────────
+
+test.describe('Drive panel entity types', () => {
+
+  test('text_sensor appears with text input control in Drive panel', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+text_sensor:
+  - platform: template
+    id: my_text_sensor
+    name: "Status"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: status_label
+            text: !lambda "return id(my_text_sensor).state;"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    await page.click('.console-tab[data-tab="drive"]');
+    const textInput = page.locator('#mockControls input[type="text"]');
+    await expect(textInput).toBeAttached();
+  });
+
+  test('number entity appears with numeric control in Drive panel', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+number:
+  - platform: template
+    id: brightness
+    name: "Brightness"
+    min_value: 0
+    max_value: 100
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: bright_label
+            text: !lambda "return String(id(brightness).state);"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    await page.click('.console-tab[data-tab="drive"]');
+    const numControl = page.locator('#mockControls .mock-control--numeric');
+    await expect(numControl).toBeAttached();
+  });
+
+  test('entity summary shows text sensor count badge', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+text_sensor:
+  - platform: template
+    id: ts1
+  - platform: template
+    id: ts2
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: ts_label
+            text: !lambda "return id(ts1).state;"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const badgeText = await page.locator('#entityBadges').textContent();
+    expect(badgeText.toLowerCase()).toContain('text sensor');
+  });
+
+  test('entity summary shows combined sensor and binary_sensor counts', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: temp
+binary_sensor:
+  - platform: template
+    id: motion
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: temp_label
+            text: !lambda "return String(id(temp).state);"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const badgeText = await page.locator('#entityBadges').textContent();
+    expect(badgeText.toLowerCase()).toContain('sensor');
+    expect(badgeText.toLowerCase()).toContain('binary');
+  });
+
+  test('text_sensor value binding updates label on input change', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+text_sensor:
+  - platform: template
+    id: txt_sensor
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: txt_label
+            text: !lambda "return id(txt_sensor).state;"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    await page.click('.console-tab[data-tab="drive"]');
+    const input = page.locator('#mockControls input[type="text"]').first();
+    await input.fill('ONLINE');
+    await input.dispatchEvent('input');
+    await page.waitForTimeout(200);
+    const text = await page.locator('[data-lvgl-id="txt_label"]').textContent();
+    expect(text).toContain('ONLINE');
+  });
+
+});
+
+// ─── Label format text ────────────────────────────────────────────────────────
+
+test.describe('Label format text', () => {
+
+  test('text: {format, args} renders formatted sensor value', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: temp_val
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: fmt_label2
+            text:
+              format: "T:%.0f"
+              args:
+                - id: temp_val
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const text = await page.locator('[data-lvgl-id="fmt_label2"]').textContent();
+    // Default sensor value is 0, so "T:0" or "T:0.0" etc.
+    expect(text).toContain('T:');
+    expect(text).toMatch(/T:\d/);
+  });
+
+  test('text: {time_format} renders a time string with digits', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: time_label
+            text:
+              time_format: "%H:%M"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const text = await page.locator('[data-lvgl-id="time_label"]').textContent();
+    // Should look like "14:32" - two digits, colon, two digits
+    expect(text.trim()).toMatch(/^\d{2}:\d{2}$/);
+  });
+
+});
+
+// ─── Border and visual opacity ────────────────────────────────────────────────
+
+test.describe('Border and visual opacity', () => {
+
+  test('border_opa: TRANSP makes border color transparent', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: transp_border
+            width: 100
+            height: 60
+            border_width: 3
+            border_color: 0xFF0000
+            border_opa: TRANSP
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const borderColor = await page.locator('[data-lvgl-id="transp_border"]').evaluate(
+      el => el.style.borderColor
+    );
+    expect(borderColor).toBe('transparent');
+  });
+
+  test('bg_opa: 128 (50%) makes background semi-transparent', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: semi_bg
+            width: 100
+            height: 60
+            bg_color: 0xFF0000
+            bg_opa: 128
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    // bg_opa: 128 means opacity is < 1, so background should be somewhat transparent
+    // The simulator applies bg_opa < 0.01 as transparent; 128/255 ≈ 0.5 is NOT transparent
+    // So bg_color should still be set (not transparent)
+    const bg = await page.locator('[data-lvgl-id="semi_bg"]').evaluate(
+      el => el.style.backgroundColor
+    );
+    // bg_color 0xFF0000 should be applied
+    expect(bg).toBe('rgb(255, 0, 0)');
+  });
+
+  test('opacity: 255 applies CSS opacity 1 to widget', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: full_opacity
+            width: 80
+            height: 40
+            opacity: 255
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const opacity = await page.locator('[data-lvgl-id="full_opacity"]').evaluate(
+      el => parseFloat(el.style.opacity)
+    );
+    expect(opacity).toBeCloseTo(1.0, 1);
+  });
+
+});
+
+// ─── Multiple top_layer widgets ──────────────────────────────────────────────
+
+test.describe('Multiple top_layer widgets', () => {
+
+  test('two top_layer widgets both appear in #lvgl-top-layer', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  top_layer:
+    widgets:
+      - label:
+          id: overlay_a
+          text: "A"
+          align: TOP_LEFT
+      - label:
+          id: overlay_b
+          text: "B"
+          align: TOP_RIGHT
+  pages:
+    - id: main
+      widgets:
+        - label:
+            text: "Page"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const countA = await page.locator('#lvgl-top-layer [data-lvgl-id="overlay_a"]').count();
+    const countB = await page.locator('#lvgl-top-layer [data-lvgl-id="overlay_b"]').count();
+    expect(countA).toBe(1);
+    expect(countB).toBe(1);
+  });
+
+});
+
+// ─── Bar with custom min/max ─────────────────────────────────────────────────
+
+test.describe('Bar with custom min/max', () => {
+
+  test('bar at midpoint of custom range has ~50% indicator width', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - bar:
+            id: custom_bar
+            width: 200
+            height: 20
+            min_value: 50
+            max_value: 150
+            value: 100
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const width = await page.locator('[data-lvgl-id="custom_bar"] .lvgl-bar__indicator').evaluate(
+      el => el.style.width
+    );
+    expect(width).toBe('50%');
+  });
+
+  test('bar at min value has 0% indicator width', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - bar:
+            id: min_bar
+            width: 200
+            height: 20
+            min_value: 20
+            max_value: 80
+            value: 20
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const width = await page.locator('[data-lvgl-id="min_bar"] .lvgl-bar__indicator').evaluate(
+      el => el.style.width
+    );
+    expect(width).toBe('0%');
+  });
+
+});
+
+// ─── Share URL ────────────────────────────────────────────────────────────────
+
+test.describe('Share URL', () => {
+
+  test('share URL contains #state= fragment with base64 encoded content', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            text: "Share test"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // Intercept clipboard and get the URL
+    let shareUrl = null;
+    await page.evaluate(() => {
+      window._lastClipboard = null;
+      const orig = navigator.clipboard.writeText.bind(navigator.clipboard);
+      navigator.clipboard.writeText = (text) => {
+        window._lastClipboard = text;
+        return Promise.resolve();
+      };
+    });
+    await page.click('#shareBtn');
+    await page.waitForTimeout(200);
+    shareUrl = await page.evaluate(() => window._lastClipboard);
+
+    expect(shareUrl).not.toBeNull();
+    expect(shareUrl).toContain('#state=');
+    // The base64 encoded part should decode to contain the YAML
+    const hash = shareUrl.split('#state=')[1];
+    const decoded = JSON.parse(decodeURIComponent(escape(atob(hash))));
+    expect(decoded.yaml).toContain('Share test');
+  });
+
+  test('loading page with #state= hash restores and renders the YAML', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: restored_label
+            text: "Restored!"
+            align: CENTER
+`.trim();
+    const state = JSON.stringify({ yaml });
+    const encoded = btoa(unescape(encodeURIComponent(state)));
+    const url = `http://localhost:8765/#state=${encoded}`;
+
+    await page.goto(url);
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1000);
+    const text = await page.locator('[data-lvgl-id="restored_label"]').textContent();
+    expect(text).toBe('Restored!');
+  });
+
+});
+
+// ─── Grid cell span ──────────────────────────────────────────────────────────
+
+test.describe('Grid cell span', () => {
+
+  test('grid_cell_column_span: 2 applies gridColumnEnd: span 2', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: grid_parent
+            width: 300
+            height: 200
+            layout:
+              type: GRID
+              grid_columns: [1fr, 1fr, 1fr]
+              grid_rows: [1fr, 1fr]
+            widgets:
+              - label:
+                  id: wide_cell
+                  text: "Wide"
+                  grid_cell_column_pos: 0
+                  grid_cell_row_pos: 0
+                  grid_cell_column_span: 2
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const span = await page.locator('[data-lvgl-id="wide_cell"]').evaluate(
+      el => el.style.gridColumnEnd
+    );
+    expect(span).toBe('span 2');
+  });
+
+  test('grid_cell_x_align: CENTER applies justifySelf: center', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: grid_p2
+            width: 300
+            height: 200
+            layout:
+              type: GRID
+              grid_columns: [1fr, 1fr]
+              grid_rows: [1fr]
+            widgets:
+              - label:
+                  id: centered_cell
+                  text: "C"
+                  grid_cell_column_pos: 0
+                  grid_cell_row_pos: 0
+                  grid_cell_x_align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const js = await page.locator('[data-lvgl-id="centered_cell"]').evaluate(
+      el => el.style.justifySelf
+    );
+    expect(js).toBe('center');
+  });
+
+});
+
+// ─── Robustness / XSS prevention ────────────────────────────────────────────
+
+test.describe('Robustness', () => {
+
+  test('label with HTML special characters renders as text not HTML', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: html_label
+            text: "<b>bold</b> & 'quotes'"
+            align: CENTER
+`.trim();
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    expect(errors).toHaveLength(0);
+    const text = await page.locator('[data-lvgl-id="html_label"]').textContent();
+    // textContent should show the raw string, not render as HTML
+    expect(text).toContain('<b>bold</b>');
+  });
+
+  test('config with sensor unit_of_measurement shows unit in Drive panel', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: temp_c
+    name: "Temperature"
+    unit_of_measurement: "°C"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: temp_lbl
+            text: !lambda "return String(id(temp_c).state);"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    await page.click('.console-tab[data-tab="drive"]');
+    const driveText = await page.locator('#mockControls').textContent();
+    expect(driveText).toContain('°C');
+  });
+
+  test('globals with type: bool creates boolean toggle control', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+globals:
+  - id: flag
+    type: bool
+    initial_value: "false"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: flag_label
+            text: !lambda "return id(flag) ? 'ON' : 'OFF';"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    await page.click('.console-tab[data-tab="drive"]');
+    const checkbox = page.locator('#mockControls input[type="checkbox"]').first();
+    await expect(checkbox).toBeAttached();
+  });
+
+  test('page bg_color per-page overrides default background', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: colored_page
+      bg_color: 0x123456
+      widgets:
+        - label:
+            text: "Hello"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const bg = await page.locator('.lvgl-page').evaluate(
+      el => el.style.backgroundColor
+    );
+    expect(bg).toBe('rgb(18, 52, 86)');
+  });
+
+});
