@@ -2791,6 +2791,11 @@ lvgl:
             }
 
             if (lambdaStr) {
+                // Ensure the lambda is base64-encoded so evaluate() can process it.
+                // Raw strings from YAML then: - lambda: "..." are not yet encoded.
+                if (!lambdaStr.startsWith('__lambda__:')) {
+                    lambdaStr = '__lambda__:' + btoa(unescape(encodeURIComponent(lambdaStr)));
+                }
                 this._intervalHandlers.push({ ms, lambda: lambdaStr, lastRun: 0 });
             }
         }

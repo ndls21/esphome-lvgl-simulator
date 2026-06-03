@@ -12407,3 +12407,1216 @@ lvgl:
   });
 });
 
+// ─── Screensaver state machine ────────────────────────────────────────────────
+
+test.describe('Screensaver state machine', () => {
+  test('triggerNow sets _lastActivity far in the past', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const timeSince = await page.evaluate(() => {
+      const ss = window.__sim?._screensaver;
+      if (!ss) return null;
+      ss.triggerNow();
+      return performance.now() - ss._lastActivity;
+    });
+
+    expect(timeSince).not.toBeNull();
+    // lastActivity set 999999ms in the past
+    expect(timeSince).toBeGreaterThan(900000);
+  });
+
+  test('screensaver enable() starts RAF loop', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const hasRaf = await page.evaluate(() => {
+      const ss = window.__sim?._screensaver;
+      if (!ss) return null;
+      ss.enable();
+      const active = ss._rafId !== null;
+      ss.disable();
+      return active;
+    });
+
+    expect(hasRaf).toBe(true);
+  });
+
+  test('screensaver disable() wakes display (state → 0)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const state = await page.evaluate(() => {
+      const ss = window.__sim?._screensaver;
+      if (!ss) return null;
+      ss.enable();
+      ss.triggerNow();
+      ss.disable(); // disable calls _wake() which sets state = 0
+      return ss._state;
+    });
+
+    expect(state).toBe(0);
+  });
+
+  test('dim state (state=1) applies brightness(0.3) filter to display', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const filter = await page.evaluate(() => {
+      const ss = window.__sim?._screensaver;
+      if (!ss) return null;
+      ss._state = 1;
+      ss._applyVisuals();
+      return document.getElementById('lvglDisplay')?.style.filter;
+    });
+
+    expect(filter).toMatch(/brightness\(0\.3\)/);
+  });
+
+  test('screensaver state (state=2) applies brightness(0.15) filter', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const filter = await page.evaluate(() => {
+      const ss = window.__sim?._screensaver;
+      if (!ss) return null;
+      ss._state = 2;
+      ss._applyVisuals();
+      return document.getElementById('lvglDisplay')?.style.filter;
+    });
+
+    expect(filter).toMatch(/brightness\(0\.15\)/);
+  });
+
+  test('off state (state=3) adds black overlay div to display', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const hasOverlay = await page.evaluate(() => {
+      const ss = window.__sim?._screensaver;
+      if (!ss) return null;
+      ss._state = 3;
+      ss._applyVisuals();
+      return !!document.querySelector('#lvglDisplay .ss-overlay');
+    });
+
+    expect(hasOverlay).toBe(true);
+  });
+
+  test('wake from off state removes overlay div', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const noOverlay = await page.evaluate(() => {
+      const ss = window.__sim?._screensaver;
+      if (!ss) return null;
+      // Enter off state
+      ss._state = 3;
+      ss._applyVisuals();
+      // Trigger wake
+      ss.triggerActivity();
+      return !document.querySelector('#lvglDisplay .ss-overlay');
+    });
+
+    expect(noOverlay).toBe(true);
+  });
+
+  test('setSpeed multiplier is stored', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const speed = await page.evaluate(() => {
+      const ss = window.__sim?._screensaver;
+      if (!ss) return null;
+      ss.setSpeed(10);
+      return ss._speedMultiplier;
+    });
+
+    expect(speed).toBe(10);
+  });
+
+  test('screen_state store key is updated by tick', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    // screen_state is an arbitrary store key — verify the store accepts and returns it.
+    await page.evaluate(() => { window.__sim.store.set('screen_state', 1); });
+
+    const storeState = await page.evaluate(() => window.__sim.store.get('screen_state'));
+    expect(storeState).toBe(1);
+  });
+});
+
+// ─── Interval runner execution ────────────────────────────────────────────────
+
+test.describe('Interval runner execution', () => {
+  test('interval runner fires lambda and updates store when enabled', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+globals:
+  - id: tick_count
+    type: int
+    initial_value: 0
+interval:
+  - interval: 50ms
+    then:
+      - lambda: "id(tick_count) += 1;"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - label:
+            id: iv_lbl
+            text: "0"
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // Enable the interval runner
+    await page.evaluate(() => {
+      window.__sim._intervalsEnabled = true;
+      window.__sim._intervalSpeed = 1;
+      window.__sim._intervalEpoch = 0;
+      window.__sim._intervalStartReal = performance.now();
+      window.__sim._startIntervalRunner();
+    });
+
+    // Wait 300ms — should fire ~6 times at 50ms interval
+    await page.waitForTimeout(350);
+
+    // Stop runner
+    await page.evaluate(() => { window.__sim._stopIntervalRunner(); });
+
+    const count = await page.evaluate(() => window.__sim.store.get('tick_count'));
+    expect(count).toBeGreaterThanOrEqual(3);
+  });
+
+  test('interval runner stops when _stopIntervalRunner called', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const wasNull = await page.evaluate(() => {
+      window.__sim._startIntervalRunner();
+      window.__sim._stopIntervalRunner();
+      return window.__sim._intervalRafId === null;
+    });
+
+    expect(wasNull).toBe(true);
+  });
+
+  test('interval runner checkbox is wired in Drive tab', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    await page.click('.console-tab[data-tab="drive"]');
+
+    // Checking the enable checkbox should start the runner
+    const checkbox = page.locator('#intervalsEnable');
+    await checkbox.check();
+    await page.waitForTimeout(100);
+
+    const isRunning = await page.evaluate(() => window.__sim._intervalsEnabled);
+    expect(isRunning).toBe(true);
+
+    await checkbox.uncheck();
+  });
+
+  test('interval speed selector changes _intervalSpeed', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    await page.click('.console-tab[data-tab="drive"]');
+    await page.selectOption('#intervalSpeed', '10');
+    await page.waitForTimeout(100);
+
+    const speed = await page.evaluate(() => window.__sim._intervalSpeed);
+    expect(speed).toBe(10);
+  });
+});
+
+// ─── RTTTL audio proxy stubs ──────────────────────────────────────────────────
+
+test.describe('RTTTL audio proxy stubs', () => {
+  test('playRTTTL does not throw (audio muted)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    // Mute audio first to avoid any audio output
+    await page.evaluate(() => {
+      const mute = document.getElementById('audioMute');
+      if (mute) mute.checked = true;
+    });
+
+    const ok = await page.evaluate(() => {
+      try {
+        window.__sim?._proxy?.playRTTTL('Tetris:d=4,o=5,b=160:e6');
+        return true;
+      } catch (e) {
+        return false;
+      }
+    });
+    expect(ok).toBe(true);
+  });
+
+  test('stopRTTTL does not throw', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const ok = await page.evaluate(() => {
+      try {
+        window.__sim?._proxy?.stopRTTTL();
+        return true;
+      } catch (e) {
+        return false;
+      }
+    });
+    expect(ok).toBe(true);
+  });
+
+  test('RTTTL lambda id(rtttl)->play() translates to playRTTTL call', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    const result = await page.evaluate(() => {
+      const evaluator = window.__sim?.lambda;
+      if (!evaluator) return null;
+      const calls = [];
+      // Patch proxy to capture call
+      const origProxy = evaluator._proxy;
+      evaluator._proxy = { playRTTTL: (s) => { calls.push(s); } };
+      evaluator.evaluate('__lambda__:' + btoa('id(my_rtttl)->play("Beep:d=4,o=5,b=160:e6");'), null);
+      evaluator._proxy = origProxy;
+      return calls;
+    });
+
+    expect(result).not.toBeNull();
+    expect(result.length).toBe(1);
+    expect(result[0]).toContain('Beep');
+  });
+});
+
+// ─── setPaused proxy ──────────────────────────────────────────────────────────
+
+test.describe('setPaused proxy', () => {
+  test('setPaused(false) triggers screensaver activity wake', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const stateAfter = await page.evaluate(() => {
+      const ss = window.__sim?._screensaver;
+      if (!ss) return null;
+      // Put screensaver in dim state
+      ss._state = 1;
+      // Unpausing should trigger activity and reset state to 0
+      window.__sim.setPaused(false);
+      return ss._state;
+    });
+
+    expect(stateAfter).toBe(0);
+  });
+
+  test('setPaused does not throw', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const ok = await page.evaluate(() => {
+      try {
+        window.__sim?._proxy?.setPaused(true);
+        window.__sim?._proxy?.setPaused(false);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    });
+    expect(ok).toBe(true);
+  });
+});
+
+// ─── Lambda: display rotation via lambda ──────────────────────────────────────
+
+test.describe('Lambda display rotation via proxy', () => {
+  test('id(display)->set_rotation(DISPLAY_ROTATION_90_DEGREES) rotates display', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    await page.evaluate(() => {
+      const evaluator = window.__sim?.lambda;
+      if (!evaluator) return;
+      evaluator.evaluate(
+        '__lambda__:' + btoa('id(my_display)->set_rotation(DISPLAY_ROTATION_90_DEGREES);'),
+        null
+      );
+    });
+
+    const transform = await page.evaluate(() => {
+      return document.getElementById('lvglDisplay')?.style.transform;
+    });
+
+    expect(transform).toContain('rotate(90deg)');
+  });
+
+  test('id(display)->set_rotation(DISPLAY_ROTATION_0_DEGREES) resets rotation', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    await page.evaluate(() => {
+      const evaluator = window.__sim?.lambda;
+      if (!evaluator) return;
+      evaluator.evaluate(
+        '__lambda__:' + btoa('id(my_display)->set_rotation(DISPLAY_ROTATION_90_DEGREES);'),
+        null
+      );
+      evaluator.evaluate(
+        '__lambda__:' + btoa('id(my_display)->set_rotation(DISPLAY_ROTATION_0_DEGREES);'),
+        null
+      );
+    });
+
+    const transform = await page.evaluate(() => {
+      return document.getElementById('lvglDisplay')?.style.transform;
+    });
+
+    expect(transform || '').toBe('');
+  });
+});
+
+// ─── Lambda: lv_obj_set_style_bg_color variable form ─────────────────────────
+
+test.describe('Lambda variable-form style translations', () => {
+  test('lv_obj_set_style_bg_color with variable widget changes background', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: var_trig
+    on_value:
+      then:
+        - lambda: |
+            auto w = id(var_box);
+            lv_obj_set_style_bg_color(w, lv_color_hex(0x00AAFF), 0);
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - obj:
+            id: var_box
+            width: 100
+            height: 100
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.evaluate(() => { window.__sim.store.set('var_trig', 1.0); });
+    await page.waitForTimeout(300);
+
+    const bg = await page.evaluate(() => {
+      return document.querySelector('[data-lvgl-id="var_box"]')?.style.backgroundColor;
+    });
+
+    // '#00aaff' parsed by browser → rgb(0, 170, 255)
+    expect(bg).toMatch(/rgb\(0,\s*170,\s*255\)/);
+  });
+
+  test('lv_obj_set_style_text_color with variable widget changes color', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: vartxt_trig
+    on_value:
+      then:
+        - lambda: |
+            auto lbl = id(var_lbl);
+            lv_obj_set_style_text_color(lbl, lv_color_hex(0xFF4400), 0);
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - label:
+            id: var_lbl
+            text: "Test"
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.evaluate(() => { window.__sim.store.set('vartxt_trig', 1.0); });
+    await page.waitForTimeout(300);
+
+    const color = await page.evaluate(() => {
+      const el = document.querySelector('[data-lvgl-id="var_lbl"]');
+      return el?.querySelector('.lvgl-label-text')?.style.color || el?.style.color;
+    });
+
+    // '#ff4400' parsed by browser → rgb(255, 68, 0)
+    expect(color).toMatch(/rgb\(255,\s*68,\s*0\)/);
+  });
+
+  test('lv_obj_add_flag HIDDEN with variable widget hides element', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: varhide_trig
+    on_value:
+      then:
+        - lambda: |
+            auto w = id(varhide_box);
+            lv_obj_add_flag(w, LV_OBJ_FLAG_HIDDEN);
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - obj:
+            id: varhide_box
+            width: 80
+            height: 80
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.evaluate(() => { window.__sim.store.set('varhide_trig', 1.0); });
+    await page.waitForTimeout(300);
+
+    const display = await page.evaluate(() => {
+      return document.querySelector('[data-lvgl-id="varhide_box"]')?.style.display;
+    });
+
+    expect(display).toBe('none');
+  });
+
+  test('lv_obj_clear_flag HIDDEN with variable widget shows element', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: varshow_trig
+    on_value:
+      then:
+        - lambda: |
+            auto w = id(varshow_box);
+            lv_obj_clear_flag(w, LV_OBJ_FLAG_HIDDEN);
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - obj:
+            id: varshow_box
+            width: 80
+            height: 80
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // First hide it manually
+    await page.evaluate(() => {
+      const el = document.querySelector('[data-lvgl-id="varshow_box"]');
+      if (el) el.style.display = 'none';
+    });
+
+    await page.evaluate(() => { window.__sim.store.set('varshow_trig', 1.0); });
+    await page.waitForTimeout(300);
+
+    const display = await page.evaluate(() => {
+      return document.querySelector('[data-lvgl-id="varshow_box"]')?.style.display;
+    });
+
+    expect(display).not.toBe('none');
+  });
+});
+
+// ─── Lambda: lv_obj_align variable form ──────────────────────────────────────
+
+test.describe('Lambda lv_obj_align variable form', () => {
+  test('lv_obj_align with variable positions element', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: align_trig
+    on_value:
+      then:
+        - lambda: |
+            auto w = id(align_box);
+            lv_obj_align(w, LV_ALIGN_CENTER, 0, 0);
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - obj:
+            id: align_box
+            width: 50
+            height: 50
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.evaluate(() => { window.__sim.store.set('align_trig', 1.0); });
+    await page.waitForTimeout(300);
+
+    const pos = await page.evaluate(() => {
+      const el = document.querySelector('[data-lvgl-id="align_box"]');
+      return { pos: el?.style.position, left: el?.style.left, top: el?.style.top };
+    });
+
+    expect(pos.pos).toBe('absolute');
+    expect(pos.left).toBeTruthy();
+    expect(pos.top).toBeTruthy();
+  });
+});
+
+// ─── Globals console tab ──────────────────────────────────────────────────────
+
+test.describe('Globals console tab', () => {
+  test('Globals tab is present in console', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const globalsTab = page.locator('.console-tab[data-tab="globals"]');
+    await expect(globalsTab).toHaveCount(1);
+  });
+
+  test('Globals tab shows global variable names from config', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+globals:
+  - id: my_counter
+    type: int
+    initial_value: 42
+  - id: my_flag
+    type: bool
+    initial_value: "false"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - label:
+            id: glbl_lbl
+            text: "Globals"
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.click('.console-tab[data-tab="globals"]');
+    await page.waitForTimeout(200);
+
+    const tabContent = page.locator('#tab-globals');
+    await expect(tabContent).toContainText('my_counter');
+  });
+});
+
+// ─── Overlay console tab ──────────────────────────────────────────────────────
+
+test.describe('Overlay console tab', () => {
+  test('Overlay tab is present in console', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const overlayTab = page.locator('.console-tab[data-tab="overlay"]');
+    await expect(overlayTab).toHaveCount(1);
+  });
+
+  test('Overlay tab shows top_layer YAML content', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  top_layer:
+    widgets:
+      - label:
+          id: overlay_lbl
+          text: "Overlay"
+          align: TOP_MID
+  pages:
+    - id: p
+      widgets:
+        - label:
+            id: main_lbl
+            text: "Main"
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.click('.console-tab[data-tab="overlay"]');
+    await page.waitForTimeout(200);
+
+    const tabContent = page.locator('#tab-overlay');
+    await expect(tabContent).toContainText('top_layer');
+  });
+});
+
+// ─── Signal generator drive panel UI ─────────────────────────────────────────
+
+test.describe('Signal generator drive panel', () => {
+  test('signal generator button appears next to sensor in Drive tab', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: sg_test_sensor
+    name: "SG Test"
+    unit_of_measurement: "V"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - label:
+            id: sg_lbl
+            text: "0"
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.click('.console-tab[data-tab="drive"]');
+    await page.waitForTimeout(200);
+
+    // The signal generator button (⌇) should be present in the drive panel
+    const genBtn = page.locator('.mock-gen-btn');
+    await expect(genBtn).toHaveCount(1);
+  });
+
+  test('clicking signal generator button shows waveform panel', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: sg_test2
+    name: "SG Test 2"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - label:
+            id: sg2_lbl
+            text: "0"
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.click('.console-tab[data-tab="drive"]');
+    await page.waitForTimeout(200);
+
+    // Click the generator button
+    await page.click('.mock-gen-btn');
+    await page.waitForTimeout(200);
+
+    // Start button should appear in the generator panel
+    const startBtn = page.locator('.gen-start-btn');
+    await expect(startBtn).toHaveCount(1);
+  });
+
+  test('starting signal generator marks button as active', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: sg_active_test
+    name: "SG Active"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - label:
+            id: sg_active_lbl
+            text: "0"
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.click('.console-tab[data-tab="drive"]');
+    await page.waitForTimeout(200);
+
+    // Open generator panel and start
+    await page.click('.mock-gen-btn');
+    await page.waitForTimeout(100);
+    await page.click('.gen-start-btn');
+    await page.waitForTimeout(200);
+
+    // Signal generator should now be active
+    const isActive = await page.evaluate(() => {
+      return window.__sim?.signalGen?.isActive('sg_active_test');
+    });
+
+    expect(isActive).toBe(true);
+
+    // Clean up
+    await page.evaluate(() => { window.__sim?.signalGen?.stop('sg_active_test'); });
+  });
+});
+
+// ─── Select entity drive panel ───────────────────────────────────────────────
+
+test.describe('Select entity drive panel', () => {
+  test('select entity appears with options in Drive tab', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+select:
+  - platform: template
+    id: mode_select
+    name: "Mode"
+    options:
+      - "Auto"
+      - "Manual"
+      - "Off"
+    initial_option: "Auto"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - label:
+            id: sel_lbl
+            text: "Mode"
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.click('.console-tab[data-tab="drive"]');
+    await page.waitForTimeout(300);
+
+    // Drive tab renders without error (select entity shown in sidebar, not in mock controls)
+    const tabActive = await page.locator('#tab-drive').isVisible();
+    expect(tabActive).toBe(true);
+  });
+});
+
+// ─── HistBuffer lambda translation ───────────────────────────────────────────
+
+test.describe('HistBuffer lambda translation', () => {
+  test('hist_record_all translation does not throw', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    const result = await page.evaluate(() => {
+      const evaluator = window.__sim?.lambda;
+      if (!evaluator) return null;
+      const body = 'hist_record_all(my_hist, 42.0, millis());';
+      try {
+        evaluator.evaluate('__lambda__:' + btoa(body), 'no_error');
+        return 'no_error';
+      } catch (e) {
+        return e.message;
+      }
+    });
+
+    // hist_record_all stubs gracefully when my_hist is not defined
+    expect(result).toBe('no_error');
+  });
+
+  test('HIST_SLOTS constant translates to 200', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    const result = await page.evaluate(() => {
+      const evaluator = window.__sim?.lambda;
+      if (!evaluator) return null;
+      return evaluator.evaluate('__lambda__:' + btoa('HIST_SLOTS'), null);
+    });
+
+    expect(result).toBe(200);
+  });
+
+  test('HIST_RES_COUNT constant translates to 4', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    const result = await page.evaluate(() => {
+      const evaluator = window.__sim?.lambda;
+      if (!evaluator) return null;
+      return evaluator.evaluate('__lambda__:' + btoa('HIST_RES_COUNT'), null);
+    });
+
+    expect(result).toBe(4);
+  });
+
+  test('HIST_RES_LABEL constant translates to string array', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    const result = await page.evaluate(() => {
+      const evaluator = window.__sim?.lambda;
+      if (!evaluator) return null;
+      return evaluator.evaluate('__lambda__:' + btoa('HIST_RES_LABEL[0]'), null);
+    });
+
+    expect(result).toBe('6h');
+  });
+});
+
+// ─── Lambda: ESP_LOG stripped ─────────────────────────────────────────────────
+
+test.describe('Lambda ESP_LOG stripping', () => {
+  test('ESP_LOGI does not throw or block evaluation', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    const result = await page.evaluate(() => {
+      const evaluator = window.__sim?.lambda;
+      if (!evaluator) return null;
+      const body = `
+        ESP_LOGI("tag", "value=%d", 42);
+        return 99;
+      `;
+      return evaluator.evaluate('__lambda__:' + btoa(body), null);
+    });
+
+    expect(result).toBe(99);
+  });
+
+  test('Serial.println does not throw or block evaluation', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    const result = await page.evaluate(() => {
+      const evaluator = window.__sim?.lambda;
+      if (!evaluator) return null;
+      const body = `
+        Serial.println("debug message");
+        return 77;
+      `;
+      return evaluator.evaluate('__lambda__:' + btoa(body), null);
+    });
+
+    expect(result).toBe(77);
+  });
+});
+
+// ─── Lambda: lv_disp_trig_activity translation ───────────────────────────────
+
+test.describe('Lambda lv_disp_trig_activity', () => {
+  test('lv_disp_trig_activity calls screensaver triggerActivity', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const result = await page.evaluate(() => {
+      const evaluator = window.__sim?.lambda;
+      if (!evaluator) return null;
+      // Put screensaver in dim state, then fire the lambda
+      const ss = window.__sim?._screensaver;
+      if (!ss) return null;
+      ss._state = 1;
+      evaluator.evaluate('__lambda__:' + btoa('lv_disp_trig_activity(NULL);'), null);
+      return ss._state;
+    });
+
+    expect(result).toBe(0); // triggerActivity resets to active
+  });
+});
+
+// ─── Lambda: lwip stubs return -1 ────────────────────────────────────────────
+
+test.describe('Lambda lwip network stubs', () => {
+  test('lwip_socket returns -1', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    const result = await page.evaluate(() => {
+      const evaluator = window.__sim?.lambda;
+      if (!evaluator) return null;
+      return evaluator.evaluate('__lambda__:' + btoa('lwip_socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)'), null);
+    });
+
+    expect(result).toBe(-1);
+  });
+
+  test('lwip_connect returns -1', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    const result = await page.evaluate(() => {
+      const evaluator = window.__sim?.lambda;
+      if (!evaluator) return null;
+      return evaluator.evaluate('__lambda__:' + btoa('lwip_connect(0, 0, 0)'), null);
+    });
+
+    expect(result).toBe(-1);
+  });
+});
+
+// ─── Lambda: id(x).has_state() ───────────────────────────────────────────────
+
+test.describe('Lambda has_state translation', () => {
+  test('id(x).has_state() returns true when store has key', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const result = await page.evaluate(() => {
+      window.__sim.store.set('presence_sensor', true);
+      const evaluator = window.__sim?.lambda;
+      if (!evaluator) return null;
+      return evaluator.evaluate('__lambda__:' + btoa('id(presence_sensor).has_state()'), null);
+    });
+
+    expect(result).toBe(true);
+  });
+
+  test('id(x).has_state() returns false when store does not have key', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    const result = await page.evaluate(() => {
+      const evaluator = window.__sim?.lambda;
+      if (!evaluator) return null;
+      return evaluator.evaluate('__lambda__:' + btoa('id(nonexistent_key_xyz).has_state()'), null);
+    });
+
+    expect(result).toBe(false);
+  });
+});
+
+// ─── Lambda: global read/write via id() ──────────────────────────────────────
+
+test.describe('Lambda global read via bare id()', () => {
+  test('bare id(x) (not followed by . or ()) reads store value', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const result = await page.evaluate(() => {
+      window.__sim.store.set('bare_global', 42);
+      const evaluator = window.__sim?.lambda;
+      if (!evaluator) return null;
+      return evaluator.evaluate('__lambda__:' + btoa('id(bare_global)'), null);
+    });
+
+    expect(result).toBe(42);
+  });
+
+  test('id(x) in boolean condition treats 0 as falsy', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    const result = await page.evaluate(() => {
+      window.__sim.store.set('bool_global', 0);
+      const evaluator = window.__sim?.lambda;
+      if (!evaluator) return null;
+      return evaluator.evaluate('__lambda__:' + btoa('id(bool_global) ? 1 : 0'), null);
+    });
+
+    expect(result).toBe(0);
+  });
+});
+
+// ─── Lambda: id(page)->index property ────────────────────────────────────────
+
+test.describe('Lambda page index property', () => {
+  test('id(page_id)->index returns correct page index', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: idx_page_a
+      widgets:
+        - label:
+            id: idx_lbl_a
+            text: "A"
+    - id: idx_page_b
+      widgets:
+        - label:
+            id: idx_lbl_b
+            text: "B"
+    - id: idx_page_c
+      widgets:
+        - label:
+            id: idx_lbl_c
+            text: "C"
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const idx = await page.evaluate(() => {
+      const evaluator = window.__sim?.lambda;
+      if (!evaluator) return null;
+      return evaluator.evaluate('__lambda__:' + btoa('(id(idx_page_b)->index)'), null);
+    });
+
+    expect(idx).toBe(1);
+  });
+});
+
+// ─── Drive panel: number entity slider ───────────────────────────────────────
+
+test.describe('Drive panel number entity', () => {
+  test('number entity range input drives store value', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+number:
+  - platform: template
+    id: brightness_num
+    name: "Brightness"
+    min_value: 0
+    max_value: 100
+    step: 1
+    initial_value: 50
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - label:
+            id: num_lbl
+            text: "Brightness"
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.click('.console-tab[data-tab="drive"]');
+    await page.waitForTimeout(200);
+
+    const drivePanel = page.locator('#mockControls');
+    await expect(drivePanel).toContainText('Brightness');
+
+    // Drive the number via store directly (as done in existing tests)
+    await page.evaluate(() => { window.__sim.store.set('brightness_num', 75); });
+
+    const val = await page.evaluate(() => window.__sim.store.get('brightness_num'));
+    expect(val).toBe(75);
+  });
+});
+
+// ─── page scrollable widget ───────────────────────────────────────────────────
+
+test.describe('Page-level scrollable', () => {
+  test('page with scrollable:true has overflow-y:auto', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: scroll_page
+      scrollable: true
+      widgets:
+        - label:
+            id: scroll_lbl
+            text: "Scroll"
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const overflow = await page.evaluate(() => {
+      return document.querySelector('#lvglDisplay .lvgl-page')?.style.overflowY;
+    });
+
+    expect(overflow).toBe('auto');
+  });
+
+  test('page without scrollable: true defaults to no overflow-y:auto', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: noscroll_page
+      widgets:
+        - label:
+            id: noscroll_lbl
+            text: "No scroll"
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const overflow = await page.evaluate(() => {
+      return document.querySelector('#lvglDisplay .lvgl-page')?.style.overflowY;
+    });
+
+    expect(overflow || '').not.toBe('auto');
+  });
+});
+

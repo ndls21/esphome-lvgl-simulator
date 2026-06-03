@@ -109,18 +109,16 @@ export class LambdaEvaluator {
     _translate(body) {
         let js = body.trim();
 
-        // Translate LVGL C API calls first (before stripping return/semicolons)
-        js = this._translateLVGLCalls(js);
-
-        // Detect multi-statement bodies: contains a semicolon not at the very end,
-        // or contains block-control keywords that imply multiple statements.
-        // Also count line-terminating semicolons — multi-line lambdas (YAML | block scalar)
-        // put each statement on its own line, which the inline check misses.
-        const lineTermSemis = (js.match(/;\s*$/gm) || []).length;
+        // Detect multi-statement BEFORE LVGL translations — stripping side-effect calls
+        // (ESP_LOG, Serial.println) can reduce the statement count and fool the check.
+        const origLineTermSemis = (js.match(/;\s*$/gm) || []).length;
         const isMultiStatement = /;[^'"\n]*\S/.test(js) ||
-            lineTermSemis >= 2 ||
+            origLineTermSemis >= 2 ||
             /\b(for|while|if|switch)\s*\(/.test(js) ||
             /\belse\b/.test(js);
+
+        // Translate LVGL C API calls first (before stripping return/semicolons)
+        js = this._translateLVGLCalls(js);
 
         if (!isMultiStatement) {
             js = js.replace(/^return\s+/, '').replace(/;+$/, '').trim();
@@ -354,6 +352,13 @@ export class LambdaEvaluator {
         // lv_obj_get_child_cnt(id(parent)) → __lvgl__.getChildCount('parent')
         b = b.replace(/lv_obj_get_child_cnt\s*\(\s*id\s*\(\s*(\w+)\s*\)\s*\)/g,
             (_, parentId) => `__lvgl__.getChildCount('${parentId}')`);
+
+        // LVGL pointer variable assignment: auto w = id(widget) or lv_obj_t* w = id(widget)
+        // → let w = 'widget' so the variable holds the string ID for proxy lookup.
+        // The negative lookahead prevents matching id(x).state or id(x)() (sensor reads).
+        // This must run before anyWidget translations and before _translateIdGlobal.
+        b = b.replace(/(?:auto|lv_\w+_t\s*\*)\s*(\w+)\s*=\s*id\s*\(\s*(\w+)\s*\)(?!\s*[.(])\s*;?/g,
+            (_, varname, widgetId) => `let ${varname} = '${widgetId}';`);
 
         // Generic variable-form translations (vars holding widget IDs, e.g. panels[0], child, etc.)
         // These run AFTER id(x) translations so they only catch what's left.
