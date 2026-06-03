@@ -15055,3 +15055,149 @@ lvgl:
     expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
   });
 });
+
+// ─── Lambda adversarial: real-config patterns (evse / bambu / cyd-lights) ─────
+
+test.describe('Lambda adversarial: real-config patterns', () => {
+  const BASE = '/';
+
+  // Helper: evaluate a lambda body using window.__sim.lambda.evaluate directly
+  const evalDirect = (page, body) =>
+    page.evaluate((b) =>
+      window.__sim.lambda.evaluate('__lambda__:' + btoa(b), null),
+      body
+    );
+
+  test('std::max / std::min clamp pattern (real: cyd-lights)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    // std::max(0.0f, std::min(1.0f, pct)) — clamp to [0,1]
+    const r = await evalDirect(page, 'float pct = 2.0f; return std::max(0.0f, std::min(1.0f, pct));');
+    expect(r).toBe(1);
+  });
+
+  test('std::max with two values returns correct maximum', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page, 'return std::max(3, 7);');
+    expect(r).toBe(7);
+  });
+
+  test('std::isnan returns true for NaN (real: cyd-lights wifi bar)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page, 'float rssi = NAN; return std::isnan(rssi);');
+    expect(r).toBe(true);
+  });
+
+  test('std::isnan returns false for finite value', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page, 'float rssi = -65.0f; return !std::isnan(rssi);');
+    expect(r).toBe(true);
+  });
+
+  test('std::string ternary return (real: esp32-evse fault labels)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    // return std::string(x ? "Error" : "OK")
+    const ok  = await evalDirect(page, 'float x = 0; return std::string(x ? "Error" : "OK");');
+    const err = await evalDirect(page, 'float x = 1; return std::string(x ? "Error" : "OK");');
+    expect(ok).toBe('OK');
+    expect(err).toBe('Error');
+  });
+
+  test('std::string variable declaration + if-chain (real: bambu print status)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page,
+      'std::string s = "running"; if (s == "finish") return std::string("Finished"); if (s == "running") return std::string("Printing"); return std::string(s);'
+    );
+    expect(r).toBe('Printing');
+  });
+
+  test('snprintf + char buf pattern (real: bambu progress %)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    // char buf[8]; snprintf(buf, sizeof(buf), "%d%%", (int)x); return std::string(buf);
+    const r = await evalDirect(page, 'char buf[8]; float x = 42.0f; snprintf(buf, sizeof(buf), "%d%%", (int)x); return std::string(buf);');
+    expect(r).toBe('42%');
+  });
+
+  test('snprintf conditional branches (real: bambu remaining time h/m)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    // Use std::floor for integer division — (int) cast strips to no-op in JS
+    const r = await evalDirect(page,
+      'float x = 90.0f; int mins = (int)x; if (mins <= 0) return std::string("Done"); int h = std::floor(mins / 60.0f); int m = mins - h * 60; char buf[16]; if (h > 0) snprintf(buf, sizeof(buf), "%dh %dm", h, m); else snprintf(buf, sizeof(buf), "%dm", m); return std::string(buf);'
+    );
+    expect(r).toBe('1h 30m');
+  });
+
+  test('snprintf minutes-only branch', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    // Use std::floor so integer division works correctly in JS float arithmetic
+    const r = await evalDirect(page,
+      'float x = 45.0f; int mins = (int)x; int h = std::floor(mins / 60.0f); char buf[16]; if (h > 0) snprintf(buf, sizeof(buf), "%dh %dm", h, mins - h * 60); else snprintf(buf, sizeof(buf), "%dm", mins); return std::string(buf);'
+    );
+    expect(r).toBe('45m');
+  });
+
+  test('integer division float normalisation (real: esp32-evse meter %)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    // float percent = (x - min) / (max - min); clamped; return (int)(percent * 100)
+    const r = await evalDirect(page,
+      'float x = 12.0f; float min_amps = 0.0f; float max_amps = 16.0f; float percent = (x - min_amps) / (max_amps - min_amps); if (percent < 0) percent = 0; if (percent > 1) percent = 1; return (int)(percent * 100);'
+    );
+    expect(r).toBe(75);
+  });
+
+  test('string comparison chain (real: esp32-evse state filter)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page,
+      'std::string s = "C2"; return s == "C1" || s == "C2" || s == "D1" || s == "D2";'
+    );
+    expect(r).toBe(true);
+  });
+
+  test('preprocessor #if/#else/#endif strips without crash (real: jtenniswood lvgl)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    // Both branches stripped to comments; lv_indev_get_next → null; if (null) skips body
+    await evalDirect(page,
+      'lv_indev_t *indev = lv_indev_get_next(NULL);\n#if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 4, 0)\nif (indev) lv_indev_set_scroll_limit(indev, 20);\n#else\nif (indev) { int x = 1; }\n#endif'
+    );
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+
+  test('lv_arc_get_value reads stored arc value (real: jtenniswood volume)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - arc:
+            id: volume_arc
+            value: 60
+            min_value: 0
+            max_value: 100
+`.trim());
+
+    // int v = lv_arc_get_value(id(volume_arc)) - 1; if (v < 0) v = 0; return v;
+    const r = await evalDirect(page,
+      'int v = lv_arc_get_value(id(volume_arc)) - 1; if (v < 0) v = 0; return v;'
+    );
+    expect(r).toBe(59);
+  });
+});

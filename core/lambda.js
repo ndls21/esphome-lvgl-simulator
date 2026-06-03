@@ -9,7 +9,7 @@ function _sprintfImpl(fmt, args) {
         const prec = spec && spec.includes('.') ? parseInt(spec.split('.')[1]) : undefined;
         const padCh = spec && spec.startsWith('0') ? '0' : ' ';
         switch (baseType) {
-            case 'd': case 'i': { const n = String(Math.round(Number(val) || 0)); return width ? n.padStart(Math.abs(width), padCh) : n; }
+            case 'd': case 'i': { const n = String(Math.trunc(Number(val) || 0)); return width ? n.padStart(Math.abs(width), padCh) : n; }
             case 'u': { const n = String(Math.abs(Math.trunc(Number(val) || 0))); return width ? n.padStart(Math.abs(width), padCh) : n; }
             case 'f': return (Number(val) || 0).toFixed(prec ?? 6);
             case 's': return String(val ?? '');
@@ -148,11 +148,27 @@ export class LambdaEvaluator {
         let b = body;
         const id = String.raw`id\((\w+)\)`;
 
+        // Preprocessor directives — strip to comments (keep both branches; branch bodies are no-ops in sim)
+        b = b.replace(/#if\s+[^\n]*/g, '/* #if */');
+        b = b.replace(/#else\b[^\n]*/g, '/* #else */');
+        b = b.replace(/#endif\b[^\n]*/g, '/* #endif */');
+
         // No-ops first (so they don't partially match other patterns)
         b = b.replace(/lv_refr_now\s*\([^)]*\)\s*;?/g, '/* lv_refr_now */');
         b = b.replace(/lv_indev_wait_release\s*\([^)]*\)\s*;?/g, '/* lv_indev_wait_release */');
         b = b.replace(/lv_disp_trig_activity\s*\([^)]*\)\s*;?/g, '__lvgl__.triggerActivity();');
         b = b.replace(/lv_indev_get_act\s*\(\s*\)/g, 'null');
+        b = b.replace(/lv_indev_get_next\s*\([^)]*\)/g, 'null');
+        b = b.replace(/lv_indev_set_scroll_limit\s*\([^)]*\)\s*;?/g, '/* lv_indev_set_scroll_limit */');
+        b = b.replace(/lv_obj_set_scroll_dir\s*\([^)]*\)\s*;?/g, '/* lv_obj_set_scroll_dir */');
+        b = b.replace(/lv_obj_clear_flag\s*\([^,)]+,\s*LV_OBJ_FLAG_SCROLL_\w+\s*\)\s*;?/g, '/* lv_obj_clear_flag scroll */');
+        b = b.replace(/lv_obj_set_style_pad_\w+\s*\([^)]*LV_PART_SCROLLBAR[^)]*\)\s*;?/g, '/* scrollbar pad */');
+
+        // LVGL getters — read DOM widget state via proxy
+        b = b.replace(new RegExp(`lv_arc_get_value\\s*\\(\\s*${id}\\s*\\)`, 'g'),
+            (_, wid) => `__lvgl__.arcGetValue('${wid}')`);
+        b = b.replace(new RegExp(`lv_slider_get_value\\s*\\(\\s*${id}\\s*\\)`, 'g'),
+            (_, wid) => `__lvgl__.sliderGetValue('${wid}')`);
 
         // Visibility
         b = b.replace(new RegExp(`lv_obj_add_flag\\s*\\(\\s*${id}\\s*,\\s*LV_OBJ_FLAG_HIDDEN\\s*\\)`, 'g'),
@@ -587,6 +603,18 @@ export class LambdaEvaluator {
         js = js.replace(/(?<!Math\.)\bfabs\s*\(/g, 'Math.abs(');
         js = js.replace(/(?<!Math\.)\bfmod\s*\(/g, '((a,b)=>a%b)(');
 
+        // std::max/min (stripped to bare max/min by generic :: stripper)
+        js = js.replace(/(?<!Math\.)\bmax\s*\(/g, 'Math.max(');
+        js = js.replace(/(?<!Math\.)\bmin\s*\(/g, 'Math.min(');
+
+        // std::isnan/isinf (stripped to isnan/isinf by generic :: stripper)
+        js = js.replace(/\bisnan\s*\(/g, 'isNaN(');
+        js = js.replace(/\bisinf\s*\(/g, '((v)=>!Number.isFinite(v))(');
+
+        // std::string("lit") / std::string(expr) — bare form after :: stripping
+        js = js.replace(/\bstring\s*\(\s*("[^"]*")\s*\)/g, '$1');
+        js = js.replace(/\bstring\s*\(/g, 'String(');
+
         // C float math functions (f-suffixed variants) → Math.*
         js = js.replace(/\bsinf\s*\(/g, 'Math.sin(');
         js = js.replace(/\bcosf\s*\(/g, 'Math.cos(');
@@ -698,7 +726,8 @@ export class LambdaEvaluator {
             'uint8_t','uint16_t','uint32_t','uint64_t',
             'int8_t','int16_t','int32_t','int64_t',
             'size_t','lv_coord_t','lv_color_t','lv_opa_t',
-            'ESPTime'
+            'ESPTime',
+            'string'  // catches std::string after generic :: stripper reduces it
         ].join('|') + ')';
 
         // Simple declaration: type varname = ...  or  type varname;
