@@ -570,8 +570,8 @@ export class LambdaEvaluator {
         js = js.replace(/\bfmodf\s*\(/g, '((a,b)=>a%b)(');
         // Float literal suffixes: 3.14f → 3.14, 30.0f → 30.0
         js = js.replace(/(\b\d+\.\d*|\b\d*\.\d+)f\b/g, '$1');
-        // Integer float literals: 1f → 1
-        js = js.replace(/\b(\d+)f\b/g, '$1');
+        // Integer float literals: 1f → 1  (skip when preceded by '.' to avoid corrupting %.2f format specs)
+        js = js.replace(/(?<!\.)\b(\d+)f\b/g, '$1');
 
         // sprintf / esphome::str_sprintf → _sprintf
         js = js.replace(/\besphome::str_sprintf\s*\(/g, '_sprintf(');

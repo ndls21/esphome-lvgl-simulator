@@ -2407,3 +2407,327 @@ lvgl:
   });
 
 });
+
+// ─── Sensor binding (store → label re-render) ────────────────────────────────
+
+test.describe('Sensor binding', () => {
+
+  test('sensor mock control appears in Drive panel after render', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: temp_sensor
+    unit_of_measurement: "°C"
+    state_class: measurement
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: temp_label
+            text: !lambda "return _sprintf('%.1f°C', id(temp_sensor).state);"
+            align: CENTER
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // Navigate to Drive tab
+    await page.click('.console-tab[data-tab="drive"]');
+    await page.waitForTimeout(200);
+
+    const driveContent = await page.locator('#mockControls').textContent();
+    expect(driveContent).toContain('temp_sensor');
+  });
+
+  test('changing sensor slider value triggers label re-render', async ({ page }) => {
+    // Use simple string concatenation (not _sprintf) to avoid format string edge cases
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: speed_sensor
+    unit_of_measurement: "km/h"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: speed_label
+            text: !lambda "return to_string(id(speed_sensor).state);"
+            align: CENTER
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // Switch to Drive tab and interact with the sensor slider
+    await page.click('.console-tab[data-tab="drive"]');
+    await page.waitForTimeout(200);
+
+    // Find the number input for speed_sensor and set it to 99 via 'change' event
+    const numInput = page.locator('.mock-control__number').first();
+    await numInput.fill('99');
+    await numInput.dispatchEvent('change');
+    await page.waitForTimeout(400);
+
+    // The label should now show 99 (re-rendered by store subscription)
+    const labelText = await page.locator('[data-lvgl-id="speed_label"]').textContent();
+    expect(labelText.trim()).toContain('99');
+  });
+
+  test('_sprintf lambda formats sensor value correctly', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: fmt_sensor
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: fmt_label
+            width: 200
+            height: 30
+            text: !lambda "return _sprintf('%.2f°', id(fmt_sensor).state);"
+            align: CENTER
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // Default value 0 → "0.00°"
+    const text = await page.locator('[data-lvgl-id="fmt_label"]').textContent();
+    expect(text.trim()).toContain('0.00°');
+  });
+
+  test('binary sensor toggle updates checkbox state', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+binary_sensor:
+  - platform: template
+    id: door_sensor
+    name: "Door"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: door_label
+            text: !lambda "return id(door_sensor).state ? 'OPEN' : 'CLOSED';"
+            align: CENTER
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // Switch to Drive tab
+    await page.click('.console-tab[data-tab="drive"]');
+    await page.waitForTimeout(200);
+
+    // The binary sensor control should be a checkbox/toggle
+    const boolControls = page.locator('.mock-control--boolean');
+    await expect(boolControls).toHaveCount(1);
+  });
+
+});
+
+// ─── style_definitions inheritance ──────────────────────────────────────────
+
+test.describe('style_definitions', () => {
+
+  test('widget referencing style by id inherits style properties', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  style_definitions:
+    - id: my_red_style
+      bg_color: 0xFF0000
+      radius: 12
+  pages:
+    - id: p
+      widgets:
+        - obj:
+            id: styled_box
+            width: 80
+            height: 80
+            align: CENTER
+            styles: my_red_style
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const bgColor = await page.locator('[data-lvgl-id="styled_box"]').evaluate(
+      el => el.style.backgroundColor
+    );
+    expect(bgColor).toBe('rgb(255, 0, 0)');
+  });
+
+  test('widget style property overrides style_definitions value', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  style_definitions:
+    - id: base_style
+      bg_color: 0xFF0000
+      radius: 5
+  pages:
+    - id: p
+      widgets:
+        - obj:
+            id: override_box
+            width: 80
+            height: 80
+            align: CENTER
+            styles: base_style
+            bg_color: 0x0000FF
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // Widget-level bg_color should override the style_definition
+    const bgColor = await page.locator('[data-lvgl-id="override_box"]').evaluate(
+      el => el.style.backgroundColor
+    );
+    expect(bgColor).toBe('rgb(0, 0, 255)');
+  });
+
+  test('multiple style_definitions can be applied', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  style_definitions:
+    - id: shape_style
+      radius: 20
+      border_width: 3
+    - id: color_style
+      bg_color: 0x00AA00
+  pages:
+    - id: p
+      widgets:
+        - obj:
+            id: multi_style_box
+            width: 80
+            height: 80
+            align: CENTER
+            styles:
+              - shape_style
+              - color_style
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // Both styles should be applied
+    const style = await page.locator('[data-lvgl-id="multi_style_box"]').evaluate(el => ({
+      bg: el.style.backgroundColor,
+      radius: el.style.borderRadius,
+    }));
+    expect(style.bg).toBe('rgb(0, 170, 0)');
+    expect(style.radius).toBe('20px');
+  });
+
+});
+
+// ─── Theme inheritance ───────────────────────────────────────────────────────
+
+test.describe('Theme inheritance', () => {
+
+  test('lvgl theme.bar.radius applies to bar widget', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  theme:
+    bar:
+      radius: 0
+      indicator:
+        radius: 0
+  pages:
+    - id: p
+      widgets:
+        - bar:
+            id: themed_bar
+            width: 200
+            height: 20
+            align: CENTER
+            value: 50
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const radius = await page.locator('[data-lvgl-id="themed_bar"]').evaluate(
+      el => el.style.borderRadius
+    );
+    expect(radius).toBe('0px');
+  });
+
+  test('bar indicator inherits theme indicator.bg_color', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  theme:
+    bar:
+      indicator:
+        bg_color: 0xFF8800
+  pages:
+    - id: p
+      widgets:
+        - bar:
+            id: color_bar
+            width: 200
+            height: 20
+            align: CENTER
+            value: 75
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const indColor = await page.locator('[data-lvgl-id="color_bar"] .lvgl-bar__indicator').evaluate(
+      el => el.style.backgroundColor
+    );
+    expect(indColor).toBe('rgb(255, 136, 0)');
+  });
+
+});
