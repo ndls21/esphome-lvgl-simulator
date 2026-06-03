@@ -15677,3 +15677,75 @@ test.describe('Lambda adversarial: C++ casts / chart / pointer patterns', () => 
     expect(r).toBeCloseTo(0.5, 5);
   });
 });
+
+// ─── Lambda adversarial: return {buf} brace-init / ESPTime patterns ───────────
+// Exercises: C++ brace-init return (return {strftime_buf}), ESPTime strftime,
+//            string.length(), c_str() on sensor state, if-else string chains
+// Patterns sourced from: agillis/esphome-modular-lvgl-buttons solar monitor,
+//   jtenniswood/esphome-lvgl HVAC sensors
+
+test.describe('Lambda adversarial: brace-init / string patterns', () => {
+  const evalDirect = (page, body) =>
+    page.evaluate((b) =>
+      window.__sim.lambda.evaluate('__lambda__:' + btoa(b), null),
+      body
+    );
+
+  test('return {buf} with snprintf returns string not object (real: agillis strftime)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    // C++: return {strftime_buf} means return std::string(strftime_buf)
+    const r = await evalDirect(page, 'char buf[64]; snprintf(buf, sizeof(buf), "Day %d", 15); return {buf};');
+    expect(r).toBe('Day 15');
+  });
+
+  test('return {result} with std::string returns string value', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page, 'std::string result = "heating"; return {result};');
+    expect(r).toBe('heating');
+  });
+
+  test('return {strftime_buf} multi-statement lambda (real: agillis solar date)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    // snprintf(strftime_buf, sizeof(strftime_buf), "%s %d", "June", day); return {strftime_buf};
+    const r = await evalDirect(page,
+      'char strftime_buf[64]; int day = 3; snprintf(strftime_buf, sizeof(strftime_buf), "%s %d", "June", day); return {strftime_buf};'
+    );
+    expect(r).toBe('June 3');
+  });
+
+  test('std::string.length() returns correct length', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page, 'std::string s = "hello world"; return s.length();');
+    expect(r).toBe(11);
+  });
+
+  test('if-else chain with string returns (real: jtenniswood hvac action)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page,
+      'std::string action = "heating"; if (action == "heating") return "Heating"; if (action == "idle") return "Idle"; if (action == "off") return "Off"; return action.c_str();'
+    );
+    expect(r).toBe('Heating');
+  });
+
+  test('if-else chain fallback to c_str()', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page,
+      'std::string action = "cooling"; if (action == "heating") return "Heating"; if (action == "idle") return "Idle"; return action.c_str();'
+    );
+    expect(r).toBe('cooling');
+  });
+
+  test('x.c_str() on sensor state string (real: jtenniswood)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    // std::string x = "rainy"; return x.c_str(); — .c_str() is no-op on JS string
+    const r = await evalDirect(page, 'std::string x = "rainy"; return x.c_str();');
+    expect(r).toBe('rainy');
+  });
+});

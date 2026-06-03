@@ -663,6 +663,11 @@ export class LambdaEvaluator {
         // clamp(v, lo, hi) → _constrain(v, lo, hi)
         js = js.replace(/\bclamp\s*\(/g, '_constrain(');
 
+        // C++ brace-init return: return {buf}; → return buf;
+        // In ESPHome lambdas, return {charBuf} is short for return std::string(charBuf)
+        // Only applies when braces contain a single identifier (no commas, no colons)
+        js = js.replace(/\breturn\s*\{(\s*\w+\s*)\}\s*;/g, 'return $1;');
+
         // C float math functions (f-suffixed variants) → Math.*
         js = js.replace(/\bsinf\s*\(/g, 'Math.sin(');
         js = js.replace(/\bcosf\s*\(/g, 'Math.cos(');
