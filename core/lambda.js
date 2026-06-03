@@ -318,13 +318,19 @@ export class LambdaEvaluator {
         b = b.replace(/lv_chart_get_series_next\s*\((\w+)\s*,\s*(\w+)\s*\)/g,
             (_, chart, series) => `__lvgl__.chartGetSeriesNext(${chart}, ${series})`);
 
-        // lv_chart_set_next_value(chart, series, val)
-        b = b.replace(/lv_chart_set_next_value\s*\((\w+)\s*,\s*(\w+)\s*,\s*([^)]+)\)/g,
-            (_, _chart, series, val) => `__lvgl__.chartSetNextValue(${series}, ${val.trim()})`);
+        // lv_chart_set_next_value(chart, series, val) — args may be id(...) calls or bare vars
+        // Use (?:[^,()]+|\([^()]*\))+ to handle one level of nested parens in args
+        b = b.replace(/lv_chart_set_next_value\s*\((?:[^,()]+|\([^()]*\))+,\s*((?:[^,()]+|\([^()]*\))+),\s*((?:[^,()]+|\([^()]*\))+)\)/g,
+            (_, series, val) => `__lvgl__.chartSetNextValue(${series.trim()}, ${val.trim()})`);
 
         // lv_chart_refresh
-        b = b.replace(/lv_chart_refresh\s*\((\w+)\s*\)/g,
-            (_, v) => `__lvgl__.chartRefresh(${v})`);
+        b = b.replace(/lv_chart_refresh\s*\([^)]*\)/g,
+            (_) => `__lvgl__.chartRefresh(null)`);
+
+        // lv_obj_invalidate — no-op (forces redraw in hardware; not needed in sim)
+        b = b.replace(/lv_obj_invalidate\s*\((?:[^()]*|\([^()]*\))*\)\s*;?/g, '/* lv_obj_invalidate */');
+        // lv_obj_set_size, lv_obj_set_pos, lv_pct — sim ignores runtime size/pos changes from lambdas
+        b = b.replace(/lv_pct\s*\(([^)]+)\)/g, (_, v) => `(${v.trim()} * 0.01)`);
 
         // id(xxx_chart) global reads (chart handles stored in __store__)
         // No || 0 fallback — null must remain null so nullptr checks work correctly
@@ -692,10 +698,10 @@ export class LambdaEvaluator {
         js = js.replace(/\.size\s*\(\s*\)/g, '.length');
         js = js.replace(/\.empty\s*\(\s*\)/g, '.length === 0');
 
-        // C-style casts: (int)expr → Math.round(expr), (float)/(double) → no-op
-        js = js.replace(/\(int\)\s*([^\s;,)]+)/g, 'Math.round($1)');
-        js = js.replace(/\(float\)\s*/g, '');
-        js = js.replace(/\(double\)\s*/g, '');
+        // (int)/(float)/(double) C-style casts are already stripped in _translateStrings.
+        // C++ functional casts: int(expr) → Math.trunc(expr), float(expr) → strip
+        js = js.replace(/\b(?:int|uint8_t|uint16_t|uint32_t|int8_t|int16_t|int32_t)\s*\(/g, 'Math.trunc(');
+        js = js.replace(/\b(?:float|double)\s*\((?![\w$])/g, '(');
 
         return js;
     }
@@ -779,6 +785,8 @@ export class LambdaEvaluator {
 
         // Pointer declarations: lv_obj_t *varname  or  lv_chart_series_t *varname
         b = b.replace(/\blv_\w+_t\s*\*\s*(\w+)/g, 'let $1');
+        // void* pointer declarations (e.g. globals typed as void*)
+        b = b.replace(/\bvoid\s*\*\s*(\w+)/g, 'let $1');
 
         // const char* / char* pointer variable (but not char buf[] which is handled below)
         // \b after (\w+) anchors to full word boundary, preventing prefix-match backtracking

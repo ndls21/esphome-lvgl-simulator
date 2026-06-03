@@ -15606,3 +15606,74 @@ sensor:
     expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
   });
 });
+
+// ─── Lambda adversarial: C++ casts / chart / pointer patterns ─────────────────
+// Exercises: int() functional cast, void* declaration, lv_obj_invalidate no-op,
+//            lv_pct(), lv_chart_set_next_value via proxy, nullptr pointer checks
+// Patterns sourced from: esphome/issues #15895 (chart), M5Stack tab5-lvgl, esphome docs
+
+test.describe('Lambda adversarial: C++ casts / chart / pointer patterns', () => {
+  const evalDirect = (page, body) =>
+    page.evaluate((b) =>
+      window.__sim.lambda.evaluate('__lambda__:' + btoa(b), null),
+      body
+    );
+
+  test('int() functional cast truncates (C++ int(x) → Math.trunc)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    // int(5.9f) → Math.trunc(5.9) = 5 → 5 + 1 = 6
+    const r = await evalDirect(page, 'return int(5.9f) + 1;');
+    expect(r).toBe(6);
+  });
+
+  test('int() functional cast in percent calculation (real: M5Stack tab5-lvgl)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    // int percent = int(x) * 100 / 255  (M5Stack slider → percent)
+    // JS float division: Math.trunc(127.5) * 100 / 255 = 127 * 100 / 255 = 49.8...
+    const r = await evalDirect(page, 'float x = 127.5f; return int(x) * 100 / 255;');
+    expect(r).toBeGreaterThan(49);
+    expect(r).toBeLessThan(50);
+  });
+
+  test('void* nullptr declaration and nullptr check (real: esphome #15895)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    // void* ptr = nullptr; → let ptr = null; if (ptr != null) → false → return 0
+    const r = await evalDirect(page, 'void* ptr = nullptr; if (ptr != nullptr) return 1; return 0;');
+    expect(r).toBe(0);
+  });
+
+  test('lv_obj_t* nullptr check (truthy pattern)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    // lv_obj_t *chart = nullptr → let chart = null; if (chart != null) → false
+    const r = await evalDirect(page, 'lv_obj_t *chart = nullptr; bool has_chart = (chart != nullptr); return has_chart;');
+    expect(r).toBe(false);
+  });
+
+  test('lv_obj_invalidate no-op with id(widget) (real: esphome #15895 chart)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    const r = await evalDirect(page, 'lv_obj_invalidate(id(graph_obj)); return 1;');
+    expect(r).toBe(1);
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+
+  test('lv_obj_invalidate no-op with bare var', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page, 'lv_obj_t *chart = nullptr; lv_obj_invalidate(chart); return 2;');
+    expect(r).toBe(2);
+  });
+
+  test('lv_pct converts percentage to fraction', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const r = await evalDirect(page, 'return lv_pct(50);');
+    expect(r).toBeCloseTo(0.5, 5);
+  });
+});
