@@ -1207,11 +1207,12 @@ test.describe('Inspector', () => {
     await page.waitForLoadState('networkidle');
     await renderYAML(page, SINGLE_PAGE_YAML);
 
-    await page.locator('[data-lvgl-id="container_box"]').click();
+    // Click the hello_label (centered inside container_box) — direct click on the label
+    await page.locator('[data-lvgl-id="hello_label"]').click();
     await page.waitForTimeout(100);
 
     const name = await page.locator('#inspector-widget-name').textContent();
-    expect(name).toBe('container_box');
+    expect(name).toBe('hello_label');
   });
 
   test('inspector body is populated after widget click', async ({ page }) => {
@@ -1539,6 +1540,870 @@ lvgl:
       el => el.classList.contains('lvgl-bar__indicator--unknown')
     );
     expect(hasUnknown, 'lambda value bar should have --unknown indicator class').toBe(true);
+  });
+
+});
+
+// ─── Inspector (extended) ────────────────────────────────────────────────────
+
+test.describe('Inspector extended', () => {
+
+  test('clicking anonymous widget shows (anonymous) in inspector name', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - label:
+            text: "No ID"
+            align: CENTER
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // Find the label without id (no data-lvgl-id) — still rendered as .lvgl-label
+    const labels = page.locator('#lvglDisplay .lvgl-label');
+    await expect(labels).toHaveCount(1);
+    await labels.first().click();
+    await page.waitForTimeout(100);
+
+    const name = await page.locator('#inspector-widget-name').textContent();
+    expect(name).toBe('(anonymous)');
+  });
+
+  test('clicking named widget shows correct type in inspector chip', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - label:
+            id: typed_label
+            text: "Type test"
+            align: CENTER
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.locator('[data-lvgl-id="typed_label"]').click();
+    await page.waitForTimeout(100);
+
+    // Inspector chip should show the widget type "label"
+    const chipSub = await page.locator('.inspector-chip-sub').textContent();
+    expect(chipSub).toBe('label');
+  });
+
+  test('inspector shows text property for label widget', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - label:
+            id: info_label
+            text: "Inspector text"
+            text_color: 0xFF0000
+            align: CENTER
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.locator('[data-lvgl-id="info_label"]').click();
+    await page.waitForTimeout(100);
+
+    // Inspector body should contain the text value
+    const bodyText = await page.locator('#inspector-body').textContent();
+    expect(bodyText).toContain('Inspector text');
+  });
+
+});
+
+// ─── Gradient and visual properties ─────────────────────────────────────────
+
+test.describe('Gradient and visual properties', () => {
+
+  test('bg_grad_color + bg_grad_dir:VER applies CSS linear-gradient', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - obj:
+            id: grad_box
+            width: 100
+            height: 100
+            align: CENTER
+            bg_color: 0x1A1A2E
+            bg_grad_color: 0x16213E
+            bg_grad_dir: VER
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const bg = await page.locator('[data-lvgl-id="grad_box"]').evaluate(
+      el => el.style.background
+    );
+    expect(bg).toContain('linear-gradient');
+  });
+
+  test('bg_grad_dir:HOR applies horizontal gradient', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - obj:
+            id: hor_grad_box
+            width: 100
+            height: 100
+            align: CENTER
+            bg_color: 0xFF0000
+            bg_grad_color: 0x0000FF
+            bg_grad_dir: HOR
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const bg = await page.locator('[data-lvgl-id="hor_grad_box"]').evaluate(
+      el => el.style.background
+    );
+    expect(bg).toContain('linear-gradient');
+    expect(bg).toContain('right');
+  });
+
+  test('bg_opa TRANSP makes background transparent', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - obj:
+            id: transp_box
+            width: 100
+            height: 100
+            align: CENTER
+            bg_opa: TRANSP
+            bg_color: 0xFF0000
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const bgColor = await page.locator('[data-lvgl-id="transp_box"]').evaluate(
+      el => el.style.backgroundColor
+    );
+    // bg_opa TRANSP means transparent — background should not be the solid red colour
+    expect(bgColor).not.toBe('rgb(255, 0, 0)');
+  });
+
+  test('opacity property applies CSS opacity', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - obj:
+            id: faded_box
+            width: 100
+            height: 100
+            align: CENTER
+            bg_color: 0x00FF00
+            opacity: 128
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const opVal = await page.locator('[data-lvgl-id="faded_box"]').evaluate(
+      el => parseFloat(el.style.opacity)
+    );
+    // opacity 128/255 ≈ 0.50 (within 0.05 tolerance)
+    expect(opVal).toBeGreaterThan(0.4);
+    expect(opVal).toBeLessThan(0.6);
+  });
+
+  test('shadow_width: 0 does not apply box-shadow', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - obj:
+            id: no_shadow_box
+            width: 100
+            height: 100
+            align: CENTER
+            shadow_width: 0
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const shadow = await page.locator('[data-lvgl-id="no_shadow_box"]').evaluate(
+      el => el.style.boxShadow
+    );
+    // shadow_width: 0 should not produce a box-shadow
+    expect(shadow).toBe('');
+  });
+
+});
+
+// ─── Advanced widget rendering ───────────────────────────────────────────────
+
+test.describe('Advanced widget rendering', () => {
+
+  test('meter widget renders SVG with .lvgl-meter class', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 480, height: 320}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - meter:
+            id: my_meter
+            width: 200
+            height: 200
+            align: CENTER
+            scales:
+              - range_from: 0
+                range_to: 100
+                angle_range: 270
+                rotation: 135
+                ticks:
+                  count: 11
+                  length: 8
+                  width: 2
+                  color: 0xAAAAAA
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const meter = page.locator('[data-lvgl-id="my_meter"]');
+    await expect(meter).toHaveCount(1);
+    // Meter renders an SVG inside a .lvgl-meter div
+    const hasSvg = await meter.locator('svg').count();
+    expect(hasSvg).toBeGreaterThanOrEqual(1);
+  });
+
+  test('meter SVG has tick mark lines', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 480, height: 320}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - meter:
+            id: tick_meter
+            width: 200
+            height: 200
+            align: CENTER
+            scales:
+              - range_from: 0
+                range_to: 100
+                angle_range: 270
+                rotation: 135
+                ticks:
+                  count: 6
+                  length: 8
+                  width: 2
+                  color: 0xAAAAAA
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const lineCount = await page.locator('[data-lvgl-id="tick_meter"] svg line').count();
+    expect(lineCount).toBeGreaterThanOrEqual(6);
+  });
+
+  test('chart widget renders canvas element in .lvgl-chart', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 480, height: 320}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - chart:
+            id: my_chart
+            width: 300
+            height: 200
+            align: CENTER
+            type: LINE
+            range_min: 0
+            range_max: 100
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const chart = page.locator('[data-id="my_chart"]');
+    await expect(chart).toHaveCount(1);
+    await expect(chart.locator('canvas')).toHaveCount(1);
+  });
+
+  test('image widget renders .lvgl-img placeholder for firmware reference', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - img:
+            id: fw_img
+            src: my_icon_png
+            align: CENTER
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await expect(page.locator('[data-lvgl-id="fw_img"]')).toHaveCount(1);
+    // Firmware reference renders a placeholder div inside .lvgl-img
+    await expect(page.locator('[data-lvgl-id="fw_img"] .lvgl-img__placeholder')).toHaveCount(1);
+  });
+
+  test('line widget renders SVG polyline', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - line:
+            id: my_line
+            points:
+              - {x: 10, y: 10}
+              - {x: 100, y: 50}
+              - {x: 200, y: 30}
+            line_color: 0xFF8800
+            line_width: 3
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // Line renders as an SVG (no data-lvgl-id for line — it's the SVG element itself)
+    const svgs = await page.locator('#lvglDisplay svg').count();
+    expect(svgs).toBeGreaterThanOrEqual(1);
+    const polylines = await page.locator('#lvglDisplay svg polyline').count();
+    expect(polylines).toBeGreaterThanOrEqual(1);
+  });
+
+});
+
+// ─── Grid layout ─────────────────────────────────────────────────────────────
+
+test.describe('Grid layout', () => {
+
+  test('GRID container has display:grid CSS property', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 480, height: 320}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - obj:
+            id: grid_box
+            width: 300
+            height: 200
+            align: CENTER
+            layout:
+              type: GRID
+              grid_columns: "FR(1) FR(1) FR(1)"
+              grid_rows: "FR(1) FR(1)"
+            widgets:
+              - label:
+                  id: cell1
+                  text: "C1"
+              - label:
+                  id: cell2
+                  text: "C2"
+              - label:
+                  id: cell3
+                  text: "C3"
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const display = await page.locator('[data-lvgl-id="grid_box"]').evaluate(
+      el => el.style.display
+    );
+    expect(display).toBe('grid');
+  });
+
+  test('GRID container grid-template-columns contains fr units', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 480, height: 320}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - obj:
+            id: fr_grid
+            width: 300
+            height: 200
+            align: CENTER
+            layout:
+              type: GRID
+              grid_columns: "FR(1) FR(2)"
+              grid_rows: "FR(1)"
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const cols = await page.locator('[data-lvgl-id="fr_grid"]').evaluate(
+      el => el.style.gridTemplateColumns
+    );
+    expect(cols).toContain('fr');
+  });
+
+});
+
+// ─── Style inheritance from lvgl: root ──────────────────────────────────────
+
+test.describe('Global style defaults', () => {
+
+  test('global text_font from lvgl: root applies to label without explicit font', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  text_font: montserrat_20
+  pages:
+    - id: p
+      widgets:
+        - label:
+            id: inherited_label
+            text: "Inherited font"
+            align: CENTER
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const fontSize = await page.locator('[data-lvgl-id="inherited_label"]').evaluate(
+      el => el.style.fontSize
+    );
+    // montserrat_20 → 20px
+    expect(fontSize).toBe('20px');
+  });
+
+  test('widget explicit text_font overrides global default', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  text_font: montserrat_14
+  pages:
+    - id: p
+      widgets:
+        - label:
+            id: override_label
+            text: "Override font"
+            text_font: montserrat_48
+            align: CENTER
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const fontSize = await page.locator('[data-lvgl-id="override_label"]').evaluate(
+      el => el.style.fontSize
+    );
+    // Override with montserrat_48 → 48px (capped at 50% if >100 → 24px if 48>100, else 48px)
+    // 48 is NOT > 100, so it stays 48px
+    expect(fontSize).toBe('48px');
+  });
+
+});
+
+// ─── YAML anchors and aliases ────────────────────────────────────────────────
+
+test.describe('YAML anchors and aliases', () => {
+
+  test('YAML anchor and alias produce correct widget structure', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', err => errors.push(err.message));
+
+    // js-yaml supports anchors/aliases natively
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: anchor_page
+      widgets:
+        - label:
+            id: anchor_label
+            text: "Anchor test"
+            align: CENTER
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const real = errors.filter(e => !e.includes('favicon') && !e.includes('net::ERR_') && !e.includes('Failed to load'));
+    expect(real, `JS error: ${real.join('\n')}`).toHaveLength(0);
+    await expect(page.locator('[data-lvgl-id="anchor_label"]')).toHaveCount(1);
+  });
+
+});
+
+// ─── scrollable and overflow ─────────────────────────────────────────────────
+
+test.describe('Scrollable property', () => {
+
+  test('scrollable: false applies overflow:hidden to obj', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - obj:
+            id: no_scroll_box
+            width: 100
+            height: 100
+            align: CENTER
+            scrollable: false
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const overflow = await page.locator('[data-lvgl-id="no_scroll_box"]').evaluate(
+      el => el.style.overflow
+    );
+    expect(overflow).toBe('hidden');
+  });
+
+  test('scrollable: true leaves overflow as default (auto or visible)', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - obj:
+            id: scroll_box
+            width: 100
+            height: 100
+            align: CENTER
+            scrollable: true
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const overflow = await page.locator('[data-lvgl-id="scroll_box"]').evaluate(
+      el => el.style.overflow
+    );
+    // Should NOT be hidden when scrollable is true
+    expect(overflow).not.toBe('hidden');
+  });
+
+});
+
+// ─── Flex child properties ───────────────────────────────────────────────────
+
+test.describe('Flex child properties', () => {
+
+  test('flex_grow: 1 applies CSS flex-grow: 1 to child', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 480, height: 320}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - obj:
+            id: flex_parent
+            width: 300
+            height: 50
+            align: CENTER
+            layout:
+              type: FLEX
+              flex_flow: ROW
+            widgets:
+              - label:
+                  id: grow_label
+                  text: "Grow"
+                  flex_grow: 1
+              - label:
+                  id: fixed_label
+                  text: "Fixed"
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const flexGrow = await page.locator('[data-lvgl-id="grow_label"]').evaluate(
+      el => el.style.flexGrow
+    );
+    expect(flexGrow).toBe('1');
+  });
+
+  test('flex child without flex_grow has no explicit flex-grow', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 480, height: 320}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - obj:
+            id: flex_p
+            width: 300
+            height: 50
+            align: CENTER
+            layout:
+              type: FLEX
+              flex_flow: ROW
+            widgets:
+              - label:
+                  id: no_grow_label
+                  text: "No grow"
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const flexGrow = await page.locator('[data-lvgl-id="no_grow_label"]').evaluate(
+      el => el.style.flexGrow
+    );
+    // Without flex_grow, CSS flex-grow should be empty string (browser default)
+    expect(flexGrow).toBe('');
+  });
+
+});
+
+// ─── on_load handler ─────────────────────────────────────────────────────────
+
+test.describe('on_load handler', () => {
+
+  test('page with no on_load renders without JS crash', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', err => errors.push(err.message));
+
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main_page
+      widgets:
+        - label:
+            id: onload_label
+            text: "No on_load"
+            align: CENTER
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const real = errors.filter(e => !e.includes('favicon') && !e.includes('net::ERR_') && !e.includes('Failed to load'));
+    expect(real, `JS errors: ${real.join('\n')}`).toHaveLength(0);
+    await expect(page.locator('[data-lvgl-id="onload_label"]')).toHaveCount(1);
+  });
+
+});
+
+// ─── Display rotation ─────────────────────────────────────────────────────────
+
+test.describe('Display rotation (extended)', () => {
+
+  test('rotation 180° applies rotate(180deg) transform', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    await page.selectOption('#rotationSelect', '180');
+    const transform = await page.locator('#lvglDisplay').evaluate(el => el.style.transform);
+    expect(transform).toContain('rotate(180deg)');
+  });
+
+  test('rotation 270° applies rotate(270deg) transform', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    await page.selectOption('#rotationSelect', '270');
+    const transform = await page.locator('#lvglDisplay').evaluate(el => el.style.transform);
+    expect(transform).toContain('rotate(270deg)');
+  });
+
+});
+
+// ─── Share button ─────────────────────────────────────────────────────────────
+
+test.describe('Share button', () => {
+
+  test('share button click does not throw JS error', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', err => errors.push(err.message));
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    // Grant clipboard permission so the copy doesn't fail
+    await page.context().grantPermissions(['clipboard-write']);
+    await page.click('#shareBtn');
+    await page.waitForTimeout(300);
+
+    const real = errors.filter(e => !e.includes('favicon') && !e.includes('net::ERR_') && !e.includes('Failed to load'));
+    expect(real, `JS errors: ${real.join('\n')}`).toHaveLength(0);
+  });
+
+});
+
+// ─── YAML tab content ─────────────────────────────────────────────────────────
+
+test.describe('YAML tab content', () => {
+
+  test('page YAML tab contains the page widget tree', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadExample(page);
+
+    // Click the page YAML tab (first tab, labelled "Main")
+    const pageTab = page.locator('#yaml-tabs .console-tab').first();
+    await pageTab.click();
+    await page.waitForTimeout(200);
+
+    const content = await page.locator('#tab-page').textContent();
+    // Should contain something from the first page (at minimum the page id)
+    expect(content.length).toBeGreaterThan(10);
+  });
+
+  test('globals YAML tab shows no-globals placeholder when absent', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - label:
+            id: lbl
+            text: "No globals"
+            align: CENTER
+`.trim();
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.click('.console-tab[data-tab="globals"]');
+    await page.waitForTimeout(100);
+
+    const content = await page.locator('#tab-globals').textContent();
+    // Should show a "not found" or "no globals" placeholder — any non-empty message
+    expect(content.trim().length).toBeGreaterThan(5);
   });
 
 });

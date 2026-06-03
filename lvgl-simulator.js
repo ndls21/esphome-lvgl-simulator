@@ -1211,17 +1211,32 @@ lvgl:
         const baseW = this.displayWidth || 466;
         const baseH = this.displayHeight || 466;
 
+        // Effective visual dimensions after rotation
+        const effectiveW = (rot === 90 || rot === 270) ? baseH : baseW;
+        const effectiveH = (rot === 90 || rot === 270) ? baseW : baseH;
+
+        // Auto-scale: fit display within hero-void container (12px margin each side)
+        const container = document.getElementById('hero-void');
+        let scale = 1;
+        if (container && container.clientWidth > 0) {
+            const availW = container.clientWidth - 24;
+            const availH = container.clientHeight - 24;
+            if (availW > 0 && availH > 0) {
+                scale = Math.min(1, availW / effectiveW, availH / effectiveH);
+            }
+        }
+        // CSS zoom affects layout (unlike transform), so flex centering works naturally;
+        // margin compensation for rotation is specified pre-zoom (zoom auto-scales it)
+        display.style.zoom = scale < 0.999 ? scale.toFixed(4) : '';
+        display.style.width = baseW + 'px';
+        display.style.height = baseH + 'px';
+        display.style.transform = rot !== 0 ? `rotate(${rot}deg)` : '';
+
         if (rot === 90 || rot === 270) {
-            display.style.width = baseH + 'px';
-            display.style.height = baseW + 'px';
-            display.style.transform = `rotate(${rot}deg)`;
             const offset = (baseW - baseH) / 2;
             display.style.marginLeft = offset + 'px';
             display.style.marginRight = offset + 'px';
         } else {
-            display.style.width = baseW + 'px';
-            display.style.height = baseH + 'px';
-            display.style.transform = `rotate(${rot}deg)`;
             display.style.marginLeft = '';
             display.style.marginRight = '';
         }
@@ -1600,10 +1615,13 @@ lvgl:
                 this._renderedElements[cfg.id] = el;
                 el.dataset.lvglId = cfg.id;
                 el.dataset.widgetId = cfg.id;
+            }
+            if (cfg) {
+                const widgetType = type;
                 el.style.cursor = 'pointer';
                 el.addEventListener('click', e => {
                     e.stopPropagation();
-                    this.selectWidget(cfg.id, cfg);
+                    this.selectWidget(cfg.id || null, cfg, widgetType);
                 });
             }
             if (cfg && cfg.align_to) this._deferredAlignments.push({ el, alignTo: cfg.align_to });
@@ -1716,6 +1734,10 @@ lvgl:
 
         if (config.clip_corner || config.scrollable === false) {
             el.style.overflow = 'hidden';
+        }
+
+        if (config.opacity !== undefined) {
+            el.style.opacity = this.parseOpacity(config.opacity).toFixed(3);
         }
 
         // Grid child placement
@@ -2876,25 +2898,25 @@ lvgl:
 
     // ── Widget Inspector ─────────────────────────────────────────────────────
 
-    selectWidget(id, cfg) {
+    selectWidget(id, cfg, widgetType) {
         this._selectedWidgetId = id;
         // Update right rail subtitle
         const nameEl = document.getElementById('inspector-widget-name');
-        if (nameEl) nameEl.textContent = id;
+        if (nameEl) nameEl.textContent = id || '(anonymous)';
         // Highlight tree node
         document.querySelectorAll('.tree-node').forEach(n => {
-            n.classList.toggle('tree-node--selected', n.dataset.widgetId === id);
+            n.classList.toggle('tree-node--selected', id && n.dataset.widgetId === id);
         });
         // Populate inspector
-        this.buildInspector(cfg);
+        this.buildInspector(cfg, widgetType);
     }
 
-    buildInspector(cfg) {
+    buildInspector(cfg, widgetType) {
         const el = document.getElementById('inspector-body');
         if (!el) return;
         el.innerHTML = '';
 
-        const type = this.currentWidgetType || 'widget';
+        const type = widgetType || this.currentWidgetType || 'widget';
         const isLambda = v => v && String(v).includes('__lambda__');
 
         // Header chip
@@ -2935,8 +2957,8 @@ lvgl:
             for (const { k, v } of fields) {
                 const row = document.createElement('div');
                 row.className = 'inspector-row';
-                const isColor = String(v).startsWith('0x') || String(v).startsWith('#');
-                const hexColor = isColor ? '#' + String(v).replace(/^0x/i,'') : null;
+                const isColor = (typeof v === 'number') || String(v).startsWith('0x') || String(v).startsWith('#');
+                const hexColor = isColor ? this.parseColor(v) : null;
                 const isDriven = isLambda(v);
                 row.innerHTML = `
                     <span class="inspector-key">${k}</span>
