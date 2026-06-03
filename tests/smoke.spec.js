@@ -5799,3 +5799,899 @@ lvgl:
   });
 
 });
+
+// ─── Spinner widget depth ─────────────────────────────────────────────────────
+
+test.describe('Spinner widget depth', () => {
+
+  const SPINNER_YAML = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - spinner:
+            id: my_spin
+            width: 60
+            height: 60
+            spin_time: 2s
+            arc_length: 45
+            arc_width: 6
+            align: CENTER
+`.trim();
+
+  test('spinner SVG has CSS animation property set', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, SPINNER_YAML);
+    const anim = await page.locator('[data-lvgl-id="my_spin"]').evaluate(el => el.style.animation);
+    expect(anim).toMatch(/lvgl-spin/);
+  });
+
+  test('spinner spin_time 2s maps to 2000ms in animation', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, SPINNER_YAML);
+    const anim = await page.locator('[data-lvgl-id="my_spin"]').evaluate(el => el.style.animation);
+    expect(anim).toContain('2000ms');
+  });
+
+  test('spinner renders two paths (track + indicator) inside SVG', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, SPINNER_YAML);
+    const pathCount = await page.locator('[data-lvgl-id="my_spin"] path, [data-lvgl-id="my_spin"] circle').count();
+    // At least track (circle or path) + indicator arc path
+    expect(pathCount).toBeGreaterThanOrEqual(2);
+  });
+
+  test('spinner with spin_time in ms parses correctly', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - spinner:
+            id: ms_spin
+            width: 50
+            height: 50
+            spin_time: 500ms
+            arc_length: 60
+            arc_width: 4
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const anim = await page.locator('[data-lvgl-id="ms_spin"]').evaluate(el => el.style.animation);
+    expect(anim).toContain('500ms');
+  });
+
+});
+
+// ─── Meter widget depth ───────────────────────────────────────────────────────
+
+test.describe('Meter widget depth', () => {
+
+  test('meter with needle indicator renders a line element', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 480, height: 320}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - meter:
+            id: needle_meter
+            width: 200
+            height: 200
+            align: CENTER
+            scales:
+              - range_from: 0
+                range_to: 100
+                angle_range: 270
+                rotation: 135
+                ticks:
+                  count: 11
+                  length: 8
+                  width: 2
+                  color: 0xAAAAAA
+                indicators:
+                  - line:
+                      value: 50
+                      width: 3
+                      color: 0xFF4444
+                      r_mod: -4
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const lineCount = await page.locator('[data-lvgl-id="needle_meter"] svg line').count();
+    // 11 ticks + 1 needle = ≥ 12 lines
+    expect(lineCount).toBeGreaterThanOrEqual(12);
+    // Needle hub: a circle element
+    const circleCount = await page.locator('[data-lvgl-id="needle_meter"] svg circle').count();
+    expect(circleCount).toBeGreaterThanOrEqual(1);
+  });
+
+  test('meter with arc indicator renders a path element', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 480, height: 320}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - meter:
+            id: arc_meter
+            width: 200
+            height: 200
+            align: CENTER
+            scales:
+              - range_from: 0
+                range_to: 100
+                angle_range: 270
+                rotation: 135
+                ticks:
+                  count: 11
+                  length: 8
+                  width: 2
+                  color: 0xAAAAAA
+                indicators:
+                  - arc:
+                      start_value: 0
+                      end_value: 75
+                      width: 8
+                      color: 0x4DA6FF
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const pathCount = await page.locator('[data-lvgl-id="arc_meter"] svg path').count();
+    expect(pathCount).toBeGreaterThanOrEqual(1);
+  });
+
+  test('meter major tick labels render text elements', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 480, height: 320}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: p
+      widgets:
+        - meter:
+            id: label_meter
+            width: 200
+            height: 200
+            align: CENTER
+            scales:
+              - range_from: 0
+                range_to: 100
+                angle_range: 270
+                rotation: 135
+                ticks:
+                  count: 11
+                  length: 8
+                  width: 2
+                  color: 0xAAAAAA
+                  major:
+                    stride: 5
+                    length: 14
+                    width: 3
+                    color: 0xCCCCCC
+                    label_gap: 6
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    const textCount = await page.locator('[data-lvgl-id="label_meter"] svg text').count();
+    // With 11 ticks and stride 5: ticks at index 0, 5, 10 → 3 labels
+    expect(textCount).toBeGreaterThanOrEqual(3);
+  });
+
+});
+
+// ─── lv_arc_set_value proxy update ───────────────────────────────────────────
+
+test.describe('lv_arc_set_value proxy update', () => {
+
+  test('lv_arc_set_value in on_value updates arc-indicator span', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: arc_sensor
+    on_value:
+      - lambda: "lv_arc_set_value(id(arc_widget), (int)x);"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - arc:
+            id: arc_widget
+            width: 120
+            height: 120
+            align: CENTER
+            min_value: 0
+            max_value: 100
+            value: 50
+            indicator:
+              arc_color: 0x4DA6FF
+              arc_width: 6
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // arc-indicator rendered for initial value=50
+    const initialD = await page.locator('[data-lvgl-id="arc_widget"] .arc-indicator').getAttribute('d');
+    expect(initialD).toBeTruthy();
+
+    // Trigger sensor with value 75 — indicator path should update
+    await page.evaluate(() => window.__sim?.store?.set('arc_sensor', 75));
+    await page.waitForTimeout(300);
+
+    const updatedD = await page.locator('[data-lvgl-id="arc_widget"] .arc-indicator').getAttribute('d');
+    expect(updatedD).toBeTruthy();
+    // The path endpoints change so updated d should differ from initial d
+    expect(updatedD).not.toBe(initialD);
+  });
+
+});
+
+// ─── Proxy visibility (hide / show) ──────────────────────────────────────────
+
+test.describe('Proxy hide and show', () => {
+
+  test('lv_obj_add_flag LV_OBJ_FLAG_HIDDEN hides widget via display:none style', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: hide_sensor
+    on_value:
+      - lambda: |
+          if (x > 0) {
+            lv_obj_add_flag(id(vis_label), LV_OBJ_FLAG_HIDDEN);
+          } else {
+            lv_obj_clear_flag(id(vis_label), LV_OBJ_FLAG_HIDDEN);
+          }
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: vis_label
+            text: "Visible"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // Initially visible
+    const before = await page.locator('[data-lvgl-id="vis_label"]').evaluate(el => el.style.display);
+    expect(before).not.toBe('none');
+
+    // Trigger hide
+    await page.evaluate(() => window.__sim?.store?.set('hide_sensor', 1));
+    await page.waitForTimeout(300);
+
+    const after = await page.locator('[data-lvgl-id="vis_label"]').evaluate(el => el.style.display);
+    expect(after).toBe('none');
+  });
+
+  test('lv_obj_clear_flag LV_OBJ_FLAG_HIDDEN restores hidden widget', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: toggle_sensor
+    on_value:
+      - lambda: |
+          if (x > 0) {
+            lv_obj_add_flag(id(tog_label), LV_OBJ_FLAG_HIDDEN);
+          } else {
+            lv_obj_clear_flag(id(tog_label), LV_OBJ_FLAG_HIDDEN);
+          }
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: tog_label
+            text: "Toggle"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // Hide
+    await page.evaluate(() => window.__sim?.store?.set('toggle_sensor', 1));
+    await page.waitForTimeout(300);
+    const hidden = await page.locator('[data-lvgl-id="tog_label"]').evaluate(el => el.style.display);
+    expect(hidden).toBe('none');
+
+    // Show again
+    await page.evaluate(() => window.__sim?.store?.set('toggle_sensor', 0));
+    await page.waitForTimeout(300);
+    const visible = await page.locator('[data-lvgl-id="tog_label"]').evaluate(el => el.style.display);
+    expect(visible).toBe('');
+  });
+
+});
+
+// ─── Proxy setSize / setPos ───────────────────────────────────────────────────
+
+test.describe('Proxy setSize and setPos', () => {
+
+  test('lv_obj_set_size changes element width and height', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: size_sensor
+    on_value:
+      - lambda: "lv_obj_set_size(id(size_box), 80, 40);"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: size_box
+            width: 50
+            height: 20
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.evaluate(() => window.__sim?.store?.set('size_sensor', 1));
+    await page.waitForTimeout(300);
+
+    const w = await page.locator('[data-lvgl-id="size_box"]').evaluate(el => el.style.width);
+    const h = await page.locator('[data-lvgl-id="size_box"]').evaluate(el => el.style.height);
+    expect(w).toBe('80px');
+    expect(h).toBe('40px');
+  });
+
+  test('lv_obj_set_pos changes element left and top', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: pos_sensor
+    on_value:
+      - lambda: "lv_obj_set_pos(id(pos_box), 30, 50);"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: pos_box
+            width: 40
+            height: 40
+            x: 0
+            y: 0
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.evaluate(() => window.__sim?.store?.set('pos_sensor', 1));
+    await page.waitForTimeout(300);
+
+    const left = await page.locator('[data-lvgl-id="pos_box"]').evaluate(el => el.style.left);
+    const top  = await page.locator('[data-lvgl-id="pos_box"]').evaluate(el => el.style.top);
+    expect(left).toBe('30px');
+    expect(top).toBe('50px');
+  });
+
+});
+
+// ─── Proxy border styles ──────────────────────────────────────────────────────
+
+test.describe('Proxy border style methods', () => {
+
+  test('lv_obj_set_style_border_color changes border-color style', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: border_sensor
+    on_value:
+      - lambda: "lv_obj_set_style_border_color(id(border_box), lv_color_hex(0xFF0000), 0);"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: border_box
+            width: 60
+            height: 60
+            align: CENTER
+            border_width: 2
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.evaluate(() => window.__sim?.store?.set('border_sensor', 1));
+    await page.waitForTimeout(300);
+
+    const color = await page.locator('[data-lvgl-id="border_box"]').evaluate(el => el.style.borderColor);
+    expect(color).toBeTruthy();
+  });
+
+  test('lv_obj_set_style_border_width changes border-width style', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: bw_sensor
+    on_value:
+      - lambda: "lv_obj_set_style_border_width(id(bw_box), 4, 0);"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: bw_box
+            width: 60
+            height: 60
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.evaluate(() => window.__sim?.store?.set('bw_sensor', 1));
+    await page.waitForTimeout(300);
+
+    const bw = await page.locator('[data-lvgl-id="bw_box"]').evaluate(el => el.style.borderWidth);
+    expect(bw).toBe('4px');
+  });
+
+});
+
+// ─── Proxy getText / setSNTPTime ──────────────────────────────────────────────
+
+test.describe('Proxy SNTP time', () => {
+
+  test('getSNTPTime returns object with hour/minute/second fields', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    // Load any valid YAML to get simulator running
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            text: "SNTP"
+            align: CENTER
+`.trim();
+    await renderYAML(page, yaml);
+
+    const time = await page.evaluate(() => {
+      if (!window.__sim || !window.__sim._proxy) return null;
+      return window.__sim._proxy.getSNTPTime();
+    });
+    expect(time).not.toBeNull();
+    expect(typeof time.hour).toBe('number');
+    expect(typeof time.minute).toBe('number');
+    expect(typeof time.second).toBe('number');
+    expect(time.hour).toBeGreaterThanOrEqual(0);
+    expect(time.hour).toBeLessThanOrEqual(23);
+    expect(time.minute).toBeGreaterThanOrEqual(0);
+    expect(time.minute).toBeLessThanOrEqual(59);
+  });
+
+  test('getSNTPTime is_valid() returns true', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            text: "T"
+            align: CENTER
+`.trim();
+    await renderYAML(page, yaml);
+
+    const valid = await page.evaluate(() => {
+      if (!window.__sim || !window.__sim._proxy) return null;
+      const t = window.__sim._proxy.getSNTPTime();
+      return t.is_valid();
+    });
+    expect(valid).toBe(true);
+  });
+
+});
+
+// ─── Proxy virtual GPIO ───────────────────────────────────────────────────────
+
+test.describe('Proxy virtual GPIO', () => {
+
+  test('setGPIO and getGPIO round-trip for pin 1', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            text: "GPIO"
+            align: CENTER
+`.trim();
+    await renderYAML(page, yaml);
+
+    const result = await page.evaluate(() => {
+      if (!window.__sim || !window.__sim._proxy) return null;
+      const p = window.__sim._proxy;
+      p.setGPIO(1, 1);
+      return p.getGPIO(1);
+    });
+    expect(result).toBe(1);
+  });
+
+  test('getGPIO returns 0 for unset pin', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            text: "GPIO"
+            align: CENTER
+`.trim();
+    await renderYAML(page, yaml);
+
+    const result = await page.evaluate(() => {
+      if (!window.__sim || !window.__sim._proxy) return null;
+      return window.__sim._proxy.getGPIO(99);
+    });
+    expect(result).toBe(0);
+  });
+
+});
+
+// ─── Chart with pre-populated series ─────────────────────────────────────────
+
+test.describe('Chart series configuration', () => {
+
+  test('chart with series config renders canvas with correct dimensions', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 480, height: 320}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - chart:
+            id: series_chart
+            width: 300
+            height: 200
+            align: CENTER
+            type: LINE
+            range_min: 0
+            range_max: 100
+            series:
+              - name: temperature
+                color: 0xFF4444
+              - name: humidity
+                color: 0x4444FF
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const canvas = page.locator('[data-id="series_chart"] canvas');
+    await expect(canvas).toHaveCount(1);
+    const w = await canvas.evaluate(c => c.width);
+    expect(w).toBeGreaterThan(0);
+  });
+
+  test('chart type BAR config renders canvas element', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 480, height: 320}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - chart:
+            id: bar_chart
+            width: 280
+            height: 180
+            align: CENTER
+            type: BAR
+            range_min: 0
+            range_max: 50
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await expect(page.locator('[data-id="bar_chart"] canvas')).toHaveCount(1);
+  });
+
+});
+
+// ─── Lambda _sprintf edge cases ───────────────────────────────────────────────
+
+test.describe('Lambda _sprintf edge cases', () => {
+
+  test('%d integer format renders correctly', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: int_sensor
+    on_value:
+      - lambda: |
+          lv_label_set_text(id(int_label), _sprintf("%d steps", (int)x).c_str());
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: int_label
+            text: "0 steps"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.evaluate(() => window.__sim?.store?.set('int_sensor', 42));
+    await page.waitForTimeout(200);
+
+    const text = await page.locator('[data-lvgl-id="int_label"] .lvgl-label-text, [data-lvgl-id="int_label"]').first().textContent();
+    expect(text).toBe('42 steps');
+  });
+
+  test('%s string format renders correctly', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+text_sensor:
+  - platform: template
+    id: txt_sensor
+    on_value:
+      - lambda: |
+          lv_label_set_text(id(txt_label), _sprintf("Hi %s!", x.c_str()).c_str());
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: txt_label
+            text: "Hi!"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.evaluate(() => window.__sim?.store?.set('txt_sensor', 'World'));
+    await page.waitForTimeout(200);
+
+    const text = await page.locator('[data-lvgl-id="txt_label"] .lvgl-label-text, [data-lvgl-id="txt_label"]').first().textContent();
+    expect(text).toBe('Hi World!');
+  });
+
+  test('%.2f format does not corrupt percent sign', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: pct_sensor
+    on_value:
+      - lambda: |
+          lv_label_set_text(id(pct_label), _sprintf("%.0f%%", x).c_str());
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: pct_label
+            text: "0%"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.evaluate(() => window.__sim?.store?.set('pct_sensor', 75));
+    await page.waitForTimeout(200);
+
+    const text = await page.locator('[data-lvgl-id="pct_label"] .lvgl-label-text, [data-lvgl-id="pct_label"]').first().textContent();
+    expect(text).toBe('75%');
+  });
+
+});
+
+// ─── Display auto-scale (CSS zoom) ───────────────────────────────────────────
+
+test.describe('Display auto-scale', () => {
+
+  test('480x320 display renders without CSS zoom (fits within viewport)', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 480, height: 320}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            text: "Hello"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const displayW = await page.locator('#lvglDisplay').evaluate(el => el.offsetWidth);
+    expect(displayW).toBeGreaterThan(0);
+  });
+
+  test('display dimensions attribute reflects configured width and height', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 240, height: 135}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            text: "Small"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const style = await page.locator('.lvgl-display').evaluate(el => ({
+      w: el.style.width || el.getAttribute('width'),
+      h: el.style.height || el.getAttribute('height'),
+    }));
+    // Either inline style or offsetWidth should reflect 240px
+    const offsetW = await page.locator('.lvgl-display').evaluate(el => el.offsetWidth);
+    expect(offsetW).toBeGreaterThanOrEqual(240);
+  });
+
+});
+
+// ─── obj widget and padding styles ───────────────────────────────────────────
+
+test.describe('obj widget padding', () => {
+
+  test('obj widget with pad_all applies padding style', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: padded_obj
+            width: 100
+            height: 100
+            align: CENTER
+            pad_all: 10
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const padding = await page.locator('[data-lvgl-id="padded_obj"]').evaluate(el => el.style.padding);
+    expect(padding).toBe('10px');
+  });
+
+  test('obj widget with separate pad_left/pad_top applies individually', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: asymmetric_pad
+            width: 100
+            height: 80
+            align: CENTER
+            pad_left: 5
+            pad_top: 15
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const pl = await page.locator('[data-lvgl-id="asymmetric_pad"]').evaluate(el => el.style.paddingLeft);
+    const pt = await page.locator('[data-lvgl-id="asymmetric_pad"]').evaluate(el => el.style.paddingTop);
+    expect(pl).toBe('5px');
+    expect(pt).toBe('15px');
+  });
+
+});

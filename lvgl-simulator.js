@@ -188,6 +188,9 @@ class ESPHomeLVGLSimulator {
         this.pageSelect = document.getElementById('pageSelect');
         this.pageInfo = document.getElementById('pageInfo');
 
+        // Expose globally for test access (Playwright, devtools)
+        window.__sim = this;
+
         this.init();
         if (!this.loadFromHash()) this.loadExampleConfig();
     }
@@ -1333,6 +1336,9 @@ lvgl:
         } else {
             this._screensaver._proxy = proxy;
         }
+
+        // Expose for test access
+        this._proxy = proxy;
 
         return proxy;
     }

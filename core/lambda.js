@@ -189,9 +189,9 @@ export class LambdaEvaluator {
         b = b.replace(new RegExp(`lv_obj_align\\s*\\(\\s*${id}\\s*,\\s*${alignConst}\\s*,\\s*([^,]+),\\s*([^)]+)\\)`, 'g'),
             (_, wid, align, dx, dy) => `__lvgl__.align('${wid}', '${align}', ${dx}, ${dy})`);
 
-        // Arc
-        b = b.replace(new RegExp(`lv_arc_set_value\\s*\\(\\s*${id}\\s*,\\s*([^)]+)\\)`, 'g'),
-            (_, wid, val) => `__lvgl__.setArcValue('${wid}', ${val})`);
+        // Arc — optional cast prefix handles (int)x, (uint8_t)x, etc.
+        b = b.replace(new RegExp(`lv_arc_set_value\\s*\\(\\s*${id}\\s*,\\s*(?:\\([^)]{1,20}\\)\\s*)?([^)]+)\\)`, 'g'),
+            (_, wid, val) => `__lvgl__.setArcValue('${wid}', ${val.trim()})`);
 
         // Bar — lv_bar_set_value(id, val, anim) — third arg ignored in sim
         // (?:[^)]{1,20}\)\s*)? handles C casts like (int) or (uint8_t) before the value

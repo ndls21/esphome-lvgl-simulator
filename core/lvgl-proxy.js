@@ -221,8 +221,9 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
       const el = getEl(id);
       if (!el) return;
       el.dataset.arcValue = val;
-      const svg = el.querySelector('svg');
-      if (svg) {
+      // Dispatch on el itself when el is SVG, or on el when it wraps an SVG
+      const isSvg = el.tagName && el.tagName.toLowerCase() === 'svg';
+      if (isSvg || el.querySelector('svg')) {
         el.dispatchEvent(new CustomEvent('lvgl-arc-update', { detail: { value: val } }));
       }
     },
