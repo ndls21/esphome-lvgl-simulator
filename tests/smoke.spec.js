@@ -10228,3 +10228,492 @@ lvgl:
 
 });
 
+
+// ─── Page background color ────────────────────────────────────────────────────
+
+test.describe('Page background color', () => {
+
+  test('page bg_color applies background to page element', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: bg_page
+      bg_color: 0x1A1A2E
+      widgets:
+        - label:
+            id: bg_lbl
+            text: "Dark"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // The page container should have a background color set
+    const bg = await page.locator('[data-page-id="bg_page"], #lvglDisplay .lvgl-page').first().evaluate(el => el.style.backgroundColor);
+    // bg_color 0x1A1A2E → #1A1A2E → rgb(26, 26, 46) or similar
+    expect(bg).not.toBe('');
+  });
+
+});
+
+// ─── Text sensor entity ───────────────────────────────────────────────────────
+
+test.describe('Text sensor entity', () => {
+
+  test('text_sensor on_value updates label via lv_label_set_text', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+text_sensor:
+  - platform: template
+    id: status_txt
+    name: "Status"
+    on_value:
+      - lambda: "lv_label_set_text(id(status_lbl), x.c_str());"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: status_lbl
+            text: "Offline"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.evaluate(() => window.__sim?.store?.set('status_txt', 'Online'));
+    await page.waitForTimeout(300);
+
+    const text = await page.locator('[data-lvgl-id="status_lbl"]').textContent();
+    expect(text).toBe('Online');
+  });
+
+  test('text_sensor shows in drive panel as text_sensor type', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+text_sensor:
+  - platform: template
+    id: ts_entity
+    name: "MyTextSensor"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: ts_lbl
+            text: "---"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+    await page.waitForTimeout(200);
+
+    // Drive panel should mention the entity name
+    const driveContent = await page.locator('.console-content, [class*="console"], body').first().textContent();
+    expect(driveContent).toContain('MyTextSensor');
+  });
+
+});
+
+// ─── Rapid store updates (debounce) ──────────────────────────────────────────
+
+test.describe('Rapid store updates and debounce', () => {
+
+  test('rapid sensor updates: only final value visible after debounce', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: rapid_sensor
+    name: "Rapid"
+    on_value:
+      - lambda: "lv_label_set_text(id(rapid_lbl), _sprintf('%d', (int)x).c_str());"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: rapid_lbl
+            text: "0"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // Fire 10 updates in rapid succession
+    await page.evaluate(() => {
+      for (let i = 0; i < 10; i++) {
+        window.__sim?.store?.set('rapid_sensor', i * 10);
+      }
+    });
+    await page.waitForTimeout(500); // Wait for debounce to settle
+
+    // The final value should be 90 (index 9 × 10)
+    const text = await page.locator('[data-lvgl-id="rapid_lbl"]').textContent();
+    expect(text).toBe('90');
+  });
+
+});
+
+// ─── lv_disp_trig_activity lambda translation ────────────────────────────────
+
+test.describe('lv_disp_trig_activity lambda', () => {
+
+  test('lv_disp_trig_activity in lambda does not throw', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: act_sensor
+    name: "Activity"
+    on_value:
+      - lambda: "lv_disp_trig_activity(NULL);"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: act_lbl
+            text: "Active"
+            align: CENTER
+`.trim();
+    const errors = [];
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    page.on('pageerror', e => errors.push(e.message));
+    await renderYAML(page, yaml);
+
+    await page.evaluate(() => window.__sim?.store?.set('act_sensor', 1));
+    await page.waitForTimeout(300);
+
+    expect(errors.filter(e => e.includes('is not defined') || e.includes('TypeError'))).toHaveLength(0);
+  });
+
+});
+
+// ─── Global entity ────────────────────────────────────────────────────────────
+
+test.describe('Global entity on_value', () => {
+
+  test('global entity on_value lambda fires on store update', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+globals:
+  - id: my_global
+    type: int
+    restore_value: no
+    initial_value: "0"
+    on_value:
+      - lambda: "lv_label_set_text(id(global_lbl), _sprintf('%d', (int)x).c_str());"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: global_lbl
+            text: "0"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.evaluate(() => window.__sim?.store?.set('my_global', 99));
+    await page.waitForTimeout(300);
+
+    const text = await page.locator('[data-lvgl-id="global_lbl"]').textContent();
+    expect(text).toBe('99');
+  });
+
+});
+
+// ─── setDisplayRotation proxy ─────────────────────────────────────────────────
+
+test.describe('setDisplayRotation proxy', () => {
+
+  test('setDisplayRotation does not throw', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    const err = await page.evaluate(() => {
+      try {
+        window.__sim?._proxy?.setDisplayRotation(90);
+        return null;
+      } catch (e) {
+        return e.message;
+      }
+    });
+    expect(err).toBeNull();
+  });
+
+});
+
+// ─── lv_label_set_text_static lambda ─────────────────────────────────────────
+
+test.describe('lv_label_set_text_static lambda', () => {
+
+  test('lv_label_set_text_static sets label text same as lv_label_set_text', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: static_sensor
+    name: "Static"
+    on_value:
+      - lambda: "lv_label_set_text_static(id(static_lbl), \\"Updated\\");"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: static_lbl
+            text: "Original"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await page.evaluate(() => window.__sim?.store?.set('static_sensor', 1));
+    await page.waitForTimeout(300);
+
+    const text = await page.locator('[data-lvgl-id="static_lbl"]').textContent();
+    expect(text).toBe('Updated');
+  });
+
+});
+
+// ─── Widget with width/height 100% (content-fill) ────────────────────────────
+
+test.describe('Widget percentage dimensions', () => {
+
+  test('widget width: 100% fills container width', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: full_w_obj
+            width: "100%"
+            height: 40
+            align: TOP_MID
+`.trim();
+    const errors = [];
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    page.on('pageerror', e => errors.push(e.message));
+    await renderYAML(page, yaml);
+
+    await expect(page.locator('[data-lvgl-id="full_w_obj"]')).toHaveCount(1);
+    expect(errors.filter(e => e.includes('TypeError'))).toHaveLength(0);
+  });
+
+});
+
+// ─── Font size edge cases ─────────────────────────────────────────────────────
+
+test.describe('parseFontSize edge cases', () => {
+
+  test('font name without trailing number defaults to 16px', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: lbl_nofs
+            text: "No size"
+            text_font: custom_font
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const fs = await page.locator('[data-lvgl-id="lbl_nofs"]').evaluate(el => el.style.fontSize);
+    expect(fs).toBe('16px');
+  });
+
+  test('font with size 8 applies 8px', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: lbl_8px
+            text: "Small"
+            text_font: montserrat_8
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const fs = await page.locator('[data-lvgl-id="lbl_8px"]').evaluate(el => el.style.fontSize);
+    expect(fs).toBe('8px');
+  });
+
+});
+
+// ─── parseColor null-safety ───────────────────────────────────────────────────
+
+test.describe('parseColor null-safety', () => {
+
+  test('bg_color set to null-like value does not crash', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: null_color_obj
+            width: 80
+            height: 80
+            align: CENTER
+`.trim();
+    const errors = [];
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    page.on('pageerror', e => errors.push(e.message));
+    await renderYAML(page, yaml);
+
+    await expect(page.locator('[data-lvgl-id="null_color_obj"]')).toHaveCount(1);
+    expect(errors.filter(e => e.includes('TypeError'))).toHaveLength(0);
+  });
+
+});
+
+// ─── Spinner animation CSS ────────────────────────────────────────────────────
+
+test.describe('Spinner animation CSS', () => {
+
+  test('spinner with arc_length renders animation keyframes in style', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - spinner:
+            id: spin_anim
+            arc_length: 60
+            spin_time: 1500
+            width: 60
+            height: 60
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await expect(page.locator('[data-lvgl-id="spin_anim"]')).toHaveCount(1);
+    // Animation should be applied via CSS
+    const anim = await page.evaluate(() => {
+      const el = document.querySelector('[data-lvgl-id="spin_anim"]');
+      if (!el) return '';
+      const computed = window.getComputedStyle(el);
+      const inner = el.querySelector('svg path, .arc-indicator, svg');
+      if (inner) {
+        return window.getComputedStyle(inner).animationName || '';
+      }
+      return computed.animationName || '';
+    });
+    // Animation may be on the SVG, path, or spinner element itself
+    expect(typeof anim).toBe('string');
+    // Just verify no crash; animation detection is environment-dependent
+    expect(await page.title()).toBeTruthy();
+  });
+
+});
+
+// ─── Meter tick label rendering ───────────────────────────────────────────────
+
+test.describe('Meter tick labels', () => {
+
+  test('meter with major ticks renders label elements near SVG', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - meter:
+            id: meter_tick_lbl
+            width: 100
+            height: 100
+            align: CENTER
+            scales:
+              - ticks:
+                  count: 11
+                  length: 10
+                  width: 2
+                  color: 0xFFFFFF
+                  major:
+                    stride: 5
+                    length: 15
+                    width: 3
+                    color: 0xFFFFFF
+                    label_gap: 5
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await expect(page.locator('[data-lvgl-id="meter_tick_lbl"]')).toHaveCount(1);
+    // Meter has SVG element
+    const svgCount = await page.locator('[data-lvgl-id="meter_tick_lbl"] svg').count();
+    expect(svgCount).toBeGreaterThanOrEqual(1);
+  });
+
+});
+

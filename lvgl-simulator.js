@@ -983,9 +983,11 @@ lvgl:
         this._onValueHandlers = {}; // { sensorId: lambdaStr }
 
         const componentTypes = ['sensor', 'binary_sensor', 'text_sensor', 'number', 'switch', 'select'];
-        for (const type of componentTypes) {
-            const components = this.config[type] || [];
-            for (const comp of [].concat(components)) {
+        // globals uses plural key; include it alongside the standard component types
+        const allComponents = componentTypes.flatMap(t => [].concat(this.config[t] || []));
+        allComponents.push(...[].concat(this.config.globals || []));
+
+        for (const comp of allComponents) {
                 const id = comp.id;
                 if (!id) continue;
 
@@ -1019,7 +1021,6 @@ lvgl:
                 }
 
                 if (lambdaStr) this._onValueHandlers[id] = lambdaStr;
-            }
         }
     }
 
