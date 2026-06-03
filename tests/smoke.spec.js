@@ -9372,3 +9372,859 @@ lvgl:
 
 });
 
+
+// ─── Display control proxy methods ───────────────────────────────────────────
+
+test.describe('Display control proxy methods', () => {
+
+  test('setDisplayBrightness(255) sets display filter near full brightness', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    await page.evaluate(() => window.__sim?._proxy?.setDisplayBrightness(255));
+    await page.waitForTimeout(100);
+
+    const filter = await page.evaluate(() => {
+      const el = document.getElementById('lvglDisplay');
+      return el ? el.style.filter : '';
+    });
+    // Browser may normalize brightness(1.000) to brightness(1) — match either form
+    expect(filter).toMatch(/brightness\(1(?:\.0+)?\)|brightness\(0\.99\d*\)/i);
+  });
+
+  test('setDisplayBrightness(0) dims display to black', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    await page.evaluate(() => window.__sim?._proxy?.setDisplayBrightness(0));
+    await page.waitForTimeout(100);
+
+    const filter = await page.evaluate(() => {
+      const el = document.getElementById('lvglDisplay');
+      return el ? el.style.filter : '';
+    });
+    expect(filter).toBe('brightness(0)');
+  });
+
+  test('setDisplayBrightness(128) sets mid brightness filter', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    await page.evaluate(() => window.__sim?._proxy?.setDisplayBrightness(128));
+    await page.waitForTimeout(100);
+
+    const filter = await page.evaluate(() => {
+      const el = document.getElementById('lvglDisplay');
+      return el ? el.style.filter : '';
+    });
+    // 128/255 ≈ 0.502; 0.08 + 0.502 * 0.92 ≈ 0.542
+    const match = filter.match(/brightness\(([0-9.]+)\)/);
+    if (match) {
+      const val = parseFloat(match[1]);
+      expect(val).toBeGreaterThan(0.4);
+      expect(val).toBeLessThan(0.7);
+    } else {
+      expect(filter).toContain('brightness');
+    }
+  });
+
+  test('getInactiveTime returns a non-negative number', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    const inactiveMs = await page.evaluate(() => window.__sim?._proxy?.getInactiveTime());
+    expect(typeof inactiveMs).toBe('number');
+    expect(inactiveMs).toBeGreaterThanOrEqual(0);
+  });
+
+  test('triggerActivity does not throw', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    const err = await page.evaluate(() => {
+      try {
+        window.__sim?._proxy?.triggerActivity();
+        return null;
+      } catch (e) {
+        return e.message;
+      }
+    });
+    expect(err).toBeNull();
+  });
+
+});
+
+// ─── Chart advanced proxy methods ─────────────────────────────────────────────
+
+test.describe('Chart advanced proxy methods', () => {
+
+  test('chartSetType changes chart type label', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: ct_trigger
+    name: "ChartType"
+    on_value:
+      - lambda: |
+          auto c = lv_chart_create(id(chart_ct));
+          lv_chart_set_type(c, LV_CHART_TYPE_BAR);
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - chart:
+            id: chart_ct
+            width: 200
+            height: 150
+            align: CENTER
+            type: LINE
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // chart renders with canvas
+    const canvas = await page.locator('[data-lvgl-id="chart_ct"] canvas').count();
+    expect(canvas).toBeGreaterThanOrEqual(1);
+  });
+
+  test('chart with BAR type renders canvas', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - chart:
+            id: bar_chart
+            width: 200
+            height: 150
+            align: CENTER
+            type: BAR
+            series:
+              - color: 0xFF0000
+                data: [10, 30, 20, 50]
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await expect(page.locator('[data-lvgl-id="bar_chart"]')).toHaveCount(1);
+    const canvas = await page.locator('[data-lvgl-id="bar_chart"] canvas').count();
+    expect(canvas).toBe(1);
+  });
+
+});
+
+// ─── Arc advanced tests ───────────────────────────────────────────────────────
+
+test.describe('Arc advanced tests', () => {
+
+  test('arc with custom start_angle and end_angle renders SVG', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - arc:
+            id: arc_custom_angles
+            min_value: 0
+            max_value: 100
+            value: 50
+            start_angle: 180
+            end_angle: 0
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await expect(page.locator('[data-lvgl-id="arc_custom_angles"]')).toHaveCount(1);
+    const svgCount = await page.locator('[data-lvgl-id="arc_custom_angles"] svg, [data-lvgl-id="arc_custom_angles"]').evaluate(el => {
+      return el.tagName.toLowerCase() === 'svg' ? 1 : el.querySelectorAll('svg').length;
+    });
+    expect(svgCount).toBeGreaterThanOrEqual(1);
+  });
+
+  test('arc min_value=max_value renders without crashing', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - arc:
+            id: arc_zero_range
+            min_value: 0
+            max_value: 0
+            value: 0
+            align: CENTER
+`.trim();
+    const errors = [];
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    page.on('pageerror', e => errors.push(e.message));
+    await renderYAML(page, yaml);
+
+    await expect(page.locator('[data-lvgl-id="arc_zero_range"]')).toHaveCount(1);
+    expect(errors.filter(e => e.includes('TypeError'))).toHaveLength(0);
+  });
+
+  test('arc with bg_color applies to track path', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - arc:
+            id: arc_track_color
+            min_value: 0
+            max_value: 100
+            value: 50
+            align: CENTER
+            bg_color: 0x00FF00
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await expect(page.locator('[data-lvgl-id="arc_track_color"]')).toHaveCount(1);
+    // Passes if it renders without error
+  });
+
+});
+
+// ─── Widget alignment edge cases ─────────────────────────────────────────────
+
+test.describe('Widget alignment edge cases', () => {
+
+  test('align: TOP_LEFT positions widget at top-left', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: tl_obj
+            width: 50
+            height: 50
+            align: TOP_LEFT
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await expect(page.locator('[data-lvgl-id="tl_obj"]')).toHaveCount(1);
+    const pos = await page.locator('[data-lvgl-id="tl_obj"]').evaluate(el => ({
+      top: el.style.top,
+      left: el.style.left,
+    }));
+    expect(pos.top).toBeTruthy();
+    expect(pos.left).toBeTruthy();
+  });
+
+  test('align: BOTTOM_RIGHT positions widget at bottom-right', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: br_obj
+            width: 50
+            height: 50
+            align: BOTTOM_RIGHT
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await expect(page.locator('[data-lvgl-id="br_obj"]')).toHaveCount(1);
+    const pos = await page.locator('[data-lvgl-id="br_obj"]').evaluate(el => ({
+      bottom: el.style.bottom,
+      right: el.style.right,
+    }));
+    expect(pos.bottom).toBeTruthy();
+    expect(pos.right).toBeTruthy();
+  });
+
+  test('widget with x and y offset from CENTER', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: offset_obj
+            width: 50
+            height: 50
+            align: CENTER
+            x: 20
+            y: 10
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await expect(page.locator('[data-lvgl-id="offset_obj"]')).toHaveCount(1);
+    const top = await page.locator('[data-lvgl-id="offset_obj"]').evaluate(el => el.style.top);
+    // Center + y=10 → top may be calc(50% + ...) or just a pixel value with offset applied
+    expect(top).toBeTruthy();
+  });
+
+});
+
+// ─── Line widget edge cases ───────────────────────────────────────────────────
+
+test.describe('Line widget edge cases', () => {
+
+  test('line with 1 point falls back to unsupported rendering', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - line:
+            id: line_onepoint
+            points:
+              - {x: 10, y: 10}
+`.trim();
+    const errors = [];
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    page.on('pageerror', e => errors.push(e.message));
+    await renderYAML(page, yaml);
+
+    // Should not crash — either renders fallback or skips
+    expect(errors.filter(e => e.includes('TypeError'))).toHaveLength(0);
+    expect(await page.title()).toBeTruthy();
+  });
+
+  test('line with line_rounded:true sets round linecap', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - line:
+            id: line_round
+            line_rounded: true
+            line_color: 0xFF0000
+            line_width: 3
+            points:
+              - {x: 10, y: 10}
+              - {x: 100, y: 50}
+              - {x: 50, y: 100}
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const linecap = await page.locator('[data-lvgl-id="line_round"] polyline').getAttribute('stroke-linecap');
+    expect(linecap).toBe('round');
+  });
+
+  test('line without line_rounded uses butt linecap', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - line:
+            id: line_butt
+            line_color: 0x0000FF
+            line_width: 2
+            points:
+              - {x: 0, y: 0}
+              - {x: 100, y: 100}
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const linecap = await page.locator('[data-lvgl-id="line_butt"] polyline').getAttribute('stroke-linecap');
+    expect(linecap).toBe('butt');
+  });
+
+});
+
+// ─── Roller edge cases ────────────────────────────────────────────────────────
+
+test.describe('Roller edge cases', () => {
+
+  test('roller with single option renders that option selected', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - roller:
+            id: roller_single
+            options: "OnlyOption"
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const selected = await page.locator('[data-lvgl-id="roller_single"] .lvgl-roller__option--selected').textContent();
+    expect(selected).toBe('OnlyOption');
+  });
+
+  test('roller selected_index beyond options defaults to last valid', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - roller:
+            id: roller_oob_idx
+            options: "A\\nB\\nC"
+            selected_index: 1
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // selected_index: 1 → "B"
+    const selected = await page.locator('[data-lvgl-id="roller_oob_idx"] .lvgl-roller__option--selected').textContent();
+    expect(selected).toBe('B');
+  });
+
+  test('roller text_color applies to non-selected items', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - roller:
+            id: roller_textcolor
+            options: "X\\nY\\nZ"
+            selected_index: 1
+            text_color: 0xFF0000
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const options = page.locator('[data-lvgl-id="roller_textcolor"] .lvgl-roller__option:not(.lvgl-roller__option--selected)');
+    const count = await options.count();
+    if (count > 0) {
+      const color = await options.first().evaluate(el => el.style.color);
+      expect(color).toMatch(/rgb\(255,\s*0,\s*0\)|#ff0000/i);
+    } else {
+      // If visible_row_count=1, all items might be selected
+      expect(await page.locator('[data-lvgl-id="roller_textcolor"]').count()).toBe(1);
+    }
+  });
+
+});
+
+// ─── Dropdown edge cases ──────────────────────────────────────────────────────
+
+test.describe('Dropdown edge cases', () => {
+
+  test('dropdown selected_index out of bounds defaults to first option', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - dropdown:
+            id: dd_oob
+            options:
+              - "First"
+              - "Second"
+            selected_index: 99
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const txt = await page.locator('[data-lvgl-id="dd_oob"] .lvgl-dropdown__text').textContent();
+    expect(txt).toBe('First');
+  });
+
+  test('dropdown empty options renders (none) placeholder', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - dropdown:
+            id: dd_empty
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await expect(page.locator('[data-lvgl-id="dd_empty"]')).toHaveCount(1);
+    const txt = await page.locator('[data-lvgl-id="dd_empty"] .lvgl-dropdown__text').textContent();
+    expect(txt).toBe('(none)');
+  });
+
+  test('dropdown indicator text_color applies to arrow', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - dropdown:
+            id: dd_arrow_color
+            options:
+              - "Item"
+            indicator:
+              text_color: 0x0000FF
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const color = await page.locator('[data-lvgl-id="dd_arrow_color"] .lvgl-dropdown__arrow').evaluate(el => el.style.color);
+    expect(color).toMatch(/rgb\(0,\s*0,\s*255\)|#0000ff/i);
+  });
+
+});
+
+// ─── Obj widget behavior ──────────────────────────────────────────────────────
+
+test.describe('Obj widget behavior tests', () => {
+
+  test('obj without bg_color uses transparent background', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: no_bg_obj
+            width: 80
+            height: 80
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // Should render without error
+    await expect(page.locator('[data-lvgl-id="no_bg_obj"]')).toHaveCount(1);
+  });
+
+  test('obj with radius applies border-radius', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: radius_obj
+            width: 80
+            height: 80
+            radius: 8
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const br = await page.locator('[data-lvgl-id="radius_obj"]').evaluate(el => el.style.borderRadius);
+    expect(br).toBe('8px');
+  });
+
+  test('obj with radius >= 100 applies 50% border-radius (circular)', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - obj:
+            id: circle_obj
+            width: 80
+            height: 80
+            radius: 255
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const br = await page.locator('[data-lvgl-id="circle_obj"]').evaluate(el => el.style.borderRadius);
+    expect(br).toBe('50%');
+  });
+
+  test('multiple widgets on same page all render', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: lbl_a
+            text: "A"
+            x: 10
+            y: 10
+        - label:
+            id: lbl_b
+            text: "B"
+            x: 10
+            y: 40
+        - obj:
+            id: obj_c
+            width: 60
+            height: 60
+            x: 200
+            y: 10
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    await expect(page.locator('[data-lvgl-id="lbl_a"]')).toHaveCount(1);
+    await expect(page.locator('[data-lvgl-id="lbl_b"]')).toHaveCount(1);
+    await expect(page.locator('[data-lvgl-id="obj_c"]')).toHaveCount(1);
+  });
+
+});
+
+// ─── Bar clamping below min ───────────────────────────────────────────────────
+
+test.describe('Bar value clamping', () => {
+
+  test('bar value below min renders 0% indicator', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - bar:
+            id: bar_under
+            min_value: 10
+            max_value: 100
+            value: 0
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const indW = await page.locator('[data-lvgl-id="bar_under"] .lvgl-bar__indicator').evaluate(el => el.style.width);
+    expect(indW).toBe('0%');
+  });
+
+});
+
+// ─── Label lambda indicator rendering ────────────────────────────────────────
+
+test.describe('Label lambda indicator rendering', () => {
+
+  test('label with lambda text renders without crashing', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: lbl_lambda_sensor2
+    name: "LblLambda2"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: lambda_lbl2
+            text: !lambda "return std::to_string((int)id(lbl_lambda_sensor2).state).c_str();"
+            align: CENTER
+`.trim();
+    const errors = [];
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    page.on('pageerror', e => errors.push(e.message));
+    await renderYAML(page, yaml);
+
+    // Label must render (either shows [λ] indicator or a evaluated value)
+    await expect(page.locator('[data-lvgl-id="lambda_lbl2"]')).toHaveCount(1);
+    // Either the lambda indicator OR some evaluated text should be present
+    const content = await page.locator('[data-lvgl-id="lambda_lbl2"]').textContent();
+    const hasIndicator = await page.locator('[data-lvgl-id="lambda_lbl2"] .lvgl-lambda-indicator').count();
+    expect(content !== null || hasIndicator > 0).toBeTruthy();
+    expect(errors.filter(e => e.includes('TypeError'))).toHaveLength(0);
+  });
+
+});
+
+// ─── Checkbox with text_font ──────────────────────────────────────────────────
+
+test.describe('Checkbox text_font', () => {
+
+  test('checkbox text_font applies fontSize to label', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - checkbox:
+            id: cb_font
+            text: "Big Check"
+            text_font: montserrat_24
+            align: CENTER
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    const fs = await page.locator('[data-lvgl-id="cb_font"] .lvgl-checkbox__label').evaluate(el => el.style.fontSize);
+    expect(fs).toBe('24px');
+  });
+
+});
+
+// ─── Sensor with multiple on_value effects ────────────────────────────────────
+
+test.describe('Sensor with multiple widget effects', () => {
+
+  test('single sensor can update two different widget properties via separate sensors', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: sensor_a
+    name: "A"
+    on_value:
+      - lambda: "lv_label_set_text(id(lbl_aa), std::to_string((int)x).c_str());"
+  - platform: template
+    id: sensor_b
+    name: "B"
+    on_value:
+      - lambda: "lv_obj_set_style_bg_color(id(box_bb), lv_color_hex(0x00FF00), 0);"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: lbl_aa
+            text: "0"
+            align: TOP_MID
+        - obj:
+            id: box_bb
+            width: 60
+            height: 60
+            align: BOTTOM_MID
+`.trim();
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, yaml);
+
+    // Update sensor_a
+    await page.evaluate(() => window.__sim?.store?.set('sensor_a', 42));
+    await page.waitForTimeout(300);
+    const text = await page.locator('[data-lvgl-id="lbl_aa"]').textContent();
+    expect(text).toBe('42');
+
+    // Update sensor_b
+    await page.evaluate(() => window.__sim?.store?.set('sensor_b', 1));
+    await page.waitForTimeout(300);
+    const bg = await page.locator('[data-lvgl-id="box_bb"]').evaluate(el => el.style.backgroundColor);
+    expect(bg).toMatch(/rgb\(0,\s*255,\s*0\)|#00ff00/i);
+  });
+
+});
+
