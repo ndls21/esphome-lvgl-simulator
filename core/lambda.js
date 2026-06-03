@@ -137,11 +137,18 @@ export class LambdaEvaluator {
 
         if (this._isUntranslatable(js)) return null;
 
+        // Inject C stdlib helpers for any remaining untranslated functions
+        const helpers = [];
+        if (/\bstrcmp\s*\(/.test(js))
+            helpers.push("const strcmp=(a,b)=>{const sa=String(a??''),sb=String(b??'');return sa<sb?-1:sa>sb?1:0;};");
+        if (/\bstrtol\s*\(/.test(js))
+            helpers.push('const strtol=(s,_,b)=>parseInt(String(s??\'\'),(b||10));');
+        const preamble = helpers.join('');
+
         if (isMultiStatement) {
-            // Multi-statement: emit as a statement block (no return wrapper)
-            return js;
+            return preamble + js;
         }
-        return `return (${js});`;
+        return preamble + `return (${js});`;
     }
 
     _translateLVGLCalls(body) {
@@ -152,6 +159,16 @@ export class LambdaEvaluator {
         b = b.replace(/#if\s+[^\n]*/g, '/* #if */');
         b = b.replace(/#else\b[^\n]*/g, '/* #else */');
         b = b.replace(/#endif\b[^\n]*/g, '/* #endif */');
+
+        // C++ static_cast<T>(expr) → (expr)
+        b = b.replace(/\bstatic_cast\s*<[^>]+>\s*\(/g, '(');
+
+        // C-style string array initializers: {"a","b","c"} → ["a","b","c"]
+        // Only converts braces containing string literals (safe — doesn't affect code blocks)
+        b = b.replace(/\{\s*("[^"]*"(?:\s*,\s*"[^"]*")*)\s*\}/g, (_, items) => `[${items}]`);
+
+        // strcpy(dst, src) → dst = src  (C string copy; src preserved)
+        b = b.replace(/\bstrcpy\s*\(\s*(\w+)\s*,\s*((?:[^()]+|\([^()]*\))*)\)/g, '$1 = $2');
 
         // No-ops first (so they don't partially match other patterns)
         b = b.replace(/lv_refr_now\s*\([^)]*\)\s*;?/g, '/* lv_refr_now */');
@@ -169,6 +186,11 @@ export class LambdaEvaluator {
             (_, wid) => `__lvgl__.arcGetValue('${wid}')`);
         b = b.replace(new RegExp(`lv_slider_get_value\\s*\\(\\s*${id}\\s*\\)`, 'g'),
             (_, wid) => `__lvgl__.sliderGetValue('${wid}')`);
+        b = b.replace(new RegExp(`lv_label_get_text\\s*\\(\\s*${id}\\s*\\)`, 'g'),
+            (_, wid) => `__lvgl__.labelGetText('${wid}')`);
+        // Arc range getters — return 0/100 stubs; handle nested parens like id(arc_id)
+        b = b.replace(/lv_arc_get_min_value\s*\((?:[^()]*|\([^()]*\))*\)/g, '0');
+        b = b.replace(/lv_arc_get_max_value\s*\((?:[^()]*|\([^()]*\))*\)/g, '100');
 
         // Visibility
         b = b.replace(new RegExp(`lv_obj_add_flag\\s*\\(\\s*${id}\\s*,\\s*LV_OBJ_FLAG_HIDDEN\\s*\\)`, 'g'),
@@ -615,6 +637,15 @@ export class LambdaEvaluator {
         js = js.replace(/\bstring\s*\(\s*("[^"]*")\s*\)/g, '$1');
         js = js.replace(/\bstring\s*\(/g, 'String(');
 
+        // lroundf / lround / llroundf → Math.round
+        js = js.replace(/\bll?round(?:f|l)?\s*\(/g, 'Math.round(');
+
+        // atof → parseFloat
+        js = js.replace(/\batof\s*\(/g, 'parseFloat(');
+
+        // clamp(v, lo, hi) → _constrain(v, lo, hi)
+        js = js.replace(/\bclamp\s*\(/g, '_constrain(');
+
         // C float math functions (f-suffixed variants) → Math.*
         js = js.replace(/\bsinf\s*\(/g, 'Math.sin(');
         js = js.replace(/\bcosf\s*\(/g, 'Math.cos(');
@@ -736,6 +767,14 @@ export class LambdaEvaluator {
 
         // Pointer declarations: lv_obj_t *varname  or  lv_chart_series_t *varname
         b = b.replace(/\blv_\w+_t\s*\*\s*(\w+)/g, 'let $1');
+
+        // const char* / char* pointer variable (but not char buf[] which is handled below)
+        // \b after (\w+) anchors to full word boundary, preventing prefix-match backtracking
+        b = b.replace(/\b(?:static\s+)?const\s+char\s*\*\s*(\w+)\b(?!\s*\[)/g, 'let $1');
+        b = b.replace(/\bchar\s*\*\s*(\w+)\b(?!\s*\[)/g, 'let $1');
+
+        // const char* name[] = [...] array declaration
+        b = b.replace(/\b(?:static\s+)?const\s+char\s*\*\s*(\w+)\s*\[\s*\]\s*=/g, 'let $1 =');
 
         // char buf[N] → let buf = '' (string, not array — used with snprintf)
         b = b.replace(/\bchar\s+(\w+)\s*\[\d*\]\s*(?==|;)/g, "let $1 = ''");

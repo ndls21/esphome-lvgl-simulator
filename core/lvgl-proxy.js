@@ -122,6 +122,13 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
       textEl.textContent = String(text);
     },
 
+    labelGetText(id) {
+      const el = getEl(id);
+      if (!el) return '';
+      const textEl = el.querySelector('.lvgl-label-text') || el;
+      return textEl.textContent || '';
+    },
+
     // Colors
     setTextColor(id, hex) { const el = getEl(id); if (el) el.style.color = hex; },
     setBgColor(id, hex) { const el = getEl(id); if (el) el.style.backgroundColor = hex; },
