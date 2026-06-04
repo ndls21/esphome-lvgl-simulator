@@ -16401,3 +16401,41 @@ lvgl:
     expect(btn2Focused).toBe(true);
   });
 });
+
+// ── Issue #166: lv_timer / interval support ──────────────────────────────────
+test.describe('interval component (issue #166)', () => {
+  const intervalYAML = `
+interval:
+  - interval: 500ms
+    then:
+      - lambda: |-
+          id(lbl_clock).set_text("tick");
+lvgl:
+  pages:
+    - id: p1
+      widgets:
+        - label:
+            id: lbl_clock
+            text: "00:00"
+`;
+
+  test('interval YAML renders without error (label still visible)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await renderYAML(page, intervalYAML);
+    await expect(page.locator('[data-lvgl-id="lbl_clock"]')).toBeVisible();
+    expect(errors).toHaveLength(0);
+  });
+
+  test('interval does not throw on reload (timers cleared)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await renderYAML(page, intervalYAML);
+    await renderYAML(page, intervalYAML); // second render — should clear old timers
+    expect(errors).toHaveLength(0);
+  });
+});
