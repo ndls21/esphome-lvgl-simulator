@@ -16279,3 +16279,57 @@ lvgl:
     await expect(page.locator('[data-lvgl-id="my_msgbox"] .lvgl-msgbox__close')).toHaveCount(0);
   });
 });
+
+// ── Issue #170: animimg widget ───────────────────────────────────────────────
+test.describe('animimg widget (issue #170)', () => {
+  const animimgYAML = `
+lvgl:
+  pages:
+    - id: p1
+      widgets:
+        - animimg:
+            id: wifi_anim
+            src: [wifi_0, wifi_1, wifi_2, wifi_3]
+            duration: 800ms
+            repeat_count: 255
+`;
+
+  test('animimg renders a visible element', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, animimgYAML);
+    await expect(page.locator('[data-lvgl-id="wifi_anim"]')).toBeVisible();
+  });
+
+  test('animimg label shows correct frame count', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, animimgYAML);
+    const label = page.locator('[data-lvgl-id="wifi_anim"] .lvgl-animimg__label');
+    await expect(label).toHaveText('[animimg: 4 frames]');
+  });
+
+  test('animimg with single frame shows "1 frame" (singular)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, `
+lvgl:
+  pages:
+    - id: p1
+      widgets:
+        - animimg:
+            id: single_frame
+            src: [only_frame]
+            duration: 500ms
+`);
+    await expect(page.locator('[data-lvgl-id="single_frame"] .lvgl-animimg__label')).toHaveText('[animimg: 1 frame]');
+  });
+
+  test('animimg applies CSS animation', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, animimgYAML);
+    const anim = await page.locator('[data-lvgl-id="wifi_anim"]').evaluate(e => e.style.animationDuration);
+    expect(anim).toBe('800ms');
+  });
+});
