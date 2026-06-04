@@ -1624,3 +1624,28 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* ── Issue #169: table widget ───────────────────────────────────────────────── */
+.lvgl-table {
+    position: absolute;
+    box-sizing: border-box;
+    overflow: auto;
+}
+.lvgl-table table {
+    border-collapse: collapse;
+    width: 100%;
+    table-layout: fixed;
+}
+.lvgl-table th,
+.lvgl-table td {
+    border: 1px solid rgba(255,255,255,0.15);
+    padding: 4px 6px;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.lvgl-table th {
+    font-weight: bold;
+    background: rgba(255,255,255,0.08);
+}
