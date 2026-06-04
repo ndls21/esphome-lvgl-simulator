@@ -16046,3 +16046,44 @@ lvgl:
     expect(transform).toContain('translateY');
   });
 });
+
+// ── Issue #174: LV_SIZE_CONTENT width/height alias ──────────────────────────
+test.describe('LV_SIZE_CONTENT alias (issue #174)', () => {
+  function sizeContentYAML(id, w, h) {
+    return `
+lvgl:
+  pages:
+    - id: p1
+      widgets:
+        - label:
+            id: ${id}
+            text: "hello"
+            width: ${w}
+            height: ${h}
+`;
+  }
+
+  test('width: SIZE_CONTENT — existing behaviour preserved', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, sizeContentYAML('lbl', 'SIZE_CONTENT', '20'));
+    const w = await page.locator('[data-lvgl-id="lbl"]').evaluate(e => e.style.width);
+    expect(w).toBe('max-content');
+  });
+
+  test('width: LV_SIZE_CONTENT → max-content', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, sizeContentYAML('lbl', 'LV_SIZE_CONTENT', '20'));
+    const w = await page.locator('[data-lvgl-id="lbl"]').evaluate(e => e.style.width);
+    expect(w).toBe('max-content');
+  });
+
+  test('height: LV_SIZE_CONTENT → max-content', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, sizeContentYAML('lbl', '80', 'LV_SIZE_CONTENT'));
+    const h = await page.locator('[data-lvgl-id="lbl"]').evaluate(e => e.style.height);
+    expect(h).toBe('max-content');
+  });
+});

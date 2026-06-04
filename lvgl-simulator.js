@@ -1843,12 +1843,12 @@ lvgl:
 
     applySize(el, config) {
         if (config.width !== undefined) {
-            if (config.width === 'SIZE_CONTENT') el.style.width = 'max-content';
+            if (config.width === 'SIZE_CONTENT' || config.width === 'LV_SIZE_CONTENT') el.style.width = 'max-content';
             else el.style.width = typeof config.width === 'string' && config.width.includes('%')
                 ? config.width : config.width + 'px';
         }
         if (config.height !== undefined) {
-            if (config.height === 'SIZE_CONTENT') el.style.height = 'max-content';
+            if (config.height === 'SIZE_CONTENT' || config.height === 'LV_SIZE_CONTENT') el.style.height = 'max-content';
             else el.style.height = typeof config.height === 'string' && config.height.includes('%')
                 ? config.height : config.height + 'px';
         }
