@@ -6,9 +6,11 @@
     <title>ESPHome LVGL Simulator</title>
     <!-- Live URL: https://ndls21.github.io/esphome-lvgl-simulator/ -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;600&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;600&family=Montserrat:wght@400;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%234DA6FF'/><text x='16' y='22' text-anchor='middle' font-size='18' font-family='monospace' fill='white'>L</text></svg>">
     <link rel="stylesheet" href="styles.css">
+    <!-- Material Design Icons for LVGL mdi* font simulation -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
 </head>
 <body>
     <!-- ─── TOP BAR ─────────────────────────────────────────────────────── -->
@@ -424,6 +426,82 @@
     <script src="core/screensaver.js"></script>
     <script src="core/rtttl-player.js"></script>
     <script type="module" src="lvgl-simulator.js"></script>
+
+    <!-- ─── RESIZABLE PANELS ──────────────────────────────────────────────── -->
+    <script>
+    (function() {
+      var layout = document.getElementById('app-layout');
+      var STORE = 'lvgl-panel-sizes';
+
+      // Load persisted sizes
+      var saved = {};
+      try { saved = JSON.parse(localStorage.getItem(STORE)) || {}; } catch {}
+      var leftW   = saved.leftW   || 220;
+      var rightW  = saved.rightW  || 320;
+      var consoleH = saved.consoleH || 220;
+
+      function applyGrid() {
+        layout.style.gridTemplateColumns = leftW + 'px 1fr ' + rightW + 'px';
+        layout.style.gridTemplateRows    = '1fr ' + consoleH + 'px';
+      }
+      applyGrid();
+
+      function persist() {
+        localStorage.setItem(STORE, JSON.stringify({ leftW: leftW, rightW: rightW, consoleH: consoleH }));
+      }
+
+      function makeHandle(opts) {
+        var h = document.createElement('div');
+        h.className = 'resize-handle resize-handle--' + opts.dir;
+        opts.target.appendChild(h);
+
+        var startX, startY, startVal;
+        h.addEventListener('mousedown', function(e) {
+          e.preventDefault();
+          startX = e.clientX; startY = e.clientY;
+          startVal = opts.getVal();
+          document.body.style.cursor = opts.dir === 'ew' ? 'ew-resize' : 'ns-resize';
+          document.body.style.userSelect = 'none';
+
+          function onMove(e) {
+            var delta = opts.dir === 'ew' ? e.clientX - startX : e.clientY - startY;
+            var next = Math.max(opts.min, Math.min(opts.max, startVal + opts.sign * delta));
+            opts.setVal(next);
+            applyGrid();
+          }
+          function onUp() {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            persist();
+          }
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        });
+      }
+
+      makeHandle({
+        dir: 'ew', target: document.getElementById('left-rail'),
+        min: 120, max: 400, sign: 1,
+        getVal: function() { return leftW; },
+        setVal: function(v) { leftW = v; }
+      });
+      makeHandle({
+        dir: 'ew', target: document.getElementById('right-rail'),
+        min: 200, max: 560, sign: -1,
+        getVal: function() { return rightW; },
+        setVal: function(v) { rightW = v; }
+      });
+      makeHandle({
+        dir: 'ns', target: document.getElementById('bottom-console'),
+        min: 80, max: 500, sign: -1,
+        getVal: function() { return consoleH; },
+        setVal: function(v) { consoleH = v; }
+      });
+    })();
+    </script>
+
     <div id="version-badge"><!--__VERSION__--></div>
 </body>
 </html>

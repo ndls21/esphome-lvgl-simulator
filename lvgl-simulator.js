@@ -2026,14 +2026,14 @@ lvgl:
     parseFontSize(font) {
         const match = String(font).match(/_?(\d+)$/);
         if (match) {
-            const size = parseInt(match[1]);
-            return (size > 100 ? Math.round(size * 0.5) : size) + 'px';
+            return parseInt(match[1]) + 'px';
         }
         return '16px';
     }
 
     parseFontFamily(font) {
         const f = String(font).toLowerCase();
+        if (f.startsWith('mdi'))      return "'Material Design Icons', sans-serif";
         if (f.includes('montserrat')) return "'Montserrat', Arial, sans-serif";
         if (f.includes('roboto'))     return "'Roboto', Arial, sans-serif";
         if (f.includes('mono'))       return 'monospace';
