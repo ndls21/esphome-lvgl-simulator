@@ -15979,3 +15979,70 @@ lvgl:
   });
 
 });
+
+// ── Issue #177: align constant aliases ──────────────────────────────────────
+test.describe('align constant aliases (issue #177)', () => {
+  function alignAliasYAML(id, align) {
+    return `
+lvgl:
+  pages:
+    - id: p1
+      widgets:
+        - obj:
+            id: parent
+            width: 200
+            height: 200
+            widgets:
+              - label:
+                  id: ${id}
+                  text: "x"
+                  width: 40
+                  height: 20
+                  align: ${align}
+`;
+  }
+
+  test('align: TOP_CENTER behaves like TOP_MID — centered horizontally at top', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, alignAliasYAML('lbl', 'TOP_CENTER'));
+    const el = page.locator('[data-lvgl-id="lbl"]');
+    const left = await el.evaluate(e => e.style.left);
+    const transform = await el.evaluate(e => e.style.transform);
+    expect(left).toBe('50%');
+    expect(transform).toContain('translateX');
+  });
+
+  test('align: BOTTOM_CENTER behaves like BOTTOM_MID — centered horizontally at bottom', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, alignAliasYAML('lbl', 'BOTTOM_CENTER'));
+    const el = page.locator('[data-lvgl-id="lbl"]');
+    const left = await el.evaluate(e => e.style.left);
+    expect(left).toBe('50%');
+    const transform = await el.evaluate(e => e.style.transform);
+    expect(transform).toContain('translateX');
+  });
+
+  test('align: LEFT_CENTER behaves like LEFT_MID — centered vertically on left', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, alignAliasYAML('lbl', 'LEFT_CENTER'));
+    const el = page.locator('[data-lvgl-id="lbl"]');
+    const top = await el.evaluate(e => e.style.top);
+    expect(top).toBe('50%');
+    const transform = await el.evaluate(e => e.style.transform);
+    expect(transform).toContain('translateY');
+  });
+
+  test('align: RIGHT_CENTER behaves like RIGHT_MID — centered vertically on right', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, alignAliasYAML('lbl', 'RIGHT_CENTER'));
+    const el = page.locator('[data-lvgl-id="lbl"]');
+    const top = await el.evaluate(e => e.style.top);
+    expect(top).toBe('50%');
+    const transform = await el.evaluate(e => e.style.transform);
+    expect(transform).toContain('translateY');
+  });
+});

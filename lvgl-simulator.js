@@ -1795,21 +1795,25 @@ lvgl:
                 el.style.top = '50%';
                 el.style.transform = `translate(calc(-50% + ${ox}px), calc(-50% + ${oy}px))`;
                 return;
+            case 'TOP_CENTER':
             case 'TOP_MID':
                 el.style.left = '50%';
                 el.style.top = oy + 'px';
                 el.style.transform = `translateX(calc(-50% + ${ox}px))`;
                 return;
+            case 'BOTTOM_CENTER':
             case 'BOTTOM_MID':
                 el.style.left = '50%';
                 el.style.bottom = (-oy) + 'px';
                 el.style.transform = `translateX(calc(-50% + ${ox}px))`;
                 return;
+            case 'LEFT_CENTER':
             case 'LEFT_MID':
                 el.style.left = ox + 'px';
                 el.style.top = '50%';
                 el.style.transform = `translateY(calc(-50% + ${oy}px))`;
                 return;
+            case 'RIGHT_CENTER':
             case 'RIGHT_MID':
                 el.style.right = (-ox) + 'px';
                 el.style.top = '50%';
