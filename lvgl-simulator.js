@@ -490,6 +490,9 @@ class ESPHomeLVGLSimulator {
 
         document.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+            // Encoder takes over ArrowUp/Down/Enter when active
+            if (this._focusableWidgets && this._focusableWidgets.length > 0 &&
+                (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Enter')) return;
             const map = { ArrowLeft: 'right', ArrowRight: 'left', ArrowUp: 'down', ArrowDown: 'up' };
             if (map[e.key]) { e.preventDefault(); this._handleSwipe(map[e.key]); }
         });
@@ -564,6 +567,8 @@ class ESPHomeLVGLSimulator {
                 document.getElementById('sbStatus').textContent = `✗ ${e.message}`;
             }
         });
+
+        this._initEncoder();
     }
 
     _transformPointerCoords(clientX, clientY) {
@@ -1118,6 +1123,7 @@ lvgl:
             this.updateEntitySummary();
             this.buildDrivePanel();
             this._maybeShowSupabasePanel();
+            this._setupEncoder(this.config);
             this._storeUnsub = this.store.subscribeAll(() => this._scheduleRerender());
         } catch (error) {
             console.error('Error rendering:', error);
@@ -3218,6 +3224,67 @@ Object.assign(ESPHomeLVGLSimulator.prototype, {
     renderTable,
     renderMsgbox,
     renderAnimimg,
+
+    // ── Issue #165: rotary encoder input ────────────────────────────────────
+    _initEncoder() {
+        document.getElementById('encoderUp')?.addEventListener('click', () => this._encoderMove(-1));
+        document.getElementById('encoderDown')?.addEventListener('click', () => this._encoderMove(1));
+        document.getElementById('encoderClick')?.addEventListener('click', () => this._encoderClick());
+        document.addEventListener('keydown', e => {
+            if (!this._focusableWidgets || this._focusableWidgets.length === 0) return;
+            if (e.key === 'ArrowUp') { e.preventDefault(); this._encoderMove(-1); }
+            else if (e.key === 'ArrowDown') { e.preventDefault(); this._encoderMove(1); }
+            else if (e.key === 'Enter') { e.preventDefault(); this._encoderClick(); }
+        });
+    },
+
+    _setupEncoder(config) {
+        const yaml = config;
+        const hasEncoder = yaml && (yaml.rotary_encoders || (yaml.lvgl && yaml.lvgl.encoders));
+        const panel = document.getElementById('encoderPanel');
+        if (panel) panel.style.display = hasEncoder ? '' : 'none';
+        if (!hasEncoder) {
+            this._focusableWidgets = [];
+            this._focusIndex = 0;
+            return;
+        }
+
+        // Build focusable list: all rendered widgets with data-lvgl-id, in DOM order
+        const display = document.getElementById('lvglDisplay') || document.querySelector('.lvgl-display');
+        this._focusableWidgets = display
+            ? Array.from(display.querySelectorAll('[data-lvgl-id]'))
+            : [];
+        this._focusIndex = 0;
+
+        // Apply initial_focus from rotary_encoders config
+        const encoders = yaml.rotary_encoders;
+        if (Array.isArray(encoders) && encoders[0] && encoders[0].initial_focus) {
+            const id = encoders[0].initial_focus;
+            const idx = this._focusableWidgets.findIndex(el => el.dataset.lvglId === id);
+            if (idx >= 0) this._focusIndex = idx;
+        }
+
+        this._applyFocus();
+    },
+
+    _applyFocus() {
+        if (!this._focusableWidgets) return;
+        this._focusableWidgets.forEach((el, i) => {
+            el.classList.toggle('lvgl-focused', i === this._focusIndex);
+        });
+    },
+
+    _encoderMove(delta) {
+        if (!this._focusableWidgets || this._focusableWidgets.length === 0) return;
+        this._focusIndex = (this._focusIndex + delta + this._focusableWidgets.length) % this._focusableWidgets.length;
+        this._applyFocus();
+    },
+
+    _encoderClick() {
+        if (!this._focusableWidgets) return;
+        const el = this._focusableWidgets[this._focusIndex];
+        if (el) el.click();
+    },
 });
 
 document.addEventListener('DOMContentLoaded', () => {
