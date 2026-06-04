@@ -16157,3 +16157,66 @@ lvgl:
     await expect(page.locator('[data-lvgl-id="btn2"]')).toBeVisible();
   });
 });
+
+// ── Issue #169: table widget ─────────────────────────────────────────────────
+test.describe('table widget (issue #169)', () => {
+  const tableYAML = `
+lvgl:
+  pages:
+    - id: p1
+      widgets:
+        - table:
+            id: my_table
+            width: 240
+            height: 120
+            column_widths: [80, 80, 60]
+            rows:
+              - ["Sensor", "Value", "Unit"]
+              - ["Temp", "22.5", "°C"]
+              - ["Humidity", "61", "%"]
+`;
+
+  test('table renders with correct row count', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, tableYAML);
+    const el = page.locator('[data-lvgl-id="my_table"]');
+    await expect(el).toBeVisible();
+    const rows = el.locator('tr');
+    await expect(rows).toHaveCount(3);
+  });
+
+  test('table renders header row as th elements', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, tableYAML);
+    const ths = page.locator('[data-lvgl-id="my_table"] th');
+    await expect(ths).toHaveCount(3);
+    await expect(ths.nth(0)).toHaveText('Sensor');
+  });
+
+  test('table renders data rows as td elements', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, tableYAML);
+    const tds = page.locator('[data-lvgl-id="my_table"] td');
+    expect(await tds.count()).toBeGreaterThan(0);
+    await expect(tds.nth(0)).toHaveText('Temp');
+  });
+
+  test('table with no rows renders without error', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, `
+lvgl:
+  pages:
+    - id: p1
+      widgets:
+        - table:
+            id: empty_table
+            width: 200
+            height: 80
+`);
+    await expect(page.locator('[data-lvgl-id="empty_table"]')).toBeVisible();
+  });
+});
