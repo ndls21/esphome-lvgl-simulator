@@ -16220,3 +16220,62 @@ lvgl:
     await expect(page.locator('[data-lvgl-id="empty_table"]')).toBeVisible();
   });
 });
+
+// ── Issue #168: msgbox widget ────────────────────────────────────────────────
+test.describe('msgbox widget (issue #168)', () => {
+  const msgboxYAML = `
+lvgl:
+  pages:
+    - id: p1
+      widgets:
+        - msgbox:
+            id: my_msgbox
+            title: "Confirm Action"
+            body: "Are you sure you want to reset?"
+            buttons: ["Yes", "No"]
+`;
+
+  test('msgbox renders with title and body', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, msgboxYAML);
+    const el = page.locator('[data-lvgl-id="my_msgbox"]');
+    await expect(el).toBeVisible();
+    await expect(el.locator('.lvgl-msgbox__title')).toHaveText('Confirm Action');
+    await expect(el.locator('.lvgl-msgbox__body')).toHaveText('Are you sure you want to reset?');
+  });
+
+  test('msgbox renders button count correctly', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, msgboxYAML);
+    const btns = page.locator('[data-lvgl-id="my_msgbox"] .lvgl-msgbox__btn');
+    await expect(btns).toHaveCount(2);
+    await expect(btns.nth(0)).toHaveText('Yes');
+    await expect(btns.nth(1)).toHaveText('No');
+  });
+
+  test('msgbox with close_button: true renders close button', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, `
+lvgl:
+  pages:
+    - id: p1
+      widgets:
+        - msgbox:
+            id: alert_box
+            title: "Warning"
+            body: "Sensor offline"
+            close_button: true
+`);
+    await expect(page.locator('[data-lvgl-id="alert_box"] .lvgl-msgbox__close')).toBeVisible();
+  });
+
+  test('msgbox without close_button has no close button', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, msgboxYAML);
+    await expect(page.locator('[data-lvgl-id="my_msgbox"] .lvgl-msgbox__close')).toHaveCount(0);
+  });
+});
