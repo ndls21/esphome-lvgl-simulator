@@ -94,10 +94,13 @@ lvgl:
 // ─── test suites ─────────────────────────────────────────────────────────────
 
 test.describe('Display setup', () => {
-
-  test('example config: lvglDisplay dimensions match YAML (800×480)', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('example config: lvglDisplay dimensions match YAML (800×480)', async ({ page }) => {
     await loadExample(page);
 
     // setupDisplay() sets style.width/height from display.dimensions in YAML
@@ -109,8 +112,6 @@ test.describe('Display setup', () => {
   });
 
   test('example config: top-bar caption shows correct dimensions', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     // setupDisplay() writes "{width}×{height} · {colorDepth}-bit" to #top-bar-caption
@@ -120,8 +121,6 @@ test.describe('Display setup', () => {
   });
 
   test('custom YAML: lvglDisplay resizes to YAML dimensions', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, SINGLE_PAGE_YAML);
 
     const { w, h } = await page.locator('#lvglDisplay').evaluate(el => ({
@@ -134,10 +133,13 @@ test.describe('Display setup', () => {
 });
 
 test.describe('Widget rendering', () => {
-
-  test('obj widget renders with .lvgl-obj class', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('obj widget renders with .lvgl-obj class', async ({ page }) => {
     await renderYAML(page, SINGLE_PAGE_YAML);
 
     const count = await page.locator('#lvglDisplay .lvgl-obj').count();
@@ -145,8 +147,6 @@ test.describe('Widget rendering', () => {
   });
 
   test('label widget renders with .lvgl-label class', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, SINGLE_PAGE_YAML);
 
     const count = await page.locator('#lvglDisplay .lvgl-label').count();
@@ -154,8 +154,6 @@ test.describe('Widget rendering', () => {
   });
 
   test('button widget renders with .lvgl-button class', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, SINGLE_PAGE_YAML);
 
     const count = await page.locator('#lvglDisplay .lvgl-button').count();
@@ -163,8 +161,6 @@ test.describe('Widget rendering', () => {
   });
 
   test('bar widget renders with .lvgl-bar class', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, SINGLE_PAGE_YAML);
 
     const count = await page.locator('#lvglDisplay .lvgl-bar').count();
@@ -172,8 +168,6 @@ test.describe('Widget rendering', () => {
   });
 
   test('widgets with YAML ids get data-lvgl-id attribute', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, SINGLE_PAGE_YAML);
 
     // Widgets with ids must carry data-lvgl-id so inspector and alignments work
@@ -184,8 +178,6 @@ test.describe('Widget rendering', () => {
   });
 
   test('label text content matches YAML text property', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, SINGLE_PAGE_YAML);
 
     const label = page.locator('[data-lvgl-id="hello_label"]');
@@ -194,8 +186,6 @@ test.describe('Widget rendering', () => {
   });
 
   test('lvglDisplay has children after render', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, SINGLE_PAGE_YAML);
 
     // renderCurrentPage('NONE') places widgets directly into #lvglDisplay.
@@ -207,10 +197,13 @@ test.describe('Widget rendering', () => {
 });
 
 test.describe('Page selector pill', () => {
-
-  test('pill shows correct index format after single-page load', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('pill shows correct index format after single-page load', async ({ page }) => {
     await loadExample(page);
 
     // syncPageSelect() sets #page-selector-index to "{currentIndex+1}/{totalPages}"
@@ -219,8 +212,6 @@ test.describe('Page selector pill', () => {
   });
 
   test('pill title transforms page ID correctly (removes _page suffix)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     // pageDisplayTitle('main_page') → strips _page → "Main"
@@ -229,8 +220,6 @@ test.describe('Page selector pill', () => {
   });
 
   test('pill index updates on navigation', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, TWO_PAGE_YAML);
 
     const before = await page.locator('#page-selector-index').textContent();
@@ -245,8 +234,6 @@ test.describe('Page selector pill', () => {
   });
 
   test('pill title updates on navigation', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, TWO_PAGE_YAML);
 
     // alpha_page → "Alpha" (strips _page)
@@ -265,10 +252,13 @@ test.describe('Page selector pill', () => {
 });
 
 test.describe('Left-rail page list', () => {
-
-  test('page list row count matches config page count', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('page list row count matches config page count', async ({ page }) => {
     await renderYAML(page, TWO_PAGE_YAML);
 
     const count = await page.locator('#page-list .page-list-row').count();
@@ -276,8 +266,6 @@ test.describe('Left-rail page list', () => {
   });
 
   test('page count badge shows correct number', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, TWO_PAGE_YAML);
 
     const badge = await page.locator('#page-count-badge').textContent();
@@ -285,8 +273,6 @@ test.describe('Left-rail page list', () => {
   });
 
   test('first page row is active after initial render', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, TWO_PAGE_YAML);
 
     const firstRow = page.locator('#page-list .page-list-row').first();
@@ -294,8 +280,6 @@ test.describe('Left-rail page list', () => {
   });
 
   test('clicking second row navigates to second page', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, TWO_PAGE_YAML);
 
     await page.locator('#page-list .page-list-row').nth(1).click();
@@ -309,8 +293,6 @@ test.describe('Left-rail page list', () => {
   });
 
   test('page list row titles match transformed page IDs', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, TWO_PAGE_YAML);
 
     const rows = page.locator('#page-list .page-list-row__title');
@@ -323,12 +305,15 @@ test.describe('Left-rail page list', () => {
 });
 
 test.describe('Page navigation', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('swipe-left triggers on_swipe_left lambda → navigates to beta_page', async ({ page }) => {
     // alpha_page has on_swipe_left: show_page(id(beta_page)->index, ...)
     // The simulator parses the lambda body and navigates to beta_page.
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, TWO_PAGE_YAML);
 
     await page.click('#swipe-left');
@@ -339,8 +324,6 @@ test.describe('Page navigation', () => {
 
   test('swipe-right triggers on_swipe_right lambda → navigates back to alpha_page', async ({ page }) => {
     // beta_page has on_swipe_right: show_page(id(alpha_page)->index, ...)
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, TWO_PAGE_YAML);
 
     // Go to beta_page first
@@ -355,8 +338,6 @@ test.describe('Page navigation', () => {
   });
 
   test('navigating pages re-renders widgets for correct page', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, TWO_PAGE_YAML);
 
     // Page 1 has lbl_alpha, not lbl_beta
@@ -375,10 +356,13 @@ test.describe('Page navigation', () => {
 });
 
 test.describe('YAML console tabs', () => {
-
-  test('Page YAML tab populates after render', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('Page YAML tab populates after render', async ({ page }) => {
     await renderYAML(page, SINGLE_PAGE_YAML);
 
     // Click the Page tab
@@ -397,8 +381,6 @@ globals:
     type: int
     initial_value: "0"`;
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yamlWithGlobals);
 
     await page.click('.console-tab[data-tab="globals"]');
@@ -411,13 +393,16 @@ globals:
 });
 
 test.describe('Error handling', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('invalid YAML shows error, no JS crash', async ({ page }) => {
     const errors = [];
     page.on('pageerror', err => errors.push(err.message));
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     await page.click('.console-tab[data-tab="edit"]');
     await page.fill('#yamlEditor', 'this: is: not: valid: yaml: {{{{');
@@ -442,8 +427,6 @@ test.describe('Error handling', () => {
       if (msg.type() === 'error') errors.push(msg.text());
     });
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     // Filter out network failures for external resources (fonts CDN, favicon, etc.)
     const real = errors.filter(e =>
@@ -456,8 +439,6 @@ test.describe('Error handling', () => {
     const errors = [];
     page.on('pageerror', err => errors.push(err.message));
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const real = errors.filter(e => !e.includes('favicon'));
@@ -481,8 +462,6 @@ lvgl:
             align: CENTER
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await expect(page.locator('.lvgl-unsupported')).toHaveCount(1);
@@ -506,8 +485,6 @@ lvgl:
             align: CENTER
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // The label renders but must NOT have data-lvgl-id (no id in YAML)
@@ -522,10 +499,13 @@ lvgl:
 // ─── UI controls ────────────────────────────────────────────────────────────
 
 test.describe('UI controls', () => {
-
-  test('display preset 320x240 overrides YAML dimensions', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('display preset 320x240 overrides YAML dimensions', async ({ page }) => {
     await renderYAML(page, SINGLE_PAGE_YAML); // YAML says 480x320
 
     // Select a different preset
@@ -540,8 +520,6 @@ test.describe('UI controls', () => {
   });
 
   test('theme toggle switches data-theme attribute', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     // Default: no data-theme (dark)
     const before = await page.locator('html').getAttribute('data-theme');
@@ -559,8 +537,6 @@ test.describe('UI controls', () => {
   });
 
   test('rotation 90° applies transform rotate to #lvglDisplay', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, SINGLE_PAGE_YAML);
 
     await page.selectOption('#rotationSelect', '90');
@@ -571,8 +547,6 @@ test.describe('UI controls', () => {
   });
 
   test('rotation 0° removes transform after being set', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, SINGLE_PAGE_YAML);
 
     await page.selectOption('#rotationSelect', '180');
@@ -586,8 +560,6 @@ test.describe('UI controls', () => {
   });
 
   test('display preset Auto re-reads YAML dimensions', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, SINGLE_PAGE_YAML); // 480x320
 
     // Override with preset, then switch back to Auto
@@ -608,10 +580,13 @@ test.describe('UI controls', () => {
 // ─── Re-render correctness ───────────────────────────────────────────────────
 
 test.describe('Re-render correctness', () => {
-
-  test('re-rendering different YAML removes stale widget ids', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('re-rendering different YAML removes stale widget ids', async ({ page }) => {
 
     // First render: has container_box
     await renderYAML(page, SINGLE_PAGE_YAML);
@@ -624,8 +599,6 @@ test.describe('Re-render correctness', () => {
   });
 
   test('re-rendering updates display dimensions', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     await renderYAML(page, SINGLE_PAGE_YAML); // 480x320
     const size1 = await page.locator('#lvglDisplay').evaluate(el => el.style.width);
@@ -637,8 +610,6 @@ test.describe('Re-render correctness', () => {
   });
 
   test('re-rendering resets page selector to page 1', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     await renderYAML(page, TWO_PAGE_YAML);
     // Navigate to page 2
@@ -656,6 +627,11 @@ test.describe('Re-render correctness', () => {
 // ─── Widget styles ───────────────────────────────────────────────────────────
 
 test.describe('Widget styles', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('bg_color applies to widget background', async ({ page }) => {
     const yaml = `
@@ -675,8 +651,6 @@ lvgl:
             bg_color: 0xFF0000
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const bg = await page.locator('[data-lvgl-id="colored_box"]').evaluate(
@@ -704,8 +678,6 @@ lvgl:
             radius: 10
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const radius = await page.locator('[data-lvgl-id="rounded_box"]').evaluate(
@@ -732,8 +704,6 @@ lvgl:
             radius: 100
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const radius = await page.locator('[data-lvgl-id="circle_box"]').evaluate(
@@ -760,8 +730,6 @@ lvgl:
             align: CENTER
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const el = page.locator('[data-lvgl-id="sized_box"]');
@@ -790,8 +758,6 @@ lvgl:
             shadow_color: 0x000000
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const shadow = await page.locator('[data-lvgl-id="shadowed_box"]').evaluate(
@@ -821,8 +787,6 @@ lvgl:
             max_value: 100
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // The bar indicator element should have approximately 50% width
@@ -837,6 +801,11 @@ lvgl:
 // ─── Navigation edge cases ───────────────────────────────────────────────────
 
 test.describe('Navigation edge cases', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('swipe on page with no handler does not navigate', async ({ page }) => {
     // A page with no on_swipe_right handler — swiping right stays on same page
@@ -855,8 +824,6 @@ lvgl:
             align: CENTER
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const before = await page.locator('#page-selector-index').textContent();
@@ -871,8 +838,6 @@ lvgl:
   });
 
   test('clicking page list row on current page does not break display', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, TWO_PAGE_YAML);
 
     // Click first row (already current)
@@ -886,8 +851,6 @@ lvgl:
   });
 
   test('rapid swipe clicks do not leave page stuck mid-animation', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, TWO_PAGE_YAML);
 
     // Click swipe-left multiple times in rapid succession
@@ -1040,10 +1003,13 @@ lvgl:
 // ─── Widget gallery ──────────────────────────────────────────────────────────
 
 test.describe('Widget gallery', () => {
-
-  test('arc widget: SVG element renders at data-lvgl-id', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('arc widget: SVG element renders at data-lvgl-id', async ({ page }) => {
     await renderYAML(page, WIDGET_GALLERY_YAML);
 
     // Arc renders as an SVG (or wraps one)
@@ -1055,36 +1021,26 @@ test.describe('Widget gallery', () => {
   });
 
   test('slider widget: .lvgl-slider in DOM', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, WIDGET_GALLERY_YAML);
     await expect(page.locator('[data-lvgl-id="my_slider"].lvgl-slider')).toHaveCount(1);
   });
 
   test('checkbox widget: .lvgl-checkbox in DOM', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, WIDGET_GALLERY_YAML);
     await expect(page.locator('[data-lvgl-id="my_checkbox"].lvgl-checkbox')).toHaveCount(1);
   });
 
   test('switch widget: .lvgl-switch in DOM', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, WIDGET_GALLERY_YAML);
     await expect(page.locator('[data-lvgl-id="my_switch"].lvgl-switch')).toHaveCount(1);
   });
 
   test('dropdown widget: .lvgl-dropdown in DOM', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, WIDGET_GALLERY_YAML);
     await expect(page.locator('[data-lvgl-id="my_dropdown"].lvgl-dropdown')).toHaveCount(1);
   });
 
   test('roller widget: .lvgl-roller in DOM with option rows', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, WIDGET_GALLERY_YAML);
     await expect(page.locator('[data-lvgl-id="my_roller"].lvgl-roller')).toHaveCount(1);
     // Roller renders one row per option (X, Y, Z)
@@ -1093,15 +1049,11 @@ test.describe('Widget gallery', () => {
   });
 
   test('spinner widget: SVG with .lvgl-spinner class', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, WIDGET_GALLERY_YAML);
     await expect(page.locator('[data-lvgl-id="my_spinner"].lvgl-spinner')).toHaveCount(1);
   });
 
   test('led widget: .lvgl-led in DOM', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, WIDGET_GALLERY_YAML);
     await expect(page.locator('[data-lvgl-id="my_led"].lvgl-led')).toHaveCount(1);
   });
@@ -1111,10 +1063,13 @@ test.describe('Widget gallery', () => {
 // ─── top_layer ───────────────────────────────────────────────────────────────
 
 test.describe('top_layer', () => {
-
-  test('top_layer widget appears in #lvgl-top-layer after render', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('top_layer widget appears in #lvgl-top-layer after render', async ({ page }) => {
     await renderYAML(page, TOP_LAYER_YAML);
 
     await expect(page.locator('#lvgl-top-layer')).toHaveCount(1);
@@ -1122,8 +1077,6 @@ test.describe('top_layer', () => {
   });
 
   test('top_layer widget persists after navigating to page 2', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, TOP_LAYER_YAML);
 
     // Confirm top_layer label exists on page 1
@@ -1149,10 +1102,13 @@ test.describe('top_layer', () => {
 // ─── Layout system ───────────────────────────────────────────────────────────
 
 test.describe('Layout system', () => {
-
-  test('FLEX ROW container has display:flex and flex-direction:row', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('FLEX ROW container has display:flex and flex-direction:row', async ({ page }) => {
     await renderYAML(page, LAYOUT_YAML);
 
     const styles = await page.locator('[data-lvgl-id="flex_row_box"]').evaluate(el => ({
@@ -1164,8 +1120,6 @@ test.describe('Layout system', () => {
   });
 
   test('FLEX COLUMN container has flex-direction:column', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, LAYOUT_YAML);
 
     const dir = await page.locator('[data-lvgl-id="flex_col_box"]').evaluate(
@@ -1175,8 +1129,6 @@ test.describe('Layout system', () => {
   });
 
   test('FLEX container children all render inside parent', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, LAYOUT_YAML);
 
     // flex_child_a/b/c should be descendants of flex_row_box
@@ -1185,8 +1137,6 @@ test.describe('Layout system', () => {
   });
 
   test('nested obj: children render inside parent element', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, SINGLE_PAGE_YAML);
 
     // container_box has hello_label as a child
@@ -1201,10 +1151,13 @@ test.describe('Layout system', () => {
 // ─── Inspector ───────────────────────────────────────────────────────────────
 
 test.describe('Inspector', () => {
-
-  test('clicking a widget sets #inspector-widget-name to the widget id', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('clicking a widget sets #inspector-widget-name to the widget id', async ({ page }) => {
     await renderYAML(page, SINGLE_PAGE_YAML);
 
     // Click the hello_label (centered inside container_box) — direct click on the label
@@ -1216,8 +1169,6 @@ test.describe('Inspector', () => {
   });
 
   test('inspector body is populated after widget click', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, SINGLE_PAGE_YAML);
 
     await page.locator('[data-lvgl-id="my_button"]').click();
@@ -1229,8 +1180,6 @@ test.describe('Inspector', () => {
   });
 
   test('widget tree (right-rail) is populated after render', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, SINGLE_PAGE_YAML);
 
     // Tree nodes are created for each widget with an id
@@ -1243,6 +1192,11 @@ test.describe('Inspector', () => {
 // ─── Style property coverage ─────────────────────────────────────────────────
 
 test.describe('Style property coverage', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('text_color applies CSS color to label element', async ({ page }) => {
     const yaml = `
@@ -1261,8 +1215,6 @@ lvgl:
             align: CENTER
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const color = await page.locator('[data-lvgl-id="colored_label"]').evaluate(
@@ -1290,8 +1242,6 @@ lvgl:
             border_color: 0xFF0000
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const el = page.locator('[data-lvgl-id="bordered_box"]');
@@ -1319,8 +1269,6 @@ lvgl:
             pad_all: 12
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const padding = await page.locator('[data-lvgl-id="padded_box"]').evaluate(
@@ -1342,8 +1290,6 @@ lvgl:
       widgets: []
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // The .lvgl-page element gets the page-level bg_color
@@ -1370,8 +1316,6 @@ lvgl:
             align: CENTER
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const styles = await page.locator('[data-lvgl-id="centered_box"]').evaluate(el => ({
@@ -1401,8 +1345,6 @@ lvgl:
             border_side: TOP
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const el = page.locator('[data-lvgl-id="top_border_box"]');
@@ -1417,6 +1359,11 @@ lvgl:
 // ─── Resilience ──────────────────────────────────────────────────────────────
 
 test.describe('Resilience', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('config without lvgl key shows error without JS crash', async ({ page }) => {
     const errors = [];
@@ -1431,8 +1378,6 @@ sensor:
     id: my_sensor
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await page.click('.console-tab[data-tab="edit"]');
     await page.fill('#yamlEditor', yaml);
     await page.click('#renderPreview');
@@ -1472,8 +1417,6 @@ lvgl:
             align: BOTTOM_MID
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // good_label and another_label should render
@@ -1498,8 +1441,6 @@ lvgl:
       widgets: []
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const real = errors.filter(e => !e.includes('favicon') && !e.includes('net::ERR_'));
@@ -1528,8 +1469,6 @@ lvgl:
             value: !lambda "return id(some_sensor).state;"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Bar renders even with a lambda value — shows midpoint (50%) with --unknown class
@@ -1547,6 +1486,11 @@ lvgl:
 // ─── Inspector (extended) ────────────────────────────────────────────────────
 
 test.describe('Inspector extended', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('clicking anonymous widget shows (anonymous) in inspector name', async ({ page }) => {
     const yaml = `
@@ -1563,8 +1507,6 @@ lvgl:
             align: CENTER
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Find the label without id (no data-lvgl-id) — still rendered as .lvgl-label
@@ -1593,8 +1535,6 @@ lvgl:
             align: CENTER
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.locator('[data-lvgl-id="typed_label"]').click();
@@ -1622,8 +1562,6 @@ lvgl:
             align: CENTER
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.locator('[data-lvgl-id="info_label"]').click();
@@ -1639,6 +1577,11 @@ lvgl:
 // ─── Gradient and visual properties ─────────────────────────────────────────
 
 test.describe('Gradient and visual properties', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('bg_grad_color + bg_grad_dir:VER applies CSS linear-gradient', async ({ page }) => {
     const yaml = `
@@ -1660,8 +1603,6 @@ lvgl:
             bg_grad_dir: VER
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const bg = await page.locator('[data-lvgl-id="grad_box"]').evaluate(
@@ -1690,8 +1631,6 @@ lvgl:
             bg_grad_dir: HOR
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const bg = await page.locator('[data-lvgl-id="hor_grad_box"]').evaluate(
@@ -1720,8 +1659,6 @@ lvgl:
             bg_color: 0xFF0000
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const bgColor = await page.locator('[data-lvgl-id="transp_box"]').evaluate(
@@ -1750,8 +1687,6 @@ lvgl:
             opacity: 128
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const opVal = await page.locator('[data-lvgl-id="faded_box"]').evaluate(
@@ -1780,8 +1715,6 @@ lvgl:
             shadow_width: 0
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const shadow = await page.locator('[data-lvgl-id="no_shadow_box"]').evaluate(
@@ -1796,6 +1729,11 @@ lvgl:
 // ─── Advanced widget rendering ───────────────────────────────────────────────
 
 test.describe('Advanced widget rendering', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('meter widget renders SVG with .lvgl-meter class', async ({ page }) => {
     const yaml = `
@@ -1824,8 +1762,6 @@ lvgl:
                   color: 0xAAAAAA
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const meter = page.locator('[data-lvgl-id="my_meter"]');
@@ -1862,8 +1798,6 @@ lvgl:
                   color: 0xAAAAAA
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const lineCount = await page.locator('[data-lvgl-id="tick_meter"] svg line').count();
@@ -1890,8 +1824,6 @@ lvgl:
             range_max: 100
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const chart = page.locator('[data-id="my_chart"]');
@@ -1915,8 +1847,6 @@ lvgl:
             align: CENTER
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await expect(page.locator('[data-lvgl-id="fw_img"]')).toHaveCount(1);
@@ -1944,8 +1874,6 @@ lvgl:
             line_width: 3
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Line renders as an SVG (no data-lvgl-id for line — it's the SVG element itself)
@@ -1960,6 +1888,11 @@ lvgl:
 // ─── Grid layout ─────────────────────────────────────────────────────────────
 
 test.describe('Grid layout', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('GRID container has display:grid CSS property', async ({ page }) => {
     const yaml = `
@@ -1992,8 +1925,6 @@ lvgl:
                   text: "C3"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const display = await page.locator('[data-lvgl-id="grid_box"]').evaluate(
@@ -2023,8 +1954,6 @@ lvgl:
               grid_rows: "FR(1)"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const cols = await page.locator('[data-lvgl-id="fr_grid"]').evaluate(
@@ -2038,6 +1967,11 @@ lvgl:
 // ─── Style inheritance from lvgl: root ──────────────────────────────────────
 
 test.describe('Global style defaults', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('global text_font from lvgl: root applies to label without explicit font', async ({ page }) => {
     const yaml = `
@@ -2056,8 +1990,6 @@ lvgl:
             align: CENTER
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const fontSize = await page.locator('[data-lvgl-id="inherited_label"]').evaluate(
@@ -2085,8 +2017,6 @@ lvgl:
             align: CENTER
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const fontSize = await page.locator('[data-lvgl-id="override_label"]').evaluate(
@@ -2102,6 +2032,11 @@ lvgl:
 // ─── YAML anchors and aliases ────────────────────────────────────────────────
 
 test.describe('YAML anchors and aliases', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('YAML anchor and alias produce correct widget structure', async ({ page }) => {
     const errors = [];
@@ -2123,8 +2058,6 @@ lvgl:
             align: CENTER
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const real = errors.filter(e => !e.includes('favicon') && !e.includes('net::ERR_') && !e.includes('Failed to load'));
@@ -2137,6 +2070,11 @@ lvgl:
 // ─── scrollable and overflow ─────────────────────────────────────────────────
 
 test.describe('Scrollable property', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('scrollable: false applies overflow:hidden to obj', async ({ page }) => {
     const yaml = `
@@ -2156,8 +2094,6 @@ lvgl:
             scrollable: false
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const overflow = await page.locator('[data-lvgl-id="no_scroll_box"]').evaluate(
@@ -2184,8 +2120,6 @@ lvgl:
             scrollable: true
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const overflow = await page.locator('[data-lvgl-id="scroll_box"]').evaluate(
@@ -2200,6 +2134,11 @@ lvgl:
 // ─── Flex child properties ───────────────────────────────────────────────────
 
 test.describe('Flex child properties', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('flex_grow: 1 applies CSS flex-grow: 1 to child', async ({ page }) => {
     const yaml = `
@@ -2229,8 +2168,6 @@ lvgl:
                   text: "Fixed"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const flexGrow = await page.locator('[data-lvgl-id="grow_label"]').evaluate(
@@ -2263,8 +2200,6 @@ lvgl:
                   text: "No grow"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const flexGrow = await page.locator('[data-lvgl-id="no_grow_label"]').evaluate(
@@ -2279,6 +2214,11 @@ lvgl:
 // ─── on_load handler ─────────────────────────────────────────────────────────
 
 test.describe('on_load handler', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('page with no on_load renders without JS crash', async ({ page }) => {
     const errors = [];
@@ -2299,8 +2239,6 @@ lvgl:
             align: CENTER
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const real = errors.filter(e => !e.includes('favicon') && !e.includes('net::ERR_') && !e.includes('Failed to load'));
@@ -2313,10 +2251,13 @@ lvgl:
 // ─── Display rotation ─────────────────────────────────────────────────────────
 
 test.describe('Display rotation (extended)', () => {
-
-  test('rotation 180° applies rotate(180deg) transform', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('rotation 180° applies rotate(180deg) transform', async ({ page }) => {
     await loadExample(page);
 
     await page.selectOption('#rotationSelect', '180');
@@ -2325,8 +2266,6 @@ test.describe('Display rotation (extended)', () => {
   });
 
   test('rotation 270° applies rotate(270deg) transform', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     await page.selectOption('#rotationSelect', '270');
@@ -2339,13 +2278,16 @@ test.describe('Display rotation (extended)', () => {
 // ─── Share button ─────────────────────────────────────────────────────────────
 
 test.describe('Share button', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('share button click does not throw JS error', async ({ page }) => {
     const errors = [];
     page.on('pageerror', err => errors.push(err.message));
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     // Grant clipboard permission so the copy doesn't fail
@@ -2362,10 +2304,13 @@ test.describe('Share button', () => {
 // ─── YAML tab content ─────────────────────────────────────────────────────────
 
 test.describe('YAML tab content', () => {
-
-  test('page YAML tab contains the page widget tree', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('page YAML tab contains the page widget tree', async ({ page }) => {
     await loadExample(page);
 
     // Click the page YAML tab (first tab, labelled "Main")
@@ -2394,8 +2339,6 @@ lvgl:
             align: CENTER
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.click('.console-tab[data-tab="globals"]');
@@ -2411,6 +2354,11 @@ lvgl:
 // ─── Sensor binding (store → label re-render) ────────────────────────────────
 
 test.describe('Sensor binding', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('sensor mock control appears in Drive panel after render', async ({ page }) => {
     const yaml = `
@@ -2433,8 +2381,6 @@ lvgl:
             align: CENTER
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Navigate to Drive tab
@@ -2466,8 +2412,6 @@ lvgl:
             align: CENTER
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Switch to Drive tab and interact with the sensor slider
@@ -2506,8 +2450,6 @@ lvgl:
             align: CENTER
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Default value 0 → "0.00°"
@@ -2535,8 +2477,6 @@ lvgl:
             align: CENTER
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Switch to Drive tab
@@ -2553,6 +2493,11 @@ lvgl:
 // ─── style_definitions inheritance ──────────────────────────────────────────
 
 test.describe('style_definitions', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('widget referencing style by id inherits style properties', async ({ page }) => {
     const yaml = `
@@ -2576,8 +2521,6 @@ lvgl:
             styles: my_red_style
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const bgColor = await page.locator('[data-lvgl-id="styled_box"]').evaluate(
@@ -2609,8 +2552,6 @@ lvgl:
             bg_color: 0x0000FF
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Widget-level bg_color should override the style_definition
@@ -2646,8 +2587,6 @@ lvgl:
               - color_style
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Both styles should be applied
@@ -2664,6 +2603,11 @@ lvgl:
 // ─── Theme inheritance ───────────────────────────────────────────────────────
 
 test.describe('Theme inheritance', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('lvgl theme.bar.radius applies to bar widget', async ({ page }) => {
     const yaml = `
@@ -2688,8 +2632,6 @@ lvgl:
             value: 50
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const radius = await page.locator('[data-lvgl-id="themed_bar"]').evaluate(
@@ -2720,8 +2662,6 @@ lvgl:
             value: 75
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const indColor = await page.locator('[data-lvgl-id="color_bar"] .lvgl-bar__indicator').evaluate(
@@ -2735,6 +2675,11 @@ lvgl:
 // ─── Style properties (extended) ────────────────────────────────────────────
 
 test.describe('Style properties (extended)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('border_color applies CSS border-color to widget', async ({ page }) => {
     const yaml = `
@@ -2754,8 +2699,6 @@ lvgl:
             border_color: 0xFF0000
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const color = await page.locator('[data-lvgl-id="colored_border"]').evaluate(
       el => el.style.borderColor
@@ -2781,8 +2724,6 @@ lvgl:
             pad_right: 25
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const [pl, pr] = await page.locator('[data-lvgl-id="padded_obj"]').evaluate(
       el => [el.style.paddingLeft, el.style.paddingRight]
@@ -2809,8 +2750,6 @@ lvgl:
             pad_bottom: 12
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const [pt, pb] = await page.locator('[data-lvgl-id="padded_tb"]').evaluate(
       el => [el.style.paddingTop, el.style.paddingBottom]
@@ -2835,8 +2774,6 @@ lvgl:
             x: 30
             y: 50
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const [pos, left, top] = await page.locator('[data-lvgl-id="pos_label"]').evaluate(
       el => [el.style.position, el.style.left, el.style.top]
@@ -2862,8 +2799,6 @@ lvgl:
             height: 50
             align: TOP_LEFT
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const [pos, left, top] = await page.locator('[data-lvgl-id="tl_obj"]').evaluate(
       el => [el.style.position, el.style.left, el.style.top]
@@ -2889,8 +2824,6 @@ lvgl:
             height: 50
             align: BOTTOM_RIGHT
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const [pos, right, bottom] = await page.locator('[data-lvgl-id="br_obj"]').evaluate(
       el => [el.style.position, el.style.right, el.style.bottom]
@@ -2917,8 +2850,6 @@ lvgl:
             max_height: 120
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const [minH, maxH] = await page.locator('[data-lvgl-id="minmax_obj"]').evaluate(
       el => [el.style.minHeight, el.style.maxHeight]
@@ -2945,8 +2876,6 @@ lvgl:
             shadow_color: 0x0000FF
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const shadow = await page.locator('[data-lvgl-id="colored_shadow"]').evaluate(
       el => el.style.boxShadow
@@ -2972,8 +2901,6 @@ lvgl:
             border_side: BOTTOM
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const [top, bottom, left, right] = await page.locator('[data-lvgl-id="bottom_border"]').evaluate(
       el => [el.style.borderTopWidth, el.style.borderBottomWidth, el.style.borderLeftWidth, el.style.borderRightWidth]
@@ -3001,8 +2928,6 @@ lvgl:
             clip_corner: true
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const overflow = await page.locator('[data-lvgl-id="clipped_obj"]').evaluate(
       el => el.style.overflow
@@ -3026,8 +2951,6 @@ lvgl:
             width: SIZE_CONTENT
             height: 30
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const width = await page.locator('[data-lvgl-id="content_label"]').evaluate(
       el => el.style.width
@@ -3050,8 +2973,6 @@ lvgl:
             width: "75%"
             height: 40
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const width = await page.locator('[data-lvgl-id="pct_obj"]').evaluate(
       el => el.style.width
@@ -3064,6 +2985,11 @@ lvgl:
 // ─── Label features ──────────────────────────────────────────────────────────
 
 test.describe('Label features', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('text_align: CENTER applies text-align:center', async ({ page }) => {
     const yaml = `
@@ -3082,8 +3008,6 @@ lvgl:
             text_align: CENTER
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const ta = await page.locator('[data-lvgl-id="center_label"]').evaluate(
       el => el.style.textAlign
@@ -3107,8 +3031,6 @@ lvgl:
             width: 200
             text_align: RIGHT
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const ta = await page.locator('[data-lvgl-id="right_label"]').evaluate(
       el => el.style.textAlign
@@ -3132,8 +3054,6 @@ lvgl:
             width: 80
             long_mode: DOT
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const te = await page.locator('[data-lvgl-id="dot_label"]').evaluate(
       el => el.style.textOverflow
@@ -3157,8 +3077,6 @@ lvgl:
             width: 80
             long_mode: WRAP
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const ws = await page.locator('[data-lvgl-id="wrap_label"]').evaluate(
       el => el.style.whiteSpace
@@ -3184,8 +3102,6 @@ lvgl:
 `.trim();
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     expect(errors).toHaveLength(0);
     const el = page.locator('[data-lvgl-id="empty_label"]');
@@ -3197,6 +3113,11 @@ lvgl:
 // ─── Widget details ──────────────────────────────────────────────────────────
 
 test.describe('Widget details', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('dropdown selected_index shows correct option text', async ({ page }) => {
     const yaml = `
@@ -3219,8 +3140,6 @@ lvgl:
             height: 40
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const text = await page.locator('[data-lvgl-id="my_dropdown"] .lvgl-dropdown__text').textContent();
     expect(text).toBe('Cherry');
@@ -3250,8 +3169,6 @@ lvgl:
             height: 90
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const selectedText = await page.locator('[data-lvgl-id="my_roller"] .lvgl-roller__option--selected').textContent();
     expect(selectedText).toBe('Wed');
@@ -3274,8 +3191,6 @@ lvgl:
             height: 24
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const bg = await page.locator('[data-lvgl-id="red_led"]').evaluate(
       el => el.style.backgroundColor
@@ -3301,8 +3216,6 @@ lvgl:
             height: 24
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const opacity = await page.locator('[data-lvgl-id="dim_led"]').evaluate(
       el => parseFloat(el.style.opacity)
@@ -3329,8 +3242,6 @@ lvgl:
             height: 30
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const hasClass = await page.locator('[data-lvgl-id="on_switch"]').evaluate(
       el => el.classList.contains('lvgl-switch--on')
@@ -3355,8 +3266,6 @@ lvgl:
             height: 30
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const hasClass = await page.locator('[data-lvgl-id="off_switch"]').evaluate(
       el => el.classList.contains('lvgl-switch--on')
@@ -3384,8 +3293,6 @@ lvgl:
                   id: btn_text
                   text: "Click Me"
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const text = await page.locator('[data-lvgl-id="btn_text"]').textContent();
     expect(text).toBe('Click Me');
@@ -3401,6 +3308,11 @@ lvgl:
 // ─── Layout features (extended) ─────────────────────────────────────────────
 
 test.describe('Layout features (extended)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('flex layout pad_row applies row gap CSS', async ({ page }) => {
     const yaml = `
@@ -3421,8 +3333,6 @@ lvgl:
               flex_flow: COLUMN
               pad_row: 10
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const gap = await page.locator('[data-lvgl-id="flex_gap"]').evaluate(
       el => el.style.rowGap
@@ -3449,8 +3359,6 @@ lvgl:
               flex_flow: ROW
               pad_column: 8
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const gap = await page.locator('[data-lvgl-id="flex_col_gap"]').evaluate(
       el => el.style.columnGap
@@ -3483,8 +3391,6 @@ lvgl:
                   grid_cell_column_pos: 1
                   grid_cell_row_pos: 0
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const colStart = await page.locator('[data-lvgl-id="cell_item"]').evaluate(
       el => el.style.gridColumnStart
@@ -3516,8 +3422,6 @@ lvgl:
                   text: "A"
                   flex_grow: 2
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const fg = await page.locator('[data-lvgl-id="grow_label"]').evaluate(
       el => el.style.flexGrow
@@ -3530,6 +3434,11 @@ lvgl:
 // ─── Inspector and tree ──────────────────────────────────────────────────────
 
 test.describe('Inspector and tree (extended)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('tree node has data-widget-id attribute matching widget id', async ({ page }) => {
     const yaml = `
@@ -3546,8 +3455,6 @@ lvgl:
             text: "Tree"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const id = await page.locator('.tree-node[data-widget-id="tree_test_label"]').getAttribute('data-widget-id');
     expect(id).toBe('tree_test_label');
@@ -3568,8 +3475,6 @@ lvgl:
             text: "Click me"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     await page.locator('.tree-node[data-widget-id="clickable_tree_node"]').click();
     const name = await page.locator('#inspector-widget-name').textContent();
@@ -3592,8 +3497,6 @@ lvgl:
             height: 80
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     await page.locator('[data-lvgl-id="sized_obj"]').click();
     const bodyText = await page.locator('#inspector-body').textContent();
@@ -3605,6 +3508,11 @@ lvgl:
 // ─── Entity summary ──────────────────────────────────────────────────────────
 
 test.describe('Entity summary', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('entity summary shows sensor count badge after render', async ({ page }) => {
     const yaml = `
@@ -3626,8 +3534,6 @@ lvgl:
             text: !lambda "return String(id(s1).state);"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const summaryEl = page.locator('#entitySummary');
     const display = await summaryEl.evaluate(el => window.getComputedStyle(el).display);
@@ -3651,8 +3557,6 @@ lvgl:
             text: "Hello"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const display = await page.locator('#entitySummary').evaluate(
       el => el.style.display
@@ -3665,10 +3569,13 @@ lvgl:
 // ─── Display controls ────────────────────────────────────────────────────────
 
 test.describe('Display controls', () => {
-
-  test('custom display size preset shows width/height inputs', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('custom display size preset shows width/height inputs', async ({ page }) => {
     await page.selectOption('#displayPreset', 'custom');
     const inputsDisplay = await page.locator('#customSizeInputs').evaluate(
       el => el.style.display
@@ -3690,8 +3597,6 @@ lvgl:
             text: "Custom size"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await page.selectOption('#displayPreset', 'custom');
     await page.fill('#customWidth', '400');
     await page.fill('#customHeight', '300');
@@ -3717,8 +3622,6 @@ lvgl:
             text: "Round"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await page.selectOption('#displayPreset', '466x466');
     await renderYAML(page, yaml);
     const [w, h] = await page.locator('#lvglDisplay').evaluate(
@@ -3733,10 +3636,13 @@ lvgl:
 // ─── Drive tab controls ──────────────────────────────────────────────────────
 
 test.describe('Drive tab controls', () => {
-
-  test('screensaver controls are present in Drive tab', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('screensaver controls are present in Drive tab', async ({ page }) => {
     const ssEnable = page.locator('#ssEnable');
     await expect(ssEnable).toBeAttached();
     const ssTrigger = page.locator('#ssTrigger');
@@ -3744,8 +3650,6 @@ test.describe('Drive tab controls', () => {
   });
 
   test('interval controls are present in Drive tab', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const intervalsEnable = page.locator('#intervalsEnable');
     await expect(intervalsEnable).toBeAttached();
     const intervalSpeed = page.locator('#intervalSpeed');
@@ -3771,8 +3675,6 @@ lvgl:
             text: !lambda "return String(id(my_counter));"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     await page.click('.console-tab[data-tab="drive"]');
     const mockControls = await page.locator('#mockControls').textContent();
@@ -3784,6 +3686,11 @@ lvgl:
 // ─── Arc widget (extended) ───────────────────────────────────────────────────
 
 test.describe('Arc widget (extended)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('arc renders SVG background path element', async ({ page }) => {
     const yaml = `
@@ -3801,8 +3708,6 @@ lvgl:
             height: 100
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const pathCount = await page.locator('[data-lvgl-id="my_arc"] path, [data-lvgl-id="my_arc"] circle').count();
     expect(pathCount).toBeGreaterThanOrEqual(1);
@@ -3827,8 +3732,6 @@ lvgl:
             indicator:
               arc_color: 0x4DA6FF
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const count = await page.locator('[data-lvgl-id="ind_arc"] .arc-indicator').count();
     expect(count).toBe(1);
@@ -3851,8 +3754,6 @@ lvgl:
             value: 75
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const count = await page.locator('[data-lvgl-id="no_ind_arc"] .arc-indicator').count();
     expect(count).toBe(0);
@@ -3881,8 +3782,6 @@ lvgl:
             indicator:
               arc_color: 0x4DA6FF
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const d = await page.locator('[data-lvgl-id="normal_arc"] .arc-indicator').getAttribute('d');
     expect(d).not.toBeNull();
@@ -3921,8 +3820,6 @@ lvgl:
             indicator:
               arc_color: 0xFF4444
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const d = await page.locator('[data-lvgl-id="reverse_arc"] .arc-indicator').getAttribute('d');
     expect(d).not.toBeNull();
@@ -3958,8 +3855,6 @@ lvgl:
             indicator:
               arc_color: 0x44FF44
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const d = await page.locator('[data-lvgl-id="sym_arc"] .arc-indicator').getAttribute('d');
     expect(d).not.toBeNull();
@@ -3991,8 +3886,6 @@ lvgl:
             indicator:
               arc_color: 0xFF4444
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const d = await page.locator('[data-lvgl-id="ci_arc"] .arc-indicator').getAttribute('d');
     expect(d).not.toBeNull();
@@ -4023,8 +3916,6 @@ lvgl:
             indicator:
               arc_color: 0xFF4444
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const count = await page.locator('[data-lvgl-id="rev_zero_arc"] .arc-indicator').count();
     expect(count).toBe(0);
@@ -4050,8 +3941,6 @@ lvgl:
             indicator:
               arc_color: 0x44FF44
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const count = await page.locator('[data-lvgl-id="sym_zero_arc"] .arc-indicator').count();
     expect(count).toBe(0);
@@ -4062,6 +3951,11 @@ lvgl:
 // ─── Slider widget (extended) ────────────────────────────────────────────────
 
 test.describe('Slider widget (extended)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('slider indicator width matches value percentage', async ({ page }) => {
     const yaml = `
@@ -4082,8 +3976,6 @@ lvgl:
             value: 50
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const width = await page.locator('[data-lvgl-id="half_slider"] .lvgl-slider__indicator').evaluate(
       el => el.style.width
@@ -4110,8 +4002,6 @@ lvgl:
             value: 100
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const width = await page.locator('[data-lvgl-id="full_slider"] .lvgl-slider__indicator').evaluate(
       el => el.style.width
@@ -4138,8 +4028,6 @@ lvgl:
             value: 0
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const width = await page.locator('[data-lvgl-id="empty_slider"] .lvgl-slider__indicator').evaluate(
       el => el.style.width
@@ -4152,6 +4040,11 @@ lvgl:
 // ─── Checkbox widget (extended) ──────────────────────────────────────────────
 
 test.describe('Checkbox widget (extended)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('checkbox checked: true adds box--checked class', async ({ page }) => {
     const yaml = `
@@ -4169,8 +4062,6 @@ lvgl:
             checked: true
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const hasClass = await page.locator('[data-lvgl-id="checked_cb"] .lvgl-checkbox__box').evaluate(
       el => el.classList.contains('lvgl-checkbox__box--checked')
@@ -4193,8 +4084,6 @@ lvgl:
             text: "Remember me"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const text = await page.locator('[data-lvgl-id="text_cb"] .lvgl-checkbox__label').textContent();
     expect(text).toBe('Remember me');
@@ -4218,8 +4107,6 @@ lvgl:
               bg_color: 0x00AA00
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const bg = await page.locator('[data-lvgl-id="color_cb"] .lvgl-checkbox__box').evaluate(
       el => el.style.backgroundColor
@@ -4232,6 +4119,11 @@ lvgl:
 // ─── Button widget (extended) ────────────────────────────────────────────────
 
 test.describe('Button widget (extended)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('button with text property renders text content', async ({ page }) => {
     const yaml = `
@@ -4250,8 +4142,6 @@ lvgl:
             height: 40
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const text = await page.locator('[data-lvgl-id="text_btn"]').textContent();
     expect(text.trim()).toBe('Submit');
@@ -4276,8 +4166,6 @@ lvgl:
             checked: true
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const hasClass = await page.locator('[data-lvgl-id="checked_btn"]').evaluate(
       el => el.classList.contains('lvgl-button--checked')
@@ -4290,6 +4178,11 @@ lvgl:
 // ─── Font rendering ──────────────────────────────────────────────────────────
 
 test.describe('Font rendering', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('montserrat_140 font scales to 70px', async ({ page }) => {
     const yaml = `
@@ -4307,8 +4200,6 @@ lvgl:
             text_font: montserrat_140
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const fs = await page.locator('[data-lvgl-id="big_label"]').evaluate(
       el => el.style.fontSize
@@ -4332,8 +4223,6 @@ lvgl:
             text_font: montserrat_20
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const fs = await page.locator('[data-lvgl-id="small_label"]').evaluate(
       el => el.style.fontSize
@@ -4357,8 +4246,6 @@ lvgl:
             text_font: montserrat_20
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const ff = await page.locator('[data-lvgl-id="mont_label"]').evaluate(
       el => el.style.fontFamily
@@ -4371,6 +4258,11 @@ lvgl:
 // ─── Alignment (extended) ────────────────────────────────────────────────────
 
 test.describe('Alignment (extended)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('align: TOP_MID positions widget horizontally centered at top', async ({ page }) => {
     const yaml = `
@@ -4388,8 +4280,6 @@ lvgl:
             height: 40
             align: TOP_MID
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const [pos, left, top] = await page.locator('[data-lvgl-id="top_mid_obj"]').evaluate(
       el => [el.style.position, el.style.left, el.style.top]
@@ -4415,8 +4305,6 @@ lvgl:
             height: 50
             align: RIGHT_MID
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const [pos, top] = await page.locator('[data-lvgl-id="right_mid_obj"]').evaluate(
       el => [el.style.position, el.style.top]
@@ -4443,8 +4331,6 @@ lvgl:
             x: 20
             y: -10
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const transform = await page.locator('[data-lvgl-id="offset_center"]').evaluate(
       el => el.style.transform
@@ -4460,6 +4346,11 @@ lvgl:
 // ─── FLEX alignment ──────────────────────────────────────────────────────────
 
 test.describe('FLEX alignment', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('flex_align_main: SPACE_BETWEEN applies justify-content: space-between', async ({ page }) => {
     const yaml = `
@@ -4480,8 +4371,6 @@ lvgl:
               flex_flow: ROW
               flex_align_main: SPACE_BETWEEN
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const jc = await page.locator('[data-lvgl-id="spaced_flex"]').evaluate(
       el => el.style.justifyContent
@@ -4508,8 +4397,6 @@ lvgl:
               flex_flow: ROW
               flex_align_cross: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const ai = await page.locator('[data-lvgl-id="cross_center"]').evaluate(
       el => el.style.alignItems
@@ -4522,6 +4409,11 @@ lvgl:
 // ─── Shadow offset ───────────────────────────────────────────────────────────
 
 test.describe('Shadow offset', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('shadow_offset_x and shadow_offset_y apply offset in box-shadow', async ({ page }) => {
     const yaml = `
@@ -4542,8 +4434,6 @@ lvgl:
             shadow_offset_y: 3
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const shadow = await page.locator('[data-lvgl-id="offset_shadow"]').evaluate(
       el => el.style.boxShadow
@@ -4557,10 +4447,13 @@ lvgl:
 // ─── Swipe up ────────────────────────────────────────────────────────────────
 
 test.describe('Swipe up', () => {
-
-  test('swipe-up arrow is present in DOM', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('swipe-up arrow is present in DOM', async ({ page }) => {
     await expect(page.locator('#swipe-up')).toBeAttached();
   });
 
@@ -4585,8 +4478,6 @@ lvgl:
             text: "Sky"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     await page.locator('#swipe-up').click();
     await expect(page.locator('[data-lvgl-id="sky_label"]')).toBeVisible({ timeout: 3000 });
@@ -4597,6 +4488,11 @@ lvgl:
 // ─── Edge cases ──────────────────────────────────────────────────────────────
 
 test.describe('Edge cases', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('opacity: 0 applies CSS opacity 0 to widget', async ({ page }) => {
     const yaml = `
@@ -4615,8 +4511,6 @@ lvgl:
             opacity: 0
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const opacity = await page.locator('[data-lvgl-id="invisible_obj"]').evaluate(
       el => parseFloat(el.style.opacity)
@@ -4639,8 +4533,6 @@ lvgl:
             text: 42
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const text = await page.locator('[data-lvgl-id="num_label"]').textContent();
     expect(text.trim()).toBe('42');
@@ -4664,8 +4556,6 @@ lvgl:
             border_color: 0xFF0000
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const borderStyle = await page.locator('[data-lvgl-id="no_border_obj"]').evaluate(
       el => el.style.borderStyle
@@ -4703,8 +4593,6 @@ lvgl:
                               id: deep_label
                               text: "Deep"
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const text = await page.locator('[data-lvgl-id="deep_label"]').textContent();
     expect(text).toBe('Deep');
@@ -4739,8 +4627,6 @@ lvgl:
     - id: only_page
       widgets: []
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml3);
     let rows = await page.locator('#page-list .page-list-row').count();
     expect(rows).toBe(3);
@@ -4768,8 +4654,6 @@ lvgl:
     - id: p5
       widgets: []
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml5);
     const badge = await page.locator('#page-count-badge').textContent();
     expect(badge).toBe('5');
@@ -4780,6 +4664,11 @@ lvgl:
 // ─── Drive panel entity types ────────────────────────────────────────────────
 
 test.describe('Drive panel entity types', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('text_sensor appears with text input control in Drive panel', async ({ page }) => {
     const yaml = `
@@ -4800,8 +4689,6 @@ lvgl:
             text: !lambda "return id(my_text_sensor).state;"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     await page.click('.console-tab[data-tab="drive"]');
     const textInput = page.locator('#mockControls input[type="text"]');
@@ -4829,8 +4716,6 @@ lvgl:
             text: !lambda "return String(id(brightness).state);"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     await page.click('.console-tab[data-tab="drive"]');
     const numControl = page.locator('#mockControls .mock-control--numeric');
@@ -4857,8 +4742,6 @@ lvgl:
             text: !lambda "return id(ts1).state;"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const badgeText = await page.locator('#entityBadges').textContent();
     expect(badgeText.toLowerCase()).toContain('text sensor');
@@ -4885,8 +4768,6 @@ lvgl:
             text: !lambda "return String(id(temp).state);"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const badgeText = await page.locator('#entityBadges').textContent();
     expect(badgeText.toLowerCase()).toContain('sensor');
@@ -4911,8 +4792,6 @@ lvgl:
             text: !lambda "return id(txt_sensor).state;"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     await page.click('.console-tab[data-tab="drive"]');
     const input = page.locator('#mockControls input[type="text"]').first();
@@ -4928,6 +4807,11 @@ lvgl:
 // ─── Label format text ────────────────────────────────────────────────────────
 
 test.describe('Label format text', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('text: {format, args} renders formatted sensor value', async ({ page }) => {
     const yaml = `
@@ -4950,8 +4834,6 @@ lvgl:
                 - id: temp_val
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const text = await page.locator('[data-lvgl-id="fmt_label2"]').textContent();
     // Default sensor value is 0, so "T:0" or "T:0.0" etc.
@@ -4975,8 +4857,6 @@ lvgl:
               time_format: "%H:%M"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const text = await page.locator('[data-lvgl-id="time_label"]').textContent();
     // Should look like "14:32" - two digits, colon, two digits
@@ -4988,6 +4868,11 @@ lvgl:
 // ─── Border and visual opacity ────────────────────────────────────────────────
 
 test.describe('Border and visual opacity', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('border_opa: TRANSP makes border color transparent', async ({ page }) => {
     const yaml = `
@@ -5008,8 +4893,6 @@ lvgl:
             border_opa: TRANSP
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const borderColor = await page.locator('[data-lvgl-id="transp_border"]').evaluate(
       el => el.style.borderColor
@@ -5035,8 +4918,6 @@ lvgl:
             bg_opa: 128
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     // bg_opa: 128 means opacity is < 1, so background should be somewhat transparent
     // The simulator applies bg_opa < 0.01 as transparent; 128/255 ≈ 0.5 is NOT transparent
@@ -5065,8 +4946,6 @@ lvgl:
             opacity: 255
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const opacity = await page.locator('[data-lvgl-id="full_opacity"]').evaluate(
       el => parseFloat(el.style.opacity)
@@ -5079,6 +4958,11 @@ lvgl:
 // ─── Multiple top_layer widgets ──────────────────────────────────────────────
 
 test.describe('Multiple top_layer widgets', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('two top_layer widgets both appear in #lvgl-top-layer', async ({ page }) => {
     const yaml = `
@@ -5104,8 +4988,6 @@ lvgl:
             text: "Page"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const countA = await page.locator('#lvgl-top-layer [data-lvgl-id="overlay_a"]').count();
     const countB = await page.locator('#lvgl-top-layer [data-lvgl-id="overlay_b"]').count();
@@ -5118,6 +5000,11 @@ lvgl:
 // ─── Bar with custom min/max ─────────────────────────────────────────────────
 
 test.describe('Bar with custom min/max', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('bar at midpoint of custom range has ~50% indicator width', async ({ page }) => {
     const yaml = `
@@ -5138,8 +5025,6 @@ lvgl:
             value: 100
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const width = await page.locator('[data-lvgl-id="custom_bar"] .lvgl-bar__indicator').evaluate(
       el => el.style.width
@@ -5166,8 +5051,6 @@ lvgl:
             value: 20
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const width = await page.locator('[data-lvgl-id="min_bar"] .lvgl-bar__indicator').evaluate(
       el => el.style.width
@@ -5180,6 +5063,11 @@ lvgl:
 // ─── Share URL ────────────────────────────────────────────────────────────────
 
 test.describe('Share URL', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('share URL contains #state= fragment with base64 encoded content', async ({ page }) => {
     const yaml = `
@@ -5195,8 +5083,6 @@ lvgl:
             text: "Share test"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Intercept clipboard and get the URL
@@ -5252,6 +5138,11 @@ lvgl:
 // ─── Grid cell span ──────────────────────────────────────────────────────────
 
 test.describe('Grid cell span', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('grid_cell_column_span: 2 applies gridColumnEnd: span 2', async ({ page }) => {
     const yaml = `
@@ -5279,8 +5170,6 @@ lvgl:
                   grid_cell_row_pos: 0
                   grid_cell_column_span: 2
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const span = await page.locator('[data-lvgl-id="wide_cell"]').evaluate(
       el => el.style.gridColumnEnd
@@ -5314,8 +5203,6 @@ lvgl:
                   grid_cell_row_pos: 0
                   grid_cell_x_align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const js = await page.locator('[data-lvgl-id="centered_cell"]').evaluate(
       el => el.style.justifySelf
@@ -5328,6 +5215,11 @@ lvgl:
 // ─── Robustness / XSS prevention ────────────────────────────────────────────
 
 test.describe('Robustness', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('label with HTML special characters renders as text not HTML', async ({ page }) => {
     const yaml = `
@@ -5346,8 +5238,6 @@ lvgl:
 `.trim();
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     expect(errors).toHaveLength(0);
     const text = await page.locator('[data-lvgl-id="html_label"]').textContent();
@@ -5375,8 +5265,6 @@ lvgl:
             text: !lambda "return String(id(temp_c).state);"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     await page.click('.console-tab[data-tab="drive"]');
     const driveText = await page.locator('#mockControls').textContent();
@@ -5402,8 +5290,6 @@ lvgl:
             text: !lambda "return id(flag) ? 'ON' : 'OFF';"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     await page.click('.console-tab[data-tab="drive"]');
     const checkbox = page.locator('#mockControls input[type="checkbox"]').first();
@@ -5425,8 +5311,6 @@ lvgl:
             text: "Hello"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const bg = await page.locator('.lvgl-page').evaluate(
       el => el.style.backgroundColor
@@ -5439,6 +5323,11 @@ lvgl:
 // ─── on_value lambda updating bar and slider ─────────────────────────────────
 
 test.describe('on_value lambda widget updates', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('lv_bar_set_value in sensor on_value lambda updates bar indicator width', async ({ page }) => {
     const yaml = `
@@ -5464,8 +5353,6 @@ lvgl:
             value: 0
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Set sensor to 75 → bar should show 75%
@@ -5512,8 +5399,6 @@ lvgl:
 `.trim();
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     // Just confirm no JS crash from the lambda translation
     expect(errors).toHaveLength(0);
@@ -5545,8 +5430,6 @@ lvgl:
 `.trim();
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     expect(errors).toHaveLength(0);
 
@@ -5573,6 +5456,11 @@ lvgl:
 // ─── lv_label_set_text lambda (proxy setText) ────────────────────────────────
 
 test.describe('lv_label_set_text lambda', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('lv_label_set_text in on_value lambda updates label text content', async ({ page }) => {
     const yaml = `
@@ -5595,8 +5483,6 @@ lvgl:
             text: "---"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Set sensor value via Drive panel
@@ -5619,6 +5505,11 @@ lvgl:
 // ─── Overlay YAML tab ────────────────────────────────────────────────────────
 
 test.describe('Overlay YAML tab', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('overlay tab is present after loading config with top_layer', async ({ page }) => {
     const yaml = `
@@ -5640,8 +5531,6 @@ lvgl:
             text: "Page"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const overlayTab = page.locator('.console-tab[data-tab="overlay"]');
     await expect(overlayTab).toBeAttached();
@@ -5667,8 +5556,6 @@ lvgl:
             text: "Page"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     await page.click('.console-tab[data-tab="overlay"]');
     const content = await page.locator('#tab-overlay').textContent();
@@ -5681,6 +5568,11 @@ lvgl:
 // ─── Arc with nested child widgets ───────────────────────────────────────────
 
 test.describe('Arc with nested widgets', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('arc with children renders wrapper div containing SVG and child widgets', async ({ page }) => {
     const yaml = `
@@ -5703,8 +5595,6 @@ lvgl:
                   text: "50%"
                   align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     // The child label should be present
     const label = page.locator('[data-lvgl-id="arc_center_label"]');
@@ -5718,6 +5608,11 @@ lvgl:
 // ─── Dropdown options string format ──────────────────────────────────────────
 
 test.describe('Dropdown and Roller string options', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('dropdown with newline-separated options string renders correctly', async ({ page }) => {
     const yaml = `
@@ -5737,8 +5632,6 @@ lvgl:
             height: 40
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const text = await page.locator('[data-lvgl-id="str_dropdown"] .lvgl-dropdown__text').textContent();
     expect(text).toBe('Green');
@@ -5763,8 +5656,6 @@ lvgl:
             height: 90
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const text = await page.locator('[data-lvgl-id="str_roller"] .lvgl-roller__option--selected').textContent();
     expect(text).toBe('Apr');
@@ -5775,6 +5666,11 @@ lvgl:
 // ─── Number entity Drive panel ───────────────────────────────────────────────
 
 test.describe('Number entity Drive panel', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('number entity with min/max shows correct range in slider control', async ({ page }) => {
     const yaml = `
@@ -5798,8 +5694,6 @@ lvgl:
             text: !lambda "return String(id(volume).state);"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     await page.click('.console-tab[data-tab="drive"]');
     const rangeInput = page.locator('#mockControls input[type="range"]').first();
@@ -5830,8 +5724,6 @@ lvgl:
             text: !lambda "return String(id(speed).state);"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     await page.click('.console-tab[data-tab="drive"]');
     const rangeInput = page.locator('#mockControls input[type="range"]').first();
@@ -5844,6 +5736,11 @@ lvgl:
 // ─── LED defaults ────────────────────────────────────────────────────────────
 
 test.describe('LED defaults', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('led with no color defaults to white background', async ({ page }) => {
     const yaml = `
@@ -5861,8 +5758,6 @@ lvgl:
             height: 24
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const bg = await page.locator('[data-lvgl-id="default_led"]').evaluate(
       el => el.style.backgroundColor
@@ -5889,8 +5784,6 @@ lvgl:
             height: 24
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const shadow = await page.locator('[data-lvgl-id="bright_led"]').evaluate(
       el => el.style.boxShadow
@@ -5918,8 +5811,6 @@ lvgl:
             height: 24
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const shadow = await page.locator('[data-lvgl-id="dim_led2"]').evaluate(
       el => el.style.boxShadow
@@ -5932,6 +5823,11 @@ lvgl:
 // ─── Page list navigation correctness ────────────────────────────────────────
 
 test.describe('Page list navigation correctness', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('clicking non-first page row navigates and renders that page content', async ({ page }) => {
     const yaml = `
@@ -5960,8 +5856,6 @@ lvgl:
             text: "Three"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Click the third page row
@@ -5990,8 +5884,6 @@ lvgl:
   color_depth: 16
   pages:${pages}
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const badge = await page.locator('#page-count-badge').textContent();
     expect(badge).toBe('10');
@@ -6002,6 +5894,11 @@ lvgl:
 // ─── Spinner widget depth ─────────────────────────────────────────────────────
 
 test.describe('Spinner widget depth', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   const SPINNER_YAML = `
 display:
@@ -6023,24 +5920,18 @@ lvgl:
 `.trim();
 
   test('spinner SVG has CSS animation property set', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, SPINNER_YAML);
     const anim = await page.locator('[data-lvgl-id="my_spin"]').evaluate(el => el.style.animation);
     expect(anim).toMatch(/lvgl-spin/);
   });
 
   test('spinner spin_time 2s maps to 2000ms in animation', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, SPINNER_YAML);
     const anim = await page.locator('[data-lvgl-id="my_spin"]').evaluate(el => el.style.animation);
     expect(anim).toContain('2000ms');
   });
 
   test('spinner renders two paths (track + indicator) inside SVG', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, SPINNER_YAML);
     const pathCount = await page.locator('[data-lvgl-id="my_spin"] path, [data-lvgl-id="my_spin"] circle').count();
     // At least track (circle or path) + indicator arc path
@@ -6066,8 +5957,6 @@ lvgl:
             arc_width: 4
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const anim = await page.locator('[data-lvgl-id="ms_spin"]').evaluate(el => el.style.animation);
     expect(anim).toContain('500ms');
@@ -6078,6 +5967,11 @@ lvgl:
 // ─── Meter widget depth ───────────────────────────────────────────────────────
 
 test.describe('Meter widget depth', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('meter with needle indicator renders a line element', async ({ page }) => {
     const yaml = `
@@ -6111,8 +6005,6 @@ lvgl:
                       color: 0xFF4444
                       r_mod: -4
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const lineCount = await page.locator('[data-lvgl-id="needle_meter"] svg line').count();
     // 11 ticks + 1 needle = ≥ 12 lines
@@ -6154,8 +6046,6 @@ lvgl:
                       width: 8
                       color: 0x4DA6FF
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const pathCount = await page.locator('[data-lvgl-id="arc_meter"] svg path').count();
     expect(pathCount).toBeGreaterThanOrEqual(1);
@@ -6193,8 +6083,6 @@ lvgl:
                     color: 0xCCCCCC
                     label_gap: 6
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     const textCount = await page.locator('[data-lvgl-id="label_meter"] svg text').count();
     // With 11 ticks and stride 5: ticks at index 0, 5, 10 → 3 labels
@@ -6206,6 +6094,11 @@ lvgl:
 // ─── lv_arc_set_value proxy update ───────────────────────────────────────────
 
 test.describe('lv_arc_set_value proxy update', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('lv_arc_set_value in on_value updates arc-indicator span', async ({ page }) => {
     const yaml = `
@@ -6234,8 +6127,6 @@ lvgl:
               arc_color: 0x4DA6FF
               arc_width: 6
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // arc-indicator rendered for initial value=50
@@ -6257,6 +6148,11 @@ lvgl:
 // ─── Proxy visibility (hide / show) ──────────────────────────────────────────
 
 test.describe('Proxy hide and show', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('lv_obj_add_flag LV_OBJ_FLAG_HIDDEN hides widget via display:none style', async ({ page }) => {
     const yaml = `
@@ -6283,8 +6179,6 @@ lvgl:
             text: "Visible"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Initially visible
@@ -6324,8 +6218,6 @@ lvgl:
             text: "Toggle"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Hide
@@ -6346,6 +6238,11 @@ lvgl:
 // ─── Proxy setSize / setPos ───────────────────────────────────────────────────
 
 test.describe('Proxy setSize and setPos', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('lv_obj_set_size changes element width and height', async ({ page }) => {
     const yaml = `
@@ -6368,8 +6265,6 @@ lvgl:
             height: 20
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('size_sensor', 1));
@@ -6403,8 +6298,6 @@ lvgl:
             x: 0
             y: 0
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('pos_sensor', 1));
@@ -6421,6 +6314,11 @@ lvgl:
 // ─── Proxy border styles ──────────────────────────────────────────────────────
 
 test.describe('Proxy border style methods', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('lv_obj_set_style_border_color changes border-color style', async ({ page }) => {
     const yaml = `
@@ -6444,8 +6342,6 @@ lvgl:
             align: CENTER
             border_width: 2
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('border_sensor', 1));
@@ -6476,8 +6372,6 @@ lvgl:
             height: 60
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('bw_sensor', 1));
@@ -6492,10 +6386,13 @@ lvgl:
 // ─── Proxy getText / setSNTPTime ──────────────────────────────────────────────
 
 test.describe('Proxy SNTP time', () => {
-
-  test('getSNTPTime returns object with hour/minute/second fields', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('getSNTPTime returns object with hour/minute/second fields', async ({ page }) => {
     // Load any valid YAML to get simulator running
     const yaml = `
 display:
@@ -6527,8 +6424,6 @@ lvgl:
   });
 
   test('getSNTPTime is_valid() returns true', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const yaml = `
 display:
   - platform: custom
@@ -6557,10 +6452,13 @@ lvgl:
 // ─── Proxy virtual GPIO ───────────────────────────────────────────────────────
 
 test.describe('Proxy virtual GPIO', () => {
-
-  test('setGPIO and getGPIO round-trip for pin 1', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('setGPIO and getGPIO round-trip for pin 1', async ({ page }) => {
     const yaml = `
 display:
   - platform: custom
@@ -6586,8 +6484,6 @@ lvgl:
   });
 
   test('getGPIO returns 0 for unset pin', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const yaml = `
 display:
   - platform: custom
@@ -6615,6 +6511,11 @@ lvgl:
 // ─── Chart with pre-populated series ─────────────────────────────────────────
 
 test.describe('Chart series configuration', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('chart with series config renders canvas with correct dimensions', async ({ page }) => {
     const yaml = `
@@ -6640,8 +6541,6 @@ lvgl:
               - name: humidity
                 color: 0x4444FF
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const canvas = page.locator('[data-id="series_chart"] canvas');
@@ -6669,8 +6568,6 @@ lvgl:
             range_min: 0
             range_max: 50
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await expect(page.locator('[data-id="bar_chart"] canvas')).toHaveCount(1);
@@ -6681,6 +6578,11 @@ lvgl:
 // ─── Lambda _sprintf edge cases ───────────────────────────────────────────────
 
 test.describe('Lambda _sprintf edge cases', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('%d integer format renders correctly', async ({ page }) => {
     const yaml = `
@@ -6703,8 +6605,6 @@ lvgl:
             text: "0 steps"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('int_sensor', 42));
@@ -6735,8 +6635,6 @@ lvgl:
             text: "Hi!"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('txt_sensor', 'World'));
@@ -6767,8 +6665,6 @@ lvgl:
             text: "0%"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('pct_sensor', 75));
@@ -6783,6 +6679,11 @@ lvgl:
 // ─── Display auto-scale (CSS zoom) ───────────────────────────────────────────
 
 test.describe('Display auto-scale', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('480x320 display renders without CSS zoom (fits within viewport)', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -6799,8 +6700,6 @@ lvgl:
             text: "Hello"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const displayW = await page.locator('#lvglDisplay').evaluate(el => el.offsetWidth);
@@ -6821,8 +6720,6 @@ lvgl:
             text: "Small"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const style = await page.locator('.lvgl-display').evaluate(el => ({
@@ -6839,6 +6736,11 @@ lvgl:
 // ─── obj widget and padding styles ───────────────────────────────────────────
 
 test.describe('obj widget padding', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('obj widget with pad_all applies padding style', async ({ page }) => {
     const yaml = `
@@ -6857,8 +6759,6 @@ lvgl:
             align: CENTER
             pad_all: 10
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const padding = await page.locator('[data-lvgl-id="padded_obj"]').evaluate(el => el.style.padding);
@@ -6883,8 +6783,6 @@ lvgl:
             pad_left: 5
             pad_top: 15
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const pl = await page.locator('[data-lvgl-id="asymmetric_pad"]').evaluate(el => el.style.paddingLeft);
@@ -6898,6 +6796,11 @@ lvgl:
 // ─── Button on_click lambda ───────────────────────────────────────────────────
 
 test.describe('Button on_click lambda', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('button on_click lambda is wired: clicking button evaluates lambda', async ({ page }) => {
     // Verify the button's on_click is evaluated by checking proxy proxy setBarValue is called
@@ -6922,8 +6825,6 @@ lvgl:
             height: 40
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Trigger via store (no click needed — tests proxy bg color path)
@@ -6953,8 +6854,6 @@ lvgl:
             height: 40
             checkable: true
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Initially not checked
@@ -6969,6 +6868,11 @@ lvgl:
 // ─── Proxy text and bg color setters ─────────────────────────────────────────
 
 test.describe('Proxy text and bg color setters', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('lv_obj_set_style_text_color changes label color via proxy', async ({ page }) => {
     const yaml = `
@@ -6990,8 +6894,6 @@ lvgl:
             text: "Color me"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('color_sensor', 1));
@@ -7024,8 +6926,6 @@ lvgl:
             height: 80
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('bg_sensor', 1));
@@ -7041,6 +6941,11 @@ lvgl:
 // ─── Long mode CLIP and SCROLL ────────────────────────────────────────────────
 
 test.describe('Label long mode CLIP and SCROLL', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('long_mode: CLIP applies overflow:hidden and white-space:nowrap', async ({ page }) => {
     const yaml = `
@@ -7060,8 +6965,6 @@ lvgl:
             align: CENTER
             long_mode: CLIP
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const styles = await page.locator('[data-lvgl-id="clip_label"]').evaluate(el => ({
@@ -7090,8 +6993,6 @@ lvgl:
             align: CENTER
             long_mode: SCROLL
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const styles = await page.locator('[data-lvgl-id="scroll_label"]').evaluate(el => ({
@@ -7107,6 +7008,11 @@ lvgl:
 // ─── lv_obj_align via lambda ──────────────────────────────────────────────────
 
 test.describe('Proxy align via lv_obj_align', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('lv_obj_align CENTER repositions element to center', async ({ page }) => {
     const yaml = `
@@ -7130,8 +7036,6 @@ lvgl:
             x: 0
             y: 0
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('align_sensor', 1));
@@ -7147,6 +7051,11 @@ lvgl:
 // ─── Drive panel entity types ─────────────────────────────────────────────────
 
 test.describe('Drive panel entity rendering', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('binary_sensor shows toggle in drive panel', async ({ page }) => {
     const yaml = `
@@ -7167,8 +7076,6 @@ lvgl:
             text: "Door"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.click('.console-tab[data-tab="drive"]');
@@ -7198,8 +7105,6 @@ lvgl:
             text: "Fan"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.click('.console-tab[data-tab="drive"]');
@@ -7232,8 +7137,6 @@ lvgl:
             text: "None"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Programmatically set select value
@@ -7249,6 +7152,11 @@ lvgl:
 // ─── Scrollable obj widget ────────────────────────────────────────────────────
 
 test.describe('Scrollable obj widget', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('obj with scrollable:true has overflow-y:auto', async ({ page }) => {
     const yaml = `
@@ -7267,8 +7175,6 @@ lvgl:
             align: CENTER
             scrollable: true
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const oy = await page.locator('[data-lvgl-id="scroll_obj"]').evaluate(el => el.style.overflowY);
@@ -7291,8 +7197,6 @@ lvgl:
             height: 80
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const ov = await page.locator('[data-lvgl-id="noscroll_obj"]').evaluate(el => el.style.overflow);
@@ -7304,6 +7208,11 @@ lvgl:
 // ─── Nested widget rendering ──────────────────────────────────────────────────
 
 test.describe('Nested widget rendering', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('obj with child label: label appears inside obj', async ({ page }) => {
     const yaml = `
@@ -7326,8 +7235,6 @@ lvgl:
                   text: "Nested"
                   align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // child_label should exist inside parent_obj
@@ -7359,8 +7266,6 @@ lvgl:
                   text: "Click Me"
                   align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const childInBtn = await page.locator('[data-lvgl-id="btn_with_label"] [data-lvgl-id="btn_label"]').count();
@@ -7392,8 +7297,6 @@ lvgl:
                         id: lvl3
                         text: "Deep"
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await expect(page.locator('[data-lvgl-id="lvl1"]')).toHaveCount(1);
@@ -7409,6 +7312,11 @@ lvgl:
 // ─── Switch widget ────────────────────────────────────────────────────────────
 
 test.describe('Switch widget', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('switch off by default renders without on class', async ({ page }) => {
     const yaml = `
@@ -7424,8 +7332,6 @@ lvgl:
             id: sw_off
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const el = page.locator('[data-lvgl-id="sw_off"]');
@@ -7448,8 +7354,6 @@ lvgl:
             checked: true
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const el = page.locator('[data-lvgl-id="sw_on"]');
@@ -7470,8 +7374,6 @@ lvgl:
             id: sw_knob
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const knob = page.locator('[data-lvgl-id="sw_knob"] .lvgl-switch__knob');
@@ -7494,8 +7396,6 @@ lvgl:
             knob:
               bg_color: 0xFF0000
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const bg = await page.locator('[data-lvgl-id="sw_kc"] .lvgl-switch__knob').evaluate(el => el.style.backgroundColor);
@@ -7517,8 +7417,6 @@ lvgl:
             height: 40
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const val = await page.locator('[data-lvgl-id="sw_height"]').evaluate(el =>
@@ -7532,6 +7430,11 @@ lvgl:
 // ─── Checkbox widget ──────────────────────────────────────────────────────────
 
 test.describe('Checkbox widget', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('checkbox renders box and label elements', async ({ page }) => {
     const yaml = `
@@ -7548,8 +7451,6 @@ lvgl:
             text: "Accept"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await expect(page.locator('[data-lvgl-id="cb1"] .lvgl-checkbox__box')).toHaveCount(1);
@@ -7571,8 +7472,6 @@ lvgl:
             text: "Enable"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const txt = await page.locator('[data-lvgl-id="cb2"] .lvgl-checkbox__label').textContent();
@@ -7595,8 +7494,6 @@ lvgl:
             checked: true
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const box = page.locator('[data-lvgl-id="cb_checked"] .lvgl-checkbox__box');
@@ -7618,8 +7515,6 @@ lvgl:
             text: "Not done"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const box = page.locator('[data-lvgl-id="cb_unchecked"] .lvgl-checkbox__box');
@@ -7643,8 +7538,6 @@ lvgl:
             indicator:
               bg_color: 0x00FF00
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const bg = await page.locator('[data-lvgl-id="cb_bg"] .lvgl-checkbox__box').evaluate(el => el.style.backgroundColor);
@@ -7667,8 +7560,6 @@ lvgl:
             text_color: 0xFF0000
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const color = await page.locator('[data-lvgl-id="cb_tc"] .lvgl-checkbox__label').evaluate(el => el.style.color);
@@ -7680,6 +7571,11 @@ lvgl:
 // ─── Dropdown widget ──────────────────────────────────────────────────────────
 
 test.describe('Dropdown widget', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('dropdown renders with options list', async ({ page }) => {
     const yaml = `
@@ -7699,8 +7595,6 @@ lvgl:
               - "Option C"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await expect(page.locator('[data-lvgl-id="dd1"]')).toHaveCount(1);
@@ -7727,8 +7621,6 @@ lvgl:
             selected_index: 2
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const txt = await page.locator('[data-lvgl-id="dd2"] .lvgl-dropdown__text').textContent();
@@ -7752,8 +7644,6 @@ lvgl:
               - "B"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const arrow = await page.locator('[data-lvgl-id="dd_arrow"] .lvgl-dropdown__arrow').textContent();
@@ -7778,8 +7668,6 @@ lvgl:
             symbol: ">"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const arrow = await page.locator('[data-lvgl-id="dd_sym"] .lvgl-dropdown__arrow').textContent();
@@ -7803,8 +7691,6 @@ lvgl:
             text_color: 0xFF0000
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const color = await page.locator('[data-lvgl-id="dd_tc"] .lvgl-dropdown__text').evaluate(el => el.style.color);
@@ -7826,8 +7712,6 @@ lvgl:
             options: "One\\nTwo\\nThree"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const txt = await page.locator('[data-lvgl-id="dd_str"] .lvgl-dropdown__text').textContent();
@@ -7839,6 +7723,11 @@ lvgl:
 // ─── LED widget ───────────────────────────────────────────────────────────────
 
 test.describe('LED widget', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('led renders with class lvgl-led', async ({ page }) => {
     const yaml = `
@@ -7855,8 +7744,6 @@ lvgl:
             color: 0x00FF00
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await expect(page.locator('[data-lvgl-id="led1"]')).toHaveClass(/lvgl-led/);
@@ -7877,8 +7764,6 @@ lvgl:
             color: 0x0000FF
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const bg = await page.locator('[data-lvgl-id="led_color"]').evaluate(el => el.style.backgroundColor);
@@ -7901,8 +7786,6 @@ lvgl:
             brightness: 255
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const opacity = await page.locator('[data-lvgl-id="led_bright"]').evaluate(el => parseFloat(el.style.opacity));
@@ -7925,8 +7808,6 @@ lvgl:
             brightness: 0
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const opacity = await page.locator('[data-lvgl-id="led_dim"]').evaluate(el => parseFloat(el.style.opacity));
@@ -7949,8 +7830,6 @@ lvgl:
             brightness: "100%"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const opacity = await page.locator('[data-lvgl-id="led_pct"]').evaluate(el => parseFloat(el.style.opacity));
@@ -7971,8 +7850,6 @@ lvgl:
             id: led_default
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const bg = await page.locator('[data-lvgl-id="led_default"]').evaluate(el => el.style.backgroundColor);
@@ -7984,6 +7861,11 @@ lvgl:
 // ─── parseColor edge cases ────────────────────────────────────────────────────
 
 test.describe('parseColor edge cases', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('parseColor: numeric integer is converted to hex', async ({ page }) => {
     // 0xFF0000 = 16711680 decimal
@@ -8003,8 +7885,6 @@ lvgl:
             align: CENTER
             bg_color: 16711680
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const bg = await page.locator('[data-lvgl-id="num_color_obj"]').evaluate(el => el.style.backgroundColor);
@@ -8028,8 +7908,6 @@ lvgl:
             align: CENTER
             bg_color: "0x00FF00"
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const bg = await page.locator('[data-lvgl-id="hex_prefix_obj"]').evaluate(el => el.style.backgroundColor);
@@ -8053,8 +7931,6 @@ lvgl:
             align: CENTER
             bg_color: "#0000FF"
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const bg = await page.locator('[data-lvgl-id="css_hex_obj"]').evaluate(el => el.style.backgroundColor);
@@ -8066,6 +7942,11 @@ lvgl:
 // ─── parseFontFamily & parseFontSize ─────────────────────────────────────────
 
 test.describe('parseFontFamily and parseFontSize', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('montserrat font family name applies Montserrat stack', async ({ page }) => {
     const yaml = `
@@ -8083,8 +7964,6 @@ lvgl:
             text_font: montserrat_20
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const ff = await page.locator('[data-lvgl-id="lbl_mont"]').evaluate(el => el.style.fontFamily);
@@ -8107,8 +7986,6 @@ lvgl:
             text_font: roboto_24
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const ff = await page.locator('[data-lvgl-id="lbl_roboto"]').evaluate(el => el.style.fontFamily);
@@ -8131,8 +8008,6 @@ lvgl:
             text_font: unscii_mono_16
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const ff = await page.locator('[data-lvgl-id="lbl_mono"]').evaluate(el => el.style.fontFamily);
@@ -8155,8 +8030,6 @@ lvgl:
             text_font: montserrat_20
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const fs = await page.locator('[data-lvgl-id="lbl_fs20"]').evaluate(el => el.style.fontSize);
@@ -8179,8 +8052,6 @@ lvgl:
             text_font: montserrat_148
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // 148 > 100 → halved → 74px
@@ -8193,6 +8064,11 @@ lvgl:
 // ─── Label time_format and format/args objects ────────────────────────────────
 
 test.describe('Label text object formats', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('label time_format renders time digits (HH:MM pattern)', async ({ page }) => {
     const yaml = `
@@ -8210,8 +8086,6 @@ lvgl:
               time_format: "%H:%M"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const txt = await page.locator('[data-lvgl-id="lbl_time"]').textContent();
@@ -8242,8 +8116,6 @@ lvgl:
                   type: float
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Set sensor value then re-render to trigger format update
@@ -8279,8 +8151,6 @@ lvgl:
                   type: int
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const txt = await page.locator('[data-lvgl-id="lbl_int_fmt"]').textContent();
@@ -8311,8 +8181,6 @@ lvgl:
                   type: string
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const txt = await page.locator('[data-lvgl-id="lbl_str_fmt"]').textContent();
@@ -8325,6 +8193,11 @@ lvgl:
 // ─── Padding proxy via lambda ─────────────────────────────────────────────────
 
 test.describe('Padding proxy methods via lambda', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('lv_obj_set_style_pad_all sets uniform padding via sensor on_value', async ({ page }) => {
     const yaml = `
@@ -8348,8 +8221,6 @@ lvgl:
             height: 100
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('pad_sensor', 15));
@@ -8381,8 +8252,6 @@ lvgl:
             height: 100
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('padl_sensor', 20));
@@ -8414,8 +8283,6 @@ lvgl:
             height: 100
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('padr_sensor', 25));
@@ -8447,8 +8314,6 @@ lvgl:
             height: 100
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('padt_sensor', 10));
@@ -8480,8 +8345,6 @@ lvgl:
             height: 100
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('padb_sensor', 30));
@@ -8496,6 +8359,11 @@ lvgl:
 // ─── Width / Height proxy via lambda ─────────────────────────────────────────
 
 test.describe('Width and Height proxy via lambda', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('lv_obj_set_width changes element width via sensor', async ({ page }) => {
     const yaml = `
@@ -8519,8 +8387,6 @@ lvgl:
             height: 80
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('w_sensor', 150));
@@ -8552,8 +8418,6 @@ lvgl:
             height: 80
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('h_sensor', 120));
@@ -8568,6 +8432,11 @@ lvgl:
 // ─── setBorderWidth proxy via lambda ─────────────────────────────────────────
 
 test.describe('setBorderWidth proxy via lambda', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('lv_obj_set_style_border_width changes border width via sensor', async ({ page }) => {
     const yaml = `
@@ -8592,8 +8461,6 @@ lvgl:
             border_width: 1
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('bw_sensor', 5));
@@ -8608,6 +8475,11 @@ lvgl:
 // ─── setArcRange proxy via lambda ─────────────────────────────────────────────
 
 test.describe('setArcRange proxy via lambda', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('lv_arc_set_range updates arc data-min and data-max via sensor', async ({ page }) => {
     const yaml = `
@@ -8632,8 +8504,6 @@ lvgl:
             value: 50
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('range_sensor', 200));
@@ -8648,6 +8518,11 @@ lvgl:
 // ─── getChild / getChildCount proxy ──────────────────────────────────────────
 
 test.describe('getChild and getChildCount proxy methods', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('getChildCount returns correct number of children', async ({ page }) => {
     const yaml = `
@@ -8675,8 +8550,6 @@ lvgl:
                   id: child_c
                   text: "C"
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const count = await page.evaluate(() => window.__sim._proxy.getChildCount('parent_gc'));
@@ -8706,8 +8579,6 @@ lvgl:
                   id: second_child
                   text: "Second"
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const childId = await page.evaluate(() => {
@@ -8741,8 +8612,6 @@ lvgl:
                   id: only_child
                   text: "Solo"
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const child = await page.evaluate(() => window.__sim._proxy.getChild('parent_oob', 99));
@@ -8754,6 +8623,11 @@ lvgl:
 // ─── Image widget ─────────────────────────────────────────────────────────────
 
 test.describe('Image widget', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('img widget renders with lvgl-img class', async ({ page }) => {
     const yaml = `
@@ -8770,8 +8644,6 @@ lvgl:
             src: "icon.png"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await expect(page.locator('[data-lvgl-id="img1"]')).toHaveClass(/lvgl-img/);
@@ -8792,8 +8664,6 @@ lvgl:
             src: "test.png"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Non-URL src (not data:, http:, or https:) renders a placeholder, not an <img>
@@ -8817,8 +8687,6 @@ lvgl:
             align: CENTER
             opacity: 128
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const opa = await page.locator('[data-lvgl-id="img_opa"]').evaluate(el => el.style.opacity);
@@ -8832,6 +8700,11 @@ lvgl:
 // ─── Roller widget extra tests ────────────────────────────────────────────────
 
 test.describe('Roller widget extra tests', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('roller with visible_row_count shows correct height hint', async ({ page }) => {
     const yaml = `
@@ -8849,8 +8722,6 @@ lvgl:
             visible_row_count: 3
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await expect(page.locator('[data-lvgl-id="roller_rows"]')).toHaveCount(1);
@@ -8878,8 +8749,6 @@ lvgl:
             selected_index: 1
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const selected = await page.locator('[data-lvgl-id="roller_sel"] .lvgl-roller__option--selected').textContent();
@@ -8891,6 +8760,11 @@ lvgl:
 // ─── applyCommonStyles: bg_opa and clip_corner ────────────────────────────────
 
 test.describe('applyCommonStyles advanced style properties', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('bg_opa: TRANSP makes background-color transparent', async ({ page }) => {
     const yaml = `
@@ -8910,8 +8784,6 @@ lvgl:
             bg_opa: TRANSP
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // bg_opa: TRANSP clears the background-color (sets it to transparent),
@@ -8938,8 +8810,6 @@ lvgl:
             clip_corner: true
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const ov = await page.locator('[data-lvgl-id="clip_obj"]').evaluate(el => el.style.overflow);
@@ -8964,8 +8834,6 @@ lvgl:
             shadow_width: 8
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const shadow = await page.locator('[data-lvgl-id="shadow_obj"]').evaluate(el => el.style.boxShadow);
@@ -8991,8 +8859,6 @@ lvgl:
             border_side: RIGHT
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // border_side: RIGHT sets borderRightWidth to the border_width and others to '0'
@@ -9021,8 +8887,6 @@ lvgl:
             bg_grad_dir: VER
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const bg = await page.locator('[data-lvgl-id="grad_obj"]').evaluate(el => el.style.background);
@@ -9034,6 +8898,11 @@ lvgl:
 // ─── Proxy setTextColor and setBgColor via lambda ─────────────────────────────
 
 test.describe('Dynamic text and background color via proxy', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('lv_obj_set_style_text_color updates label color via binary_sensor on_value', async ({ page }) => {
     const yaml = `
@@ -9056,8 +8925,6 @@ lvgl:
             text: "Status"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Trigger on_value via store (binary_sensor on_press is not handled — use on_value)
@@ -9090,8 +8957,6 @@ lvgl:
             height: 80
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('bg_ctrl', 1));
@@ -9106,6 +8971,11 @@ lvgl:
 // ─── Slider extra tests ───────────────────────────────────────────────────────
 
 test.describe('Slider extra tests', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('slider indicator width reflects value percentage', async ({ page }) => {
     const yaml = `
@@ -9124,8 +8994,6 @@ lvgl:
             value: 75
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const indW = await page.locator('[data-lvgl-id="sl_pct"] .lvgl-slider__indicator').evaluate(el => el.style.width);
@@ -9149,8 +9017,6 @@ lvgl:
             value: 100
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const left = await page.locator('[data-lvgl-id="sl_knob_pos"] .lvgl-slider__knob').evaluate(el => el.style.left);
@@ -9176,8 +9042,6 @@ lvgl:
               bg_color: 0x00FF00
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const bg = await page.locator('[data-lvgl-id="sl_ind_color"] .lvgl-slider__indicator').evaluate(el => el.style.backgroundColor);
@@ -9201,8 +9065,6 @@ lvgl:
             value: 10
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const indW = await page.locator('[data-lvgl-id="sl_min"] .lvgl-slider__indicator').evaluate(el => el.style.width);
@@ -9214,6 +9076,11 @@ lvgl:
 // ─── Bar extra tests ──────────────────────────────────────────────────────────
 
 test.describe('Bar extra tests', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('bar with value=max renders indicator at 100%', async ({ page }) => {
     const yaml = `
@@ -9232,8 +9099,6 @@ lvgl:
             value: 50
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const indW = await page.locator('[data-lvgl-id="bar_max"] .lvgl-bar__indicator').evaluate(el => el.style.width);
@@ -9257,8 +9122,6 @@ lvgl:
             value: 200
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const indW = await page.locator('[data-lvgl-id="bar_clamp"] .lvgl-bar__indicator').evaluate(el => el.style.width);
@@ -9284,8 +9147,6 @@ lvgl:
               bg_color: 0xFFAA00
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const bg = await page.locator('[data-lvgl-id="bar_fill"] .lvgl-bar__indicator').evaluate(el => el.style.backgroundColor);
@@ -9310,8 +9171,6 @@ lvgl:
             direction: LEFT_RIGHT
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const styles = await page.locator('[data-lvgl-id="bar_lr"] .lvgl-bar__indicator').evaluate(el => ({
@@ -9341,8 +9200,6 @@ lvgl:
             direction: RIGHT_LEFT
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const styles = await page.locator('[data-lvgl-id="bar_rl"] .lvgl-bar__indicator').evaluate(el => ({
@@ -9371,8 +9228,6 @@ lvgl:
             direction: TOP_BOTTOM
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const styles = await page.locator('[data-lvgl-id="bar_tb"] .lvgl-bar__indicator').evaluate(el => ({
@@ -9401,8 +9256,6 @@ lvgl:
             direction: BOTTOM_TOP
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const indStyles = await page.locator('[data-lvgl-id="bar_bt"] .lvgl-bar__indicator').evaluate(el => ({
@@ -9421,10 +9274,13 @@ lvgl:
 // ─── YAML error handling ──────────────────────────────────────────────────────
 
 test.describe('YAML error handling', () => {
-
-  test('invalid YAML shows error panel', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('invalid YAML shows error panel', async ({ page }) => {
 
     // Type into the YAML editor
     const editor = page.locator('#yamlInput');
@@ -9448,8 +9304,6 @@ test.describe('YAML error handling', () => {
   });
 
   test('empty YAML string does not crash page', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
@@ -9472,8 +9326,6 @@ display:
   - platform: custom
     dimensions: {width: 320, height: 240}
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
@@ -9493,6 +9345,11 @@ display:
 // ─── Page navigation robustness ───────────────────────────────────────────────
 
 test.describe('Multi-page navigation edge cases', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('navigating past last page stays on last page', async ({ page }) => {
     const yaml = `
@@ -9515,8 +9372,6 @@ lvgl:
             text: "Page 2"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     await page.waitForTimeout(200);
 
@@ -9566,8 +9421,6 @@ lvgl:
             text: "Three"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     await page.waitForTimeout(300);
 
@@ -9582,10 +9435,13 @@ lvgl:
 // ─── Store API direct tests ───────────────────────────────────────────────────
 
 test.describe('SimulatorStateStore API', () => {
-
-  test('store.set and store.get round-trip works', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('store.set and store.get round-trip works', async ({ page }) => {
 
     const result = await page.evaluate(() => {
       if (!window.__sim?.store) return null;
@@ -9596,8 +9452,6 @@ test.describe('SimulatorStateStore API', () => {
   });
 
   test('store.set with string value preserves string type', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const result = await page.evaluate(() => {
       if (!window.__sim?.store) return null;
@@ -9608,8 +9462,6 @@ test.describe('SimulatorStateStore API', () => {
   });
 
   test('store.get on unknown key returns null or undefined', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const result = await page.evaluate(() => {
       if (!window.__sim?.store) return 'NO_STORE';
@@ -9623,6 +9475,11 @@ test.describe('SimulatorStateStore API', () => {
 // ─── Number entity drive panel ────────────────────────────────────────────────
 
 test.describe('Number entity in drive panel', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('number entity renders a range input in drive panel', async ({ page }) => {
     const yaml = `
@@ -9646,8 +9503,6 @@ lvgl:
             text: "Value"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     await page.waitForTimeout(200);
 
@@ -9678,8 +9533,6 @@ lvgl:
             text: "Volume"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     await page.waitForTimeout(200);
 
@@ -9699,10 +9552,13 @@ lvgl:
 // ─── Display control proxy methods ───────────────────────────────────────────
 
 test.describe('Display control proxy methods', () => {
-
-  test('setDisplayBrightness(255) sets display filter near full brightness', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('setDisplayBrightness(255) sets display filter near full brightness', async ({ page }) => {
 
     await page.evaluate(() => window.__sim?._proxy?.setDisplayBrightness(255));
     await page.waitForTimeout(100);
@@ -9716,8 +9572,6 @@ test.describe('Display control proxy methods', () => {
   });
 
   test('setDisplayBrightness(0) dims display to black', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     await page.evaluate(() => window.__sim?._proxy?.setDisplayBrightness(0));
     await page.waitForTimeout(100);
@@ -9730,8 +9584,6 @@ test.describe('Display control proxy methods', () => {
   });
 
   test('setDisplayBrightness(128) sets mid brightness filter', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     await page.evaluate(() => window.__sim?._proxy?.setDisplayBrightness(128));
     await page.waitForTimeout(100);
@@ -9752,8 +9604,6 @@ test.describe('Display control proxy methods', () => {
   });
 
   test('getInactiveTime returns a non-negative number', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const inactiveMs = await page.evaluate(() => window.__sim?._proxy?.getInactiveTime());
     expect(typeof inactiveMs).toBe('number');
@@ -9761,8 +9611,6 @@ test.describe('Display control proxy methods', () => {
   });
 
   test('triggerActivity does not throw', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const err = await page.evaluate(() => {
       try {
@@ -9780,6 +9628,11 @@ test.describe('Display control proxy methods', () => {
 // ─── Chart advanced proxy methods ─────────────────────────────────────────────
 
 test.describe('Chart advanced proxy methods', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('chartSetType changes chart type label', async ({ page }) => {
     const yaml = `
@@ -9806,8 +9659,6 @@ lvgl:
             align: CENTER
             type: LINE
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // chart renders with canvas
@@ -9835,8 +9686,6 @@ lvgl:
               - color: 0xFF0000
                 data: [10, 30, 20, 50]
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await expect(page.locator('[data-lvgl-id="bar_chart"]')).toHaveCount(1);
@@ -9849,6 +9698,11 @@ lvgl:
 // ─── Arc advanced tests ───────────────────────────────────────────────────────
 
 test.describe('Arc advanced tests', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('arc with custom start_angle and end_angle renders SVG', async ({ page }) => {
     const yaml = `
@@ -9869,8 +9723,6 @@ lvgl:
             end_angle: 0
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await expect(page.locator('[data-lvgl-id="arc_custom_angles"]')).toHaveCount(1);
@@ -9898,8 +9750,6 @@ lvgl:
             align: CENTER
 `.trim();
     const errors = [];
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     page.on('pageerror', e => errors.push(e.message));
     await renderYAML(page, yaml);
 
@@ -9925,8 +9775,6 @@ lvgl:
             align: CENTER
             bg_color: 0x00FF00
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await expect(page.locator('[data-lvgl-id="arc_track_color"]')).toHaveCount(1);
@@ -9938,6 +9786,11 @@ lvgl:
 // ─── Widget alignment edge cases ─────────────────────────────────────────────
 
 test.describe('Widget alignment edge cases', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('widget with x and y offset from CENTER', async ({ page }) => {
     const yaml = `
@@ -9957,8 +9810,6 @@ lvgl:
             x: 20
             y: 10
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await expect(page.locator('[data-lvgl-id="offset_obj"]')).toHaveCount(1);
@@ -9972,6 +9823,11 @@ lvgl:
 // ─── Line widget edge cases ───────────────────────────────────────────────────
 
 test.describe('Line widget edge cases', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('line with 1 point falls back to unsupported rendering', async ({ page }) => {
     const yaml = `
@@ -9989,8 +9845,6 @@ lvgl:
               - {x: 10, y: 10}
 `.trim();
     const errors = [];
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     page.on('pageerror', e => errors.push(e.message));
     await renderYAML(page, yaml);
 
@@ -10019,8 +9873,6 @@ lvgl:
               - {x: 100, y: 50}
               - {x: 50, y: 100}
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const linecap = await page.locator('[data-lvgl-id="line_round"] polyline').getAttribute('stroke-linecap');
@@ -10045,8 +9897,6 @@ lvgl:
               - {x: 0, y: 0}
               - {x: 100, y: 100}
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const linecap = await page.locator('[data-lvgl-id="line_butt"] polyline').getAttribute('stroke-linecap');
@@ -10058,6 +9908,11 @@ lvgl:
 // ─── Roller edge cases ────────────────────────────────────────────────────────
 
 test.describe('Roller edge cases', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('roller with single option renders that option selected', async ({ page }) => {
     const yaml = `
@@ -10074,8 +9929,6 @@ lvgl:
             options: "OnlyOption"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const selected = await page.locator('[data-lvgl-id="roller_single"] .lvgl-roller__option--selected').textContent();
@@ -10098,8 +9951,6 @@ lvgl:
             selected_index: 1
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // selected_index: 1 → "B"
@@ -10124,8 +9975,6 @@ lvgl:
             text_color: 0xFF0000
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const options = page.locator('[data-lvgl-id="roller_textcolor"] .lvgl-roller__option:not(.lvgl-roller__option--selected)');
@@ -10144,6 +9993,11 @@ lvgl:
 // ─── Dropdown edge cases ──────────────────────────────────────────────────────
 
 test.describe('Dropdown edge cases', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('dropdown selected_index out of bounds defaults to first option', async ({ page }) => {
     const yaml = `
@@ -10163,8 +10017,6 @@ lvgl:
             selected_index: 99
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const txt = await page.locator('[data-lvgl-id="dd_oob"] .lvgl-dropdown__text').textContent();
@@ -10185,8 +10037,6 @@ lvgl:
             id: dd_empty
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await expect(page.locator('[data-lvgl-id="dd_empty"]')).toHaveCount(1);
@@ -10212,8 +10062,6 @@ lvgl:
               text_color: 0x0000FF
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const color = await page.locator('[data-lvgl-id="dd_arrow_color"] .lvgl-dropdown__arrow').evaluate(el => el.style.color);
@@ -10225,6 +10073,11 @@ lvgl:
 // ─── Obj widget behavior ──────────────────────────────────────────────────────
 
 test.describe('Obj widget behavior tests', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('obj without bg_color uses transparent background', async ({ page }) => {
     const yaml = `
@@ -10242,8 +10095,6 @@ lvgl:
             height: 80
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Should render without error
@@ -10267,8 +10118,6 @@ lvgl:
             radius: 8
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const br = await page.locator('[data-lvgl-id="radius_obj"]').evaluate(el => el.style.borderRadius);
@@ -10292,8 +10141,6 @@ lvgl:
             radius: 255
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const br = await page.locator('[data-lvgl-id="circle_obj"]').evaluate(el => el.style.borderRadius);
@@ -10327,8 +10174,6 @@ lvgl:
             x: 200
             y: 10
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await expect(page.locator('[data-lvgl-id="lbl_a"]')).toHaveCount(1);
@@ -10341,6 +10186,11 @@ lvgl:
 // ─── Bar clamping below min ───────────────────────────────────────────────────
 
 test.describe('Bar value clamping', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('bar value below min renders 0% indicator', async ({ page }) => {
     const yaml = `
@@ -10359,8 +10209,6 @@ lvgl:
             value: 0
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const indW = await page.locator('[data-lvgl-id="bar_under"] .lvgl-bar__indicator').evaluate(el => el.style.width);
@@ -10372,6 +10220,11 @@ lvgl:
 // ─── Label lambda indicator rendering ────────────────────────────────────────
 
 test.describe('Label lambda indicator rendering', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('label with lambda text renders without crashing', async ({ page }) => {
     const yaml = `
@@ -10393,8 +10246,6 @@ lvgl:
             align: CENTER
 `.trim();
     const errors = [];
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     page.on('pageerror', e => errors.push(e.message));
     await renderYAML(page, yaml);
 
@@ -10412,6 +10263,11 @@ lvgl:
 // ─── Checkbox with text_font ──────────────────────────────────────────────────
 
 test.describe('Checkbox text_font', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('checkbox text_font applies fontSize to label', async ({ page }) => {
     const yaml = `
@@ -10429,8 +10285,6 @@ lvgl:
             text_font: montserrat_24
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const fs = await page.locator('[data-lvgl-id="cb_font"] .lvgl-checkbox__label').evaluate(el => el.style.fontSize);
@@ -10442,6 +10296,11 @@ lvgl:
 // ─── Sensor with multiple on_value effects ────────────────────────────────────
 
 test.describe('Sensor with multiple widget effects', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('single sensor can update two different widget properties via separate sensors', async ({ page }) => {
     const yaml = `
@@ -10474,8 +10333,6 @@ lvgl:
             height: 60
             align: BOTTOM_MID
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Update sensor_a
@@ -10497,6 +10354,11 @@ lvgl:
 // ─── Page background color ────────────────────────────────────────────────────
 
 test.describe('Page background color', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('page bg_color applies background to page element', async ({ page }) => {
     const yaml = `
@@ -10514,8 +10376,6 @@ lvgl:
             text: "Dark"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // The page container should have a background color set
@@ -10529,6 +10389,11 @@ lvgl:
 // ─── Text sensor entity ───────────────────────────────────────────────────────
 
 test.describe('Text sensor entity', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('text_sensor on_value updates label via lv_label_set_text', async ({ page }) => {
     const yaml = `
@@ -10551,8 +10416,6 @@ lvgl:
             text: "Offline"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('status_txt', 'Online'));
@@ -10581,8 +10444,6 @@ lvgl:
             text: "---"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
     await page.waitForTimeout(200);
 
@@ -10596,6 +10457,11 @@ lvgl:
 // ─── Rapid store updates (debounce) ──────────────────────────────────────────
 
 test.describe('Rapid store updates and debounce', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('rapid sensor updates: only final value visible after debounce', async ({ page }) => {
     const yaml = `
@@ -10618,8 +10484,6 @@ lvgl:
             text: "0"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Fire 10 updates in rapid succession
@@ -10640,6 +10504,11 @@ lvgl:
 // ─── lv_disp_trig_activity lambda translation ────────────────────────────────
 
 test.describe('lv_disp_trig_activity lambda', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('lv_disp_trig_activity in lambda does not throw', async ({ page }) => {
     const yaml = `
@@ -10663,8 +10532,6 @@ lvgl:
             align: CENTER
 `.trim();
     const errors = [];
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     page.on('pageerror', e => errors.push(e.message));
     await renderYAML(page, yaml);
 
@@ -10679,6 +10546,11 @@ lvgl:
 // ─── Global entity ────────────────────────────────────────────────────────────
 
 test.describe('Global entity on_value', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('global entity on_value lambda fires on store update', async ({ page }) => {
     const yaml = `
@@ -10702,8 +10574,6 @@ lvgl:
             text: "0"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('my_global', 99));
@@ -10718,10 +10588,13 @@ lvgl:
 // ─── setDisplayRotation proxy ─────────────────────────────────────────────────
 
 test.describe('setDisplayRotation proxy', () => {
-
-  test('setDisplayRotation does not throw', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+
+  test('setDisplayRotation does not throw', async ({ page }) => {
 
     const err = await page.evaluate(() => {
       try {
@@ -10739,6 +10612,11 @@ test.describe('setDisplayRotation proxy', () => {
 // ─── lv_label_set_text_static lambda ─────────────────────────────────────────
 
 test.describe('lv_label_set_text_static lambda', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('lv_label_set_text_static sets label text same as lv_label_set_text', async ({ page }) => {
     const yaml = `
@@ -10761,8 +10639,6 @@ lvgl:
             text: "Original"
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => window.__sim?.store?.set('static_sensor', 1));
@@ -10777,6 +10653,11 @@ lvgl:
 // ─── Widget with width/height 100% (content-fill) ────────────────────────────
 
 test.describe('Widget percentage dimensions', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('widget width: 100% fills container width', async ({ page }) => {
     const yaml = `
@@ -10795,8 +10676,6 @@ lvgl:
             align: TOP_MID
 `.trim();
     const errors = [];
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     page.on('pageerror', e => errors.push(e.message));
     await renderYAML(page, yaml);
 
@@ -10809,6 +10688,11 @@ lvgl:
 // ─── Font size edge cases ─────────────────────────────────────────────────────
 
 test.describe('parseFontSize edge cases', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('font name without trailing number defaults to 16px', async ({ page }) => {
     const yaml = `
@@ -10826,8 +10710,6 @@ lvgl:
             text_font: custom_font
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const fs = await page.locator('[data-lvgl-id="lbl_nofs"]').evaluate(el => el.style.fontSize);
@@ -10850,8 +10732,6 @@ lvgl:
             text_font: montserrat_8
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const fs = await page.locator('[data-lvgl-id="lbl_8px"]').evaluate(el => el.style.fontSize);
@@ -10863,6 +10743,11 @@ lvgl:
 // ─── parseColor null-safety ───────────────────────────────────────────────────
 
 test.describe('parseColor null-safety', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('bg_color set to null-like value does not crash', async ({ page }) => {
     const yaml = `
@@ -10881,8 +10766,6 @@ lvgl:
             align: CENTER
 `.trim();
     const errors = [];
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     page.on('pageerror', e => errors.push(e.message));
     await renderYAML(page, yaml);
 
@@ -10895,6 +10778,11 @@ lvgl:
 // ─── Spinner animation CSS ────────────────────────────────────────────────────
 
 test.describe('Spinner animation CSS', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('spinner with arc_length renders animation keyframes in style', async ({ page }) => {
     const yaml = `
@@ -10914,8 +10802,6 @@ lvgl:
             height: 60
             align: CENTER
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await expect(page.locator('[data-lvgl-id="spin_anim"]')).toHaveCount(1);
@@ -10941,6 +10827,11 @@ lvgl:
 // ─── Meter tick label rendering ───────────────────────────────────────────────
 
 test.describe('Meter tick labels', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   test('meter with major ticks renders label elements near SVG', async ({ page }) => {
     const yaml = `
@@ -10970,8 +10861,6 @@ lvgl:
                     color: 0xFFFFFF
                     label_gap: 5
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await expect(page.locator('[data-lvgl-id="meter_tick_lbl"]')).toHaveCount(1);
@@ -10985,6 +10874,11 @@ lvgl:
 // ─── GPIO panel ───────────────────────────────────────────────────────────────
 
 test.describe('GPIO panel detection', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const GPIO_YAML = `
 display:
   - platform: custom
@@ -11005,8 +10899,6 @@ lvgl:
 `.trim();
 
   test('GPIO pins from config appear as LEDs in GPIO panel', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, GPIO_YAML);
 
     // Switch to Drive tab to see GPIO panel
@@ -11034,8 +10926,6 @@ lvgl:
             id: no_gpio
             text: "No GPIO"
 `.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, noGpioYaml);
 
     await page.click('.console-tab[data-tab="drive"]');
@@ -11046,8 +10936,6 @@ lvgl:
   });
 
   test('GPIO pulse button is present for each detected pin', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, GPIO_YAML);
 
     await page.click('.console-tab[data-tab="drive"]');
@@ -11062,6 +10950,11 @@ lvgl:
 // ─── Proxy virtual GPIO extended ──────────────────────────────────────────────
 
 test.describe('Proxy virtual GPIO extended', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const BASE_YAML = `
 display:
   - platform: custom
@@ -11077,8 +10970,6 @@ lvgl:
 `.trim();
 
   test('pulseGPIO sets pin HIGH then returns LOW after delay', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, BASE_YAML);
 
     const result = await page.evaluate(async () => {
@@ -11097,8 +10988,6 @@ lvgl:
   });
 
   test('setGPIO(pin, 0) resets pin', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, BASE_YAML);
 
     const val = await page.evaluate(() => {
@@ -11111,8 +11000,6 @@ lvgl:
   });
 
   test('multiple pins are independent', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, BASE_YAML);
 
     const vals = await page.evaluate(() => {
@@ -11129,6 +11016,11 @@ lvgl:
 // ─── Interval handler collection ──────────────────────────────────────────────
 
 test.describe('Interval handler collection', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('intervals are collected and count shown in Drive tab', async ({ page }) => {
     const intervalYaml = `
 display:
@@ -11157,8 +11049,6 @@ globals:
     initial_value: "0"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, intervalYaml);
 
     await page.click('.console-tab[data-tab="drive"]');
@@ -11171,8 +11061,6 @@ globals:
   });
 
   test('_parseIntervalMs handles ms, s, m suffixes', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const results = await page.evaluate(() => {
       const sim = window.__sim;
@@ -11198,6 +11086,11 @@ globals:
 // ─── Lambda translation: compound assignments & increment ─────────────────────
 
 test.describe('Lambda compound assignments', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const makeYaml = (lambdaBody) => `
 display:
   - platform: custom
@@ -11224,8 +11117,6 @@ lvgl:
 `.trim();
 
   test('id(x) += n compound assignment updates store', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, makeYaml('id(accum) += 5;'));
 
     await page.evaluate(() => { window.__sim.store.set('accum', 10); });
@@ -11237,8 +11128,6 @@ lvgl:
   });
 
   test('id(x) -= n compound assignment updates store', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, makeYaml('id(accum) -= 3;'));
 
     await page.evaluate(() => { window.__sim.store.set('accum', 10); });
@@ -11250,8 +11139,6 @@ lvgl:
   });
 
   test('id(x) *= n compound assignment updates store', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, makeYaml('id(accum) *= 3;'));
 
     await page.evaluate(() => { window.__sim.store.set('accum', 10); });
@@ -11263,8 +11150,6 @@ lvgl:
   });
 
   test('id(x)++ increment updates store', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, makeYaml('id(accum)++;'));
 
     await page.evaluate(() => { window.__sim.store.set('accum', 10); });
@@ -11276,8 +11161,6 @@ lvgl:
   });
 
   test('id(x)-- decrement updates store', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, makeYaml('id(accum)--;'));
 
     await page.evaluate(() => { window.__sim.store.set('accum', 10); });
@@ -11292,6 +11175,11 @@ lvgl:
 // ─── Lambda translation: nullptr/NULL comparisons ─────────────────────────────
 
 test.describe('Lambda nullptr/NULL comparisons', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const nullptrYaml = `
 display:
   - platform: custom
@@ -11324,8 +11212,6 @@ lvgl:
 `.trim();
 
   test('id(x) == nullptr evaluates correctly when store value is falsy', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, nullptrYaml);
 
     // flag_val is false (falsy) — id(flag_val) == nullptr should be true → result_store = 1
@@ -11338,8 +11224,6 @@ lvgl:
   });
 
   test('id(x) == nullptr evaluates correctly when store value is truthy', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, nullptrYaml);
 
     // flag_val is true (truthy) — id(flag_val) == nullptr should be false → result_store = 0
@@ -11355,6 +11239,11 @@ lvgl:
 // ─── Lambda translation: publish_state ───────────────────────────────────────
 
 test.describe('Lambda publish_state translation', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('id(x).publish_state(val) sets store value', async ({ page }) => {
     const yaml = `
 display:
@@ -11379,8 +11268,6 @@ lvgl:
             text: "0"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => { window.__sim.store.set('source_sensor', 5.0); });
@@ -11394,9 +11281,12 @@ lvgl:
 // ─── Lambda translation: esp_timer / millis ───────────────────────────────────
 
 test.describe('Lambda timer functions', () => {
-  test('esp_timer_get_time() returns a large positive number (microseconds)', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('esp_timer_get_time() returns a large positive number (microseconds)', async ({ page }) => {
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -11410,8 +11300,6 @@ test.describe('Lambda timer functions', () => {
   });
 
   test('millis() returns a non-negative number', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -11427,9 +11315,12 @@ test.describe('Lambda timer functions', () => {
 // ─── Lambda translation: WiFi / API namespace stubs ───────────────────────────
 
 test.describe('Lambda WiFi and API namespace stubs', () => {
-  test('wifi::global_wifi_component->is_connected() reads wifi_connected store', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('wifi::global_wifi_component->is_connected() reads wifi_connected store', async ({ page }) => {
 
     const result = await page.evaluate(() => {
       window.__sim.store.set('wifi_connected', true);
@@ -11444,8 +11335,6 @@ test.describe('Lambda WiFi and API namespace stubs', () => {
   });
 
   test('api::global_api_server->is_connected() reads api_connected store', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const result = await page.evaluate(() => {
       window.__sim.store.set('api_connected', false);
@@ -11463,9 +11352,12 @@ test.describe('Lambda WiFi and API namespace stubs', () => {
 // ─── Lambda translation: snprintf ─────────────────────────────────────────────
 
 test.describe('Lambda snprintf translation', () => {
-  test('snprintf(buf, N, fmt, args) produces formatted string', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('snprintf(buf, N, fmt, args) produces formatted string', async ({ page }) => {
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -11482,8 +11374,6 @@ test.describe('Lambda snprintf translation', () => {
   });
 
   test('snprintf with %d integer format', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -11499,6 +11389,11 @@ test.describe('Lambda snprintf translation', () => {
 // ─── Lambda translation: static local variables ───────────────────────────────
 
 test.describe('Lambda static local variables', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('static int persists across multiple evaluations', async ({ page }) => {
     const yaml = `
 display:
@@ -11525,8 +11420,6 @@ lvgl:
             text: "0"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Fire on_value 3 times
@@ -11545,9 +11438,12 @@ lvgl:
 // ─── Screensaver simulation ───────────────────────────────────────────────────
 
 test.describe('Screensaver simulation', () => {
-  test('screensaver simulator exists after rendering', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('screensaver simulator exists after rendering', async ({ page }) => {
     await loadExample(page);
 
     const hasSS = await page.evaluate(() => !!window.__sim?._screensaver);
@@ -11555,8 +11451,6 @@ test.describe('Screensaver simulation', () => {
   });
 
   test('triggerActivity resets _lastActivity to now', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const timeDiff = await page.evaluate(() => {
@@ -11572,8 +11466,6 @@ test.describe('Screensaver simulation', () => {
   });
 
   test('screensaver state is 0 (active) after triggerActivity', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const state = await page.evaluate(() => {
@@ -11587,8 +11479,6 @@ test.describe('Screensaver simulation', () => {
   });
 
   test('getInactiveTime increases over time', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const { t1, t2 } = await page.evaluate(async () => {
@@ -11606,8 +11496,6 @@ test.describe('Screensaver simulation', () => {
   });
 
   test('screensaver Simulate checkbox is present', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     await page.click('.console-tab[data-tab="drive"]');
@@ -11618,6 +11506,11 @@ test.describe('Screensaver simulation', () => {
 // ─── Chart API proxy ──────────────────────────────────────────────────────────
 
 test.describe('Chart API proxy', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const chartYaml = `
 display:
   - platform: custom
@@ -11647,8 +11540,6 @@ lvgl:
 `.trim();
 
   test('chart lambda executes without error', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, chartYaml);
 
     const errors = [];
@@ -11663,8 +11554,6 @@ lvgl:
   });
 
   test('lv_chart_set_type LINE/BAR translates via proxy', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const result = await page.evaluate(() => {
       const p = window.__sim?._proxy;
@@ -11679,8 +11568,6 @@ lvgl:
   });
 
   test('chartAddSeries returns a series handle', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const result = await page.evaluate(() => {
       const p = window.__sim?._proxy;
@@ -11695,8 +11582,6 @@ lvgl:
   });
 
   test('chartSetNextValue and chartRefresh do not throw', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const ok = await page.evaluate(() => {
       try {
@@ -11720,6 +11605,11 @@ lvgl:
 // ─── Proxy align / setPos / setSize ───────────────────────────────────────────
 
 test.describe('Proxy positioning methods', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const posYaml = `
 display:
   - platform: custom
@@ -11742,8 +11632,6 @@ lvgl:
 `.trim();
 
   test('proxy setPos sets left/top on element', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, posYaml);
 
     await page.evaluate(() => {
@@ -11760,8 +11648,6 @@ lvgl:
   });
 
   test('proxy setSize sets width/height on element', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, posYaml);
 
     await page.evaluate(() => {
@@ -11778,8 +11664,6 @@ lvgl:
   });
 
   test('proxy setWidth / setHeight set individual dimensions', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, posYaml);
 
     await page.evaluate(() => {
@@ -11797,8 +11681,6 @@ lvgl:
   });
 
   test('proxy align CENTER positions element approximately at parent center', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, posYaml);
 
     await page.evaluate(() => {
@@ -11820,6 +11702,11 @@ lvgl:
 // ─── Proxy setPadding ─────────────────────────────────────────────────────────
 
 test.describe('Proxy setPadding methods', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const padYaml = `
 display:
   - platform: custom
@@ -11836,8 +11723,6 @@ lvgl:
 `.trim();
 
   test('setPadding sets all sides', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, padYaml);
 
     await page.evaluate(() => { window.__sim._proxy.setPadding('pad_target', 12); });
@@ -11850,8 +11735,6 @@ lvgl:
   });
 
   test('setPaddingLeft/Right/Top/Bottom set individual sides', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, padYaml);
 
     await page.evaluate(() => {
@@ -11882,9 +11765,12 @@ lvgl:
 // ─── Proxy no-ops (mirror/swap) ───────────────────────────────────────────────
 
 test.describe('Proxy no-op methods', () => {
-  test('setMirrorX / setMirrorY / setSwapXY do not throw', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('setMirrorX / setMirrorY / setSwapXY do not throw', async ({ page }) => {
     await loadExample(page);
 
     const ok = await page.evaluate(() => {
@@ -11902,8 +11788,6 @@ test.describe('Proxy no-op methods', () => {
   });
 
   test('getCurrentPage returns current page index', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const idx = await page.evaluate(() => window.__sim?._proxy?.getCurrentPage());
@@ -11915,6 +11799,11 @@ test.describe('Proxy no-op methods', () => {
 // ─── Proxy getChildCount ──────────────────────────────────────────────────────
 
 test.describe('Proxy getChildCount', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('getChildCount returns number of direct children', async ({ page }) => {
     const yaml = `
 display:
@@ -11941,8 +11830,6 @@ lvgl:
                   text: "C"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const count = await page.evaluate(() => {
@@ -11966,8 +11853,6 @@ lvgl:
             text: "Leaf"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const count = await page.evaluate(() => {
@@ -11980,6 +11865,11 @@ lvgl:
 // ─── on_load page handler ──────────────────────────────────────────────────────
 
 test.describe('on_load page handler', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('on_load lambda fires after page renders and updates store', async ({ page }) => {
     const yaml = `
 display:
@@ -12000,8 +11890,6 @@ lvgl:
             text: "Page"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Wait for on_load timer (50ms + debounce)
@@ -12036,8 +11924,6 @@ lvgl:
             text: "Second"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Navigate to second page
@@ -12054,6 +11940,11 @@ lvgl:
 // ─── top_layer widgets ────────────────────────────────────────────────────────
 
 test.describe('top_layer widgets', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('top_layer widget renders in #lvgl-top-layer overlay', async ({ page }) => {
     const yaml = `
 display:
@@ -12075,8 +11966,6 @@ lvgl:
             text: "Main"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Top layer element should exist
@@ -12111,8 +12000,6 @@ lvgl:
             text: "Page 2"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Navigate to page 2
@@ -12145,8 +12032,6 @@ lvgl:
             text: "Main"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const treeBody = page.locator('#tree-body');
@@ -12157,6 +12042,11 @@ lvgl:
 // ─── Page wrap behavior ───────────────────────────────────────────────────────
 
 test.describe('Page wrap behavior', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('page_wrap: true — next from last page wraps to first', async ({ page }) => {
     const yaml = `
 display:
@@ -12178,8 +12068,6 @@ lvgl:
             text: "B"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Navigate to last page (index 1)
@@ -12214,8 +12102,6 @@ lvgl:
             text: "B"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // On first page with wrap=false, prev should be disabled
@@ -12229,9 +12115,12 @@ lvgl:
 // ─── Signal generator ─────────────────────────────────────────────────────────
 
 test.describe('Signal generator', () => {
-  test('SignalGenerator serialise/restore round-trips generator config', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('SignalGenerator serialise/restore round-trips generator config', async ({ page }) => {
     await loadExample(page);
 
     const result = await page.evaluate(async () => {
@@ -12257,8 +12146,6 @@ test.describe('Signal generator', () => {
   });
 
   test('SignalGenerator sine waveform stays within min/max bounds', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const inBounds = await page.evaluate(async () => {
@@ -12279,8 +12166,6 @@ test.describe('Signal generator', () => {
   });
 
   test('SignalGenerator random waveform stays within min/max bounds', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const inBounds = await page.evaluate(() => {
@@ -12300,8 +12185,6 @@ test.describe('Signal generator', () => {
   });
 
   test('SignalGenerator square waveform returns only min or max', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const onlyMinMax = await page.evaluate(() => {
@@ -12321,8 +12204,6 @@ test.describe('Signal generator', () => {
   });
 
   test('SignalGenerator isActive returns true while running', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const result = await page.evaluate(() => {
@@ -12343,9 +12224,12 @@ test.describe('Signal generator', () => {
 // ─── Network proxy stubs ───────────────────────────────────────────────────────
 
 test.describe('Network proxy stubs', () => {
-  test('pingHost call resolves without throwing', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('pingHost call resolves without throwing', async ({ page }) => {
     await loadExample(page);
 
     const ok = await page.evaluate(() => {
@@ -12360,8 +12244,6 @@ test.describe('Network proxy stubs', () => {
   });
 
   test('dnsResolve call resolves without throwing', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const ok = await page.evaluate(() => {
@@ -12379,9 +12261,12 @@ test.describe('Network proxy stubs', () => {
 // ─── Lambda lv_color_hex in multi-statement body ──────────────────────────────
 
 test.describe('Lambda lv_color_hex translation', () => {
-  test('lv_color_hex(0xFF0000) translates to #ff0000 string', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('lv_color_hex(0xFF0000) translates to #ff0000 string', async ({ page }) => {
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -12395,8 +12280,6 @@ test.describe('Lambda lv_color_hex translation', () => {
   });
 
   test('lv_color_hex(0x000000) translates to #000000', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -12411,6 +12294,11 @@ test.describe('Lambda lv_color_hex translation', () => {
 // ─── Lambda: setBorderOpacity proxy ───────────────────────────────────────────
 
 test.describe('Proxy setBorderOpacity', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('setBorderOpacity sets element opacity proportional to 0-255 range', async ({ page }) => {
     const yaml = `
 display:
@@ -12427,8 +12315,6 @@ lvgl:
             height: 100
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => {
@@ -12447,9 +12333,12 @@ lvgl:
 // ─── Lambda: lv_disp_get_inactive_time translation ────────────────────────────
 
 test.describe('Lambda lv_disp_get_inactive_time', () => {
-  test('lv_disp_get_inactive_time(NULL) translates to __lvgl__.getInactiveTime()', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('lv_disp_get_inactive_time(NULL) translates to __lvgl__.getInactiveTime()', async ({ page }) => {
     await loadExample(page);
 
     const result = await page.evaluate(() => {
@@ -12467,9 +12356,12 @@ test.describe('Lambda lv_disp_get_inactive_time', () => {
 // ─── Lambda: auto C++ lambda capture syntax ───────────────────────────────────
 
 test.describe('Lambda auto capture syntax', () => {
-  test('auto lambda capture [...] translates without SyntaxError', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('auto lambda capture [...] translates without SyntaxError', async ({ page }) => {
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -12489,9 +12381,12 @@ test.describe('Lambda auto capture syntax', () => {
 // ─── Lambda: std math functions ───────────────────────────────────────────────
 
 test.describe('Lambda std math functions', () => {
-  test('std::abs translates to Math.abs', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('std::abs translates to Math.abs', async ({ page }) => {
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -12502,8 +12397,6 @@ test.describe('Lambda std math functions', () => {
   });
 
   test('std::sqrt translates to Math.sqrt', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -12514,8 +12407,6 @@ test.describe('Lambda std math functions', () => {
   });
 
   test('constrain(val, lo, hi) clamps value', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -12526,8 +12417,6 @@ test.describe('Lambda std math functions', () => {
   });
 
   test('map(val, fromLow, fromHigh, toLow, toHigh) scales value', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -12541,9 +12430,12 @@ test.describe('Lambda std math functions', () => {
 // ─── Lambda: C type casts stripped ───────────────────────────────────────────
 
 test.describe('Lambda C type cast stripping', () => {
-  test('(int) cast is stripped (value preserved as-is)', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('(int) cast is stripped (value preserved as-is)', async ({ page }) => {
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -12556,8 +12448,6 @@ test.describe('Lambda C type cast stripping', () => {
   });
 
   test('(float) cast is stripped', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -12568,8 +12458,6 @@ test.describe('Lambda C type cast stripping', () => {
   });
 
   test('(uint8_t) cast is stripped', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -12583,9 +12471,12 @@ test.describe('Lambda C type cast stripping', () => {
 // ─── Lambda: .c_str() / std::string / .length() ───────────────────────────────
 
 test.describe('Lambda string helpers', () => {
-  test('.c_str() is stripped from id().state chain', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('.c_str() is stripped from id().state chain', async ({ page }) => {
     await loadExample(page);
 
     const result = await page.evaluate(() => {
@@ -12600,8 +12491,6 @@ test.describe('Lambda string helpers', () => {
   });
 
   test('.length() on string works', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -12615,6 +12504,11 @@ test.describe('Lambda string helpers', () => {
 // ─── Widget tree rail ─────────────────────────────────────────────────────────
 
 test.describe('Widget tree rail', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('tree shows page header and widget types', async ({ page }) => {
     const yaml = `
 display:
@@ -12636,8 +12530,6 @@ lvgl:
                   text: "Btn"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const treeBody = page.locator('#tree-body');
@@ -12663,8 +12555,6 @@ lvgl:
             max_value: 100
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const treeBody = page.locator('#tree-body');
@@ -12675,9 +12565,12 @@ lvgl:
 // ─── Screensaver state machine ────────────────────────────────────────────────
 
 test.describe('Screensaver state machine', () => {
-  test('triggerNow sets _lastActivity far in the past', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('triggerNow sets _lastActivity far in the past', async ({ page }) => {
     await loadExample(page);
 
     const timeSince = await page.evaluate(() => {
@@ -12693,8 +12586,6 @@ test.describe('Screensaver state machine', () => {
   });
 
   test('screensaver enable() starts RAF loop', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const hasRaf = await page.evaluate(() => {
@@ -12710,8 +12601,6 @@ test.describe('Screensaver state machine', () => {
   });
 
   test('screensaver disable() wakes display (state → 0)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const state = await page.evaluate(() => {
@@ -12727,8 +12616,6 @@ test.describe('Screensaver state machine', () => {
   });
 
   test('dim state (state=1) applies brightness(0.3) filter to display', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const filter = await page.evaluate(() => {
@@ -12743,8 +12630,6 @@ test.describe('Screensaver state machine', () => {
   });
 
   test('screensaver state (state=2) applies brightness(0.15) filter', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const filter = await page.evaluate(() => {
@@ -12759,8 +12644,6 @@ test.describe('Screensaver state machine', () => {
   });
 
   test('off state (state=3) adds black overlay div to display', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const hasOverlay = await page.evaluate(() => {
@@ -12775,8 +12658,6 @@ test.describe('Screensaver state machine', () => {
   });
 
   test('wake from off state removes overlay div', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const noOverlay = await page.evaluate(() => {
@@ -12794,8 +12675,6 @@ test.describe('Screensaver state machine', () => {
   });
 
   test('setSpeed multiplier is stored', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const speed = await page.evaluate(() => {
@@ -12809,8 +12688,6 @@ test.describe('Screensaver state machine', () => {
   });
 
   test('screen_state store key is updated by tick', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     // screen_state is an arbitrary store key — verify the store accepts and returns it.
@@ -12826,6 +12703,11 @@ test.describe('Screensaver state machine', () => {
 // ─── Interval runner execution ────────────────────────────────────────────────
 
 test.describe('Interval runner execution', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('interval runner fires lambda and updates store when enabled', async ({ page }) => {
     const yaml = `
 display:
@@ -12849,8 +12731,6 @@ lvgl:
             text: "0"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // Enable the interval runner
@@ -12873,8 +12753,6 @@ lvgl:
   });
 
   test('interval runner stops when _stopIntervalRunner called', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const wasNull = await page.evaluate(() => {
@@ -12887,8 +12765,6 @@ lvgl:
   });
 
   test('interval runner checkbox is wired in Drive tab', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     await page.click('.console-tab[data-tab="drive"]');
@@ -12905,8 +12781,6 @@ lvgl:
   });
 
   test('interval speed selector changes _intervalSpeed', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     await page.click('.console-tab[data-tab="drive"]');
@@ -12921,9 +12795,12 @@ lvgl:
 // ─── RTTTL audio proxy stubs ──────────────────────────────────────────────────
 
 test.describe('RTTTL audio proxy stubs', () => {
-  test('playRTTTL does not throw (audio muted)', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('playRTTTL does not throw (audio muted)', async ({ page }) => {
     await loadExample(page);
 
     // Mute audio first to avoid any audio output
@@ -12944,8 +12821,6 @@ test.describe('RTTTL audio proxy stubs', () => {
   });
 
   test('stopRTTTL does not throw', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const ok = await page.evaluate(() => {
@@ -12960,8 +12835,6 @@ test.describe('RTTTL audio proxy stubs', () => {
   });
 
   test('RTTTL lambda id(rtttl)->play() translates to playRTTTL call', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -12984,9 +12857,12 @@ test.describe('RTTTL audio proxy stubs', () => {
 // ─── setPaused proxy ──────────────────────────────────────────────────────────
 
 test.describe('setPaused proxy', () => {
-  test('setPaused(false) triggers screensaver activity wake', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('setPaused(false) triggers screensaver activity wake', async ({ page }) => {
     await loadExample(page);
 
     const stateAfter = await page.evaluate(() => {
@@ -13003,8 +12879,6 @@ test.describe('setPaused proxy', () => {
   });
 
   test('setPaused does not throw', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const ok = await page.evaluate(() => {
@@ -13023,9 +12897,12 @@ test.describe('setPaused proxy', () => {
 // ─── Lambda: display rotation via lambda ──────────────────────────────────────
 
 test.describe('Lambda display rotation via proxy', () => {
-  test('id(display)->set_rotation(DISPLAY_ROTATION_90_DEGREES) rotates display', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('id(display)->set_rotation(DISPLAY_ROTATION_90_DEGREES) rotates display', async ({ page }) => {
     await loadExample(page);
 
     await page.evaluate(() => {
@@ -13045,8 +12922,6 @@ test.describe('Lambda display rotation via proxy', () => {
   });
 
   test('id(display)->set_rotation(DISPLAY_ROTATION_0_DEGREES) resets rotation', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     await page.evaluate(() => {
@@ -13073,6 +12948,11 @@ test.describe('Lambda display rotation via proxy', () => {
 // ─── Lambda: lv_obj_set_style_bg_color variable form ─────────────────────────
 
 test.describe('Lambda variable-form style translations', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('lv_obj_set_style_bg_color with variable widget changes background', async ({ page }) => {
     const yaml = `
 display:
@@ -13097,8 +12977,6 @@ lvgl:
             height: 100
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => { window.__sim.store.set('var_trig', 1.0); });
@@ -13135,8 +13013,6 @@ lvgl:
             text: "Test"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => { window.__sim.store.set('vartxt_trig', 1.0); });
@@ -13175,8 +13051,6 @@ lvgl:
             height: 80
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => { window.__sim.store.set('varhide_trig', 1.0); });
@@ -13213,8 +13087,6 @@ lvgl:
             height: 80
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     // First hide it manually
@@ -13237,6 +13109,11 @@ lvgl:
 // ─── Lambda: lv_obj_align variable form ──────────────────────────────────────
 
 test.describe('Lambda lv_obj_align variable form', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('lv_obj_align with variable positions element', async ({ page }) => {
     const yaml = `
 display:
@@ -13261,8 +13138,6 @@ lvgl:
             height: 50
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.evaluate(() => { window.__sim.store.set('align_trig', 1.0); });
@@ -13282,9 +13157,12 @@ lvgl:
 // ─── Globals console tab ──────────────────────────────────────────────────────
 
 test.describe('Globals console tab', () => {
-  test('Globals tab is present in console', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('Globals tab is present in console', async ({ page }) => {
     await loadExample(page);
 
     const globalsTab = page.locator('.console-tab[data-tab="globals"]');
@@ -13313,8 +13191,6 @@ lvgl:
             text: "Globals"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.click('.console-tab[data-tab="globals"]');
@@ -13328,9 +13204,12 @@ lvgl:
 // ─── Overlay console tab ──────────────────────────────────────────────────────
 
 test.describe('Overlay console tab', () => {
-  test('Overlay tab is present in console', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('Overlay tab is present in console', async ({ page }) => {
     await loadExample(page);
 
     const overlayTab = page.locator('.console-tab[data-tab="overlay"]');
@@ -13358,8 +13237,6 @@ lvgl:
             text: "Main"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.click('.console-tab[data-tab="overlay"]');
@@ -13373,6 +13250,11 @@ lvgl:
 // ─── Signal generator drive panel UI ─────────────────────────────────────────
 
 test.describe('Signal generator drive panel', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('signal generator button appears next to sensor in Drive tab', async ({ page }) => {
     const yaml = `
 display:
@@ -13393,8 +13275,6 @@ lvgl:
             text: "0"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.click('.console-tab[data-tab="drive"]');
@@ -13424,8 +13304,6 @@ lvgl:
             text: "0"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.click('.console-tab[data-tab="drive"]');
@@ -13459,8 +13337,6 @@ lvgl:
             text: "0"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.click('.console-tab[data-tab="drive"]');
@@ -13487,6 +13363,11 @@ lvgl:
 // ─── Select entity drive panel ───────────────────────────────────────────────
 
 test.describe('Select entity drive panel', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('select entity appears with options in Drive tab', async ({ page }) => {
     const yaml = `
 display:
@@ -13511,8 +13392,6 @@ lvgl:
             text: "Mode"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.click('.console-tab[data-tab="drive"]');
@@ -13527,9 +13406,12 @@ lvgl:
 // ─── HistBuffer lambda translation ───────────────────────────────────────────
 
 test.describe('HistBuffer lambda translation', () => {
-  test('hist_record_all translation does not throw', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('hist_record_all translation does not throw', async ({ page }) => {
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -13548,8 +13430,6 @@ test.describe('HistBuffer lambda translation', () => {
   });
 
   test('HIST_SLOTS constant translates to 200', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -13561,8 +13441,6 @@ test.describe('HistBuffer lambda translation', () => {
   });
 
   test('HIST_RES_COUNT constant translates to 4', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -13574,8 +13452,6 @@ test.describe('HistBuffer lambda translation', () => {
   });
 
   test('HIST_RES_LABEL constant translates to string array', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -13590,9 +13466,12 @@ test.describe('HistBuffer lambda translation', () => {
 // ─── Lambda: ESP_LOG stripped ─────────────────────────────────────────────────
 
 test.describe('Lambda ESP_LOG stripping', () => {
-  test('ESP_LOGI does not throw or block evaluation', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('ESP_LOGI does not throw or block evaluation', async ({ page }) => {
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -13608,8 +13487,6 @@ test.describe('Lambda ESP_LOG stripping', () => {
   });
 
   test('Serial.println does not throw or block evaluation', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -13628,9 +13505,12 @@ test.describe('Lambda ESP_LOG stripping', () => {
 // ─── Lambda: lv_disp_trig_activity translation ───────────────────────────────
 
 test.describe('Lambda lv_disp_trig_activity', () => {
-  test('lv_disp_trig_activity calls screensaver triggerActivity', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('lv_disp_trig_activity calls screensaver triggerActivity', async ({ page }) => {
     await loadExample(page);
 
     const result = await page.evaluate(() => {
@@ -13651,9 +13531,12 @@ test.describe('Lambda lv_disp_trig_activity', () => {
 // ─── Lambda: lwip stubs return -1 ────────────────────────────────────────────
 
 test.describe('Lambda lwip network stubs', () => {
-  test('lwip_socket returns -1', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('lwip_socket returns -1', async ({ page }) => {
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -13665,8 +13548,6 @@ test.describe('Lambda lwip network stubs', () => {
   });
 
   test('lwip_connect returns -1', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -13681,9 +13562,12 @@ test.describe('Lambda lwip network stubs', () => {
 // ─── Lambda: id(x).has_state() ───────────────────────────────────────────────
 
 test.describe('Lambda has_state translation', () => {
-  test('id(x).has_state() returns true when store has key', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('id(x).has_state() returns true when store has key', async ({ page }) => {
     await loadExample(page);
 
     const result = await page.evaluate(() => {
@@ -13697,8 +13581,6 @@ test.describe('Lambda has_state translation', () => {
   });
 
   test('id(x).has_state() returns false when store does not have key', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     const result = await page.evaluate(() => {
       const evaluator = window.__sim?.lambda;
@@ -13713,9 +13595,12 @@ test.describe('Lambda has_state translation', () => {
 // ─── Lambda: global read/write via id() ──────────────────────────────────────
 
 test.describe('Lambda global read via bare id()', () => {
-  test('bare id(x) (not followed by . or ()) reads store value', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('bare id(x) (not followed by . or ()) reads store value', async ({ page }) => {
     await loadExample(page);
 
     const result = await page.evaluate(() => {
@@ -13729,8 +13614,6 @@ test.describe('Lambda global read via bare id()', () => {
   });
 
   test('id(x) in boolean condition treats 0 as falsy', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const result = await page.evaluate(() => {
@@ -13747,6 +13630,11 @@ test.describe('Lambda global read via bare id()', () => {
 // ─── Lambda: id(page)->index property ────────────────────────────────────────
 
 test.describe('Lambda page index property', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('id(page_id)->index returns correct page index', async ({ page }) => {
     const yaml = `
 display:
@@ -13772,8 +13660,6 @@ lvgl:
             text: "C"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const idx = await page.evaluate(() => {
@@ -13789,6 +13675,11 @@ lvgl:
 // ─── Drive panel: number entity slider ───────────────────────────────────────
 
 test.describe('Drive panel number entity', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('number entity range input drives store value', async ({ page }) => {
     const yaml = `
 display:
@@ -13812,8 +13703,6 @@ lvgl:
             text: "Brightness"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     await page.click('.console-tab[data-tab="drive"]');
@@ -13833,6 +13722,11 @@ lvgl:
 // ─── page scrollable widget ───────────────────────────────────────────────────
 
 test.describe('Page-level scrollable', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('page with scrollable:true has overflow-y:auto', async ({ page }) => {
     const yaml = `
 display:
@@ -13849,8 +13743,6 @@ lvgl:
             text: "Scroll"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const overflow = await page.evaluate(() => {
@@ -13875,8 +13767,6 @@ lvgl:
             text: "No scroll"
 `.trim();
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, yaml);
 
     const overflow = await page.evaluate(() => {
@@ -14080,20 +13970,21 @@ lvgl:
 `.trim();
 
 test.describe('Waveshare ST7262 dashboard (hadisplay.yaml adapted)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('renders without JS errors', async ({ page }) => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, HADISPLAY_YAML);
 
     expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
   });
 
   test('main_page uses CSS grid layout', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, HADISPLAY_YAML);
 
     const display = await page.evaluate(() => {
@@ -14105,8 +13996,6 @@ test.describe('Waveshare ST7262 dashboard (hadisplay.yaml adapted)', () => {
   });
 
   test('main_page grid-template-columns reflects YAML grid_columns', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, HADISPLAY_YAML);
 
     const cols = await page.evaluate(() => {
@@ -14119,8 +14008,6 @@ test.describe('Waveshare ST7262 dashboard (hadisplay.yaml adapted)', () => {
   });
 
   test('time_label renders inside main_page', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, HADISPLAY_YAML);
 
     const text = await page.evaluate(() => {
@@ -14132,8 +14019,6 @@ test.describe('Waveshare ST7262 dashboard (hadisplay.yaml adapted)', () => {
   });
 
   test('three buttons render with correct IDs', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, HADISPLAY_YAML);
 
     const btns = await page.evaluate(() => {
@@ -14146,8 +14031,6 @@ test.describe('Waveshare ST7262 dashboard (hadisplay.yaml adapted)', () => {
   });
 
   test('page navigation moves to power_page', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, HADISPLAY_YAML);
 
     // Navigate to power_page
@@ -14162,8 +14045,6 @@ test.describe('Waveshare ST7262 dashboard (hadisplay.yaml adapted)', () => {
   });
 
   test('power_page grid layout has 175px columns', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, HADISPLAY_YAML);
 
     await page.evaluate(() => { window.__sim.currentPageIndex = 1; window.__sim.renderCurrentPage(); });
@@ -14178,8 +14059,6 @@ test.describe('Waveshare ST7262 dashboard (hadisplay.yaml adapted)', () => {
   });
 
   test('top_layer label renders over page content', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, HADISPLAY_YAML);
 
     const topLabel = await page.evaluate(() => {
@@ -14190,8 +14069,6 @@ test.describe('Waveshare ST7262 dashboard (hadisplay.yaml adapted)', () => {
   });
 
   test('page_wrap: true — simulator pageWrap flag is set', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, HADISPLAY_YAML);
 
     const wrap = await page.evaluate(() => window.__sim.pageWrap);
@@ -14202,8 +14079,6 @@ test.describe('Waveshare ST7262 dashboard (hadisplay.yaml adapted)', () => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, HADISPLAY_YAML);
 
     // Theme includes nested `checked:` — should not throw
@@ -14216,8 +14091,6 @@ test.describe('Waveshare ST7262 dashboard (hadisplay.yaml adapted)', () => {
   });
 
   test('style_definitions are stored and accessible', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, HADISPLAY_YAML);
 
     const hasHeaderFooter = await page.evaluate(() => {
@@ -14228,8 +14101,6 @@ test.describe('Waveshare ST7262 dashboard (hadisplay.yaml adapted)', () => {
   });
 
   test('button grid cells placed at correct CSS grid positions', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, HADISPLAY_YAML);
 
     const pos = await page.evaluate(() => {
@@ -14318,20 +14189,21 @@ lvgl:
 `.trim();
 
 test.describe('Waveshare 4.3" FLEX dashboard (itmaybeokay-style)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('renders without JS errors', async ({ page }) => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, FLEX_DASHBOARD_YAML);
 
     expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
   });
 
   test('main_page uses CSS flex layout', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, FLEX_DASHBOARD_YAML);
 
     const display = await page.evaluate(() => {
@@ -14342,8 +14214,6 @@ test.describe('Waveshare 4.3" FLEX dashboard (itmaybeokay-style)', () => {
   });
 
   test('flex_flow column_wrap sets flex-direction:column and flex-wrap:wrap', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, FLEX_DASHBOARD_YAML);
 
     const styles = await page.evaluate(() => {
@@ -14359,8 +14229,6 @@ test.describe('Waveshare 4.3" FLEX dashboard (itmaybeokay-style)', () => {
   });
 
   test('three buttons render', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, FLEX_DASHBOARD_YAML);
 
     const count = await page.evaluate(() => {
@@ -14371,8 +14239,6 @@ test.describe('Waveshare 4.3" FLEX dashboard (itmaybeokay-style)', () => {
   });
 
   test('status labels render inside buttons', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, FLEX_DASHBOARD_YAML);
 
     const text = await page.evaluate(() =>
@@ -14383,8 +14249,6 @@ test.describe('Waveshare 4.3" FLEX dashboard (itmaybeokay-style)', () => {
   });
 
   test('theme with nested checked/pressed states parsed without error', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, FLEX_DASHBOARD_YAML);
 
     const theme = await page.evaluate(() => window.__sim?.theme?.button);
@@ -14470,20 +14334,21 @@ lvgl:
 `.trim();
 
 test.describe('Multi-arc thermostat (P4-4B style)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('renders without JS errors', async ({ page }) => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, MULTI_ARC_YAML);
 
     expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
   });
 
   test('three arcs render on thermostat_page', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, MULTI_ARC_YAML);
 
     // Arcs render as <svg> elements with data-lvgl-id, not as .lvgl-arc class
@@ -14497,8 +14362,6 @@ test.describe('Multi-arc thermostat (P4-4B style)', () => {
   });
 
   test('track_arc and current_arc have correct initial values', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, MULTI_ARC_YAML);
 
     const vals = await page.evaluate(() => ({
@@ -14514,8 +14377,6 @@ test.describe('Multi-arc thermostat (P4-4B style)', () => {
   });
 
   test('arcs are absolutely positioned (x/y from YAML)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, MULTI_ARC_YAML);
 
     const pos = await page.evaluate(() => {
@@ -14528,8 +14389,6 @@ test.describe('Multi-arc thermostat (P4-4B style)', () => {
   });
 
   test('sensor on_value updates global via store', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, MULTI_ARC_YAML);
 
     await page.evaluate(() => { window.__sim.store.set('target_temp', 25.5); });
@@ -14540,8 +14399,6 @@ test.describe('Multi-arc thermostat (P4-4B style)', () => {
   });
 
   test('temp_display label renders with initial text', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, MULTI_ARC_YAML);
 
     const text = await page.evaluate(() =>
@@ -14555,9 +14412,12 @@ test.describe('Multi-arc thermostat (P4-4B style)', () => {
 // ─── GRID track parsing unit tests ─────────────────────────────────────────
 
 test.describe('GRID track string parsing (parseLvglGridTrack)', () => {
-  test('px-string array → space-separated px values', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('px-string array → space-separated px values', async ({ page }) => {
     await loadExample(page);
 
     const result = await page.evaluate(() =>
@@ -14568,8 +14428,6 @@ test.describe('GRID track string parsing (parseLvglGridTrack)', () => {
   });
 
   test('FR(n) → n fr units', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const result = await page.evaluate(() =>
@@ -14580,8 +14438,6 @@ test.describe('GRID track string parsing (parseLvglGridTrack)', () => {
   });
 
   test('CONTENT keyword → auto', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const result = await page.evaluate(() =>
@@ -14592,8 +14448,6 @@ test.describe('GRID track string parsing (parseLvglGridTrack)', () => {
   });
 
   test('bare numbers → px values', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const result = await page.evaluate(() =>
@@ -14604,8 +14458,6 @@ test.describe('GRID track string parsing (parseLvglGridTrack)', () => {
   });
 
   test('mixed px and FR track', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await loadExample(page);
 
     const result = await page.evaluate(() =>
@@ -14679,20 +14531,21 @@ lvgl:
 `.trim();
 
 test.describe('M5Dial circular display (GinAndBacon-style)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('renders both pages without JS errors', async ({ page }) => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, M5DIAL_YAML);
 
     expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
   });
 
   test('brightness_arc renders on light_page', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, M5DIAL_YAML);
 
     const exists = await page.evaluate(() =>
@@ -14703,8 +14556,6 @@ test.describe('M5Dial circular display (GinAndBacon-style)', () => {
   });
 
   test('arc renders with width 200 (SVG attribute)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, M5DIAL_YAML);
 
     // Arc renders as <svg> — width is an SVG attribute, not a CSS style property
@@ -14717,8 +14568,6 @@ test.describe('M5Dial circular display (GinAndBacon-style)', () => {
   });
 
   test('navigating to media_page shows play button', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, M5DIAL_YAML);
 
     await page.evaluate(() => { window.__sim.currentPageIndex = 1; window.__sim.renderCurrentPage(); });
@@ -14732,8 +14581,6 @@ test.describe('M5Dial circular display (GinAndBacon-style)', () => {
   });
 
   test('sensor on_value updates global brightness_val', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, M5DIAL_YAML);
 
     await page.evaluate(() => { window.__sim.store.set('brightness_level', 200); });
@@ -14744,8 +14591,6 @@ test.describe('M5Dial circular display (GinAndBacon-style)', () => {
   });
 
   test('page count is 2', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, M5DIAL_YAML);
 
     const count = await page.evaluate(() => window.__sim.pages.length);
@@ -14753,8 +14598,6 @@ test.describe('M5Dial circular display (GinAndBacon-style)', () => {
   });
 
   test('240x240 display dimensions set correctly', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, M5DIAL_YAML);
 
     const dims = await page.evaluate(() => ({
@@ -14770,9 +14613,12 @@ test.describe('M5Dial circular display (GinAndBacon-style)', () => {
 // ─── Cross-config regression: simulator resets cleanly between configs ────
 
 test.describe('Simulator isolation between configs', () => {
-  test('loading second config clears first config widgets', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('loading second config clears first config widgets', async ({ page }) => {
 
     // Load hadisplay config first
     await renderYAML(page, HADISPLAY_YAML);
@@ -14797,8 +14643,6 @@ test.describe('Simulator isolation between configs', () => {
   });
 
   test('display dimensions reset to new config values', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     await renderYAML(page, HADISPLAY_YAML);
     const w1 = await page.evaluate(() => window.__sim.displayWidth);
@@ -14812,8 +14656,6 @@ test.describe('Simulator isolation between configs', () => {
   });
 
   test('store is cleared between renders — old sensor IDs gone', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     await renderYAML(page, HADISPLAY_YAML);
     await page.evaluate(() => { window.__sim.store.set('outdoor_temp', 25); });
@@ -14831,6 +14673,11 @@ test.describe('Simulator isolation between configs', () => {
 // ─── Share URL round-trip ─────────────────────────────────────────────────────
 
 test.describe('Share URL round-trip', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const SHARE_YAML = `
 display:
   - platform: custom
@@ -14847,8 +14694,6 @@ lvgl:
 `.trim();
 
   test('getShareURL produces a #state= URL', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, SHARE_YAML);
 
     const url = await page.evaluate(() => window.__sim.getShareURL());
@@ -14857,8 +14702,6 @@ lvgl:
   });
 
   test('share URL encodes the YAML content', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, SHARE_YAML);
 
     const url = await page.evaluate(() => window.__sim.getShareURL());
@@ -14877,8 +14720,6 @@ lvgl:
 
   test('navigating to share URL loads and renders the config', async ({ page }) => {
     // Build the share URL from a fresh render
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, SHARE_YAML);
     const shareURL = await page.evaluate(() => window.__sim.getShareURL());
 
@@ -14894,8 +14735,6 @@ lvgl:
   });
 
   test('share URL round-trip preserves YAML exactly', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, SHARE_YAML);
 
     const shareURL = await page.evaluate(() => window.__sim.getShareURL());
@@ -14937,12 +14776,15 @@ lvgl:
 // ─── Invalid YAML / error states ─────────────────────────────────────────────
 
 test.describe('Invalid YAML / error recovery', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   test('invalid YAML shows error in display, no JS crash', async ({ page }) => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     await page.click('.console-tab[data-tab="edit"]');
     await page.fill('#yamlEditor', 'this: is: not: valid: yaml:');
@@ -14956,8 +14798,6 @@ test.describe('Invalid YAML / error recovery', () => {
   });
 
   test('YAML with no lvgl: block shows an error message', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     await page.click('.console-tab[data-tab="edit"]');
     await page.fill('#yamlEditor', 'display:\n  - platform: custom\n    dimensions: {width: 320, height: 240}\n');
@@ -14972,8 +14812,6 @@ test.describe('Invalid YAML / error recovery', () => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await page.click('.console-tab[data-tab="edit"]');
     await page.fill('#yamlEditor', `
 display:
@@ -14990,8 +14828,6 @@ lvgl:
   });
 
   test('re-render after error renders correctly', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
 
     // First: bad YAML
     await page.click('.console-tab[data-tab="edit"]');
@@ -15025,6 +14861,11 @@ lvgl:
 // ─── Theme state system ───────────────────────────────────────────────────────
 
 test.describe('Theme state styles (checked/pressed/focused)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const THEME_STATE_YAML = `
 display:
   - platform: custom
@@ -15054,8 +14895,6 @@ lvgl:
 `.trim();
 
   test('theme bg_color applied to button by default', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, THEME_STATE_YAML);
 
     const bg = await page.evaluate(() => {
@@ -15070,8 +14909,6 @@ lvgl:
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
 
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, THEME_STATE_YAML);
 
     expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
@@ -15082,8 +14919,6 @@ lvgl:
   });
 
   test('widget-level bg_color overrides theme bg_color', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, `
 display:
   - platform: custom
@@ -15120,6 +14955,11 @@ lvgl:
 // ─── Lambda adversarial: real-world patterns ──────────────────────────────────
 
 test.describe('Lambda adversarial: real-world patterns', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const BASE_YAML_WRAP = (lambdaBody) => `
 display:
   - platform: custom
@@ -15158,8 +14998,6 @@ lvgl:
   };
 
   test('if/else chain with comparison operators', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await evalLambda(page,
       'if (x > 30) { id(result_val) = 3; } else if (x > 20) { id(result_val) = 2; } else { id(result_val) = 1; }',
       25.5
@@ -15169,56 +15007,42 @@ lvgl:
   });
 
   test('compound assignment operators: +=, -=, *=', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await evalLambda(page, 'id(counter) += 5; id(result_val) = id(counter);', 0);
     const val = await page.evaluate(() => window.__sim.store.get('result_val'));
     expect(val).toBe(5);
   });
 
   test('ternary operator in lambda', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await evalLambda(page, 'id(result_val) = (x > 20) ? 99 : 0;', 25);
     const val = await page.evaluate(() => window.__sim.store.get('result_val'));
     expect(val).toBe(99);
   });
 
   test('boolean flag set and read', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await evalLambda(page, 'id(flag) = (x > 20);', 25);
     const val = await page.evaluate(() => window.__sim.store.get('flag'));
     expect(val).toBe(true);
   });
 
   test('std::abs and std::round usage', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await evalLambda(page, 'id(result_val) = std::round(std::abs(x));', -3.7);
     const val = await page.evaluate(() => window.__sim.store.get('result_val'));
     expect(val).toBe(4);
   });
 
   test('constrain() clamps value within range', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await evalLambda(page, 'id(result_val) = constrain(x, 0, 10);', 150);
     const val = await page.evaluate(() => window.__sim.store.get('result_val'));
     expect(val).toBe(10);
   });
 
   test('map() rescales value linearly', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await evalLambda(page, 'id(result_val) = map(x, 0, 100, 0, 255);', 50);
     const val = await page.evaluate(() => window.__sim.store.get('result_val'));
     expect(val).toBe(127.5);
   });
 
   test('ESP_LOGI followed by assignment does not corrupt result', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // Serial.println is stripped like ESP_LOG but requires no string literals,
     // avoiding double-quote conflicts in the YAML template string.
     await evalLambda(page, 'Serial.println(x); id(result_val) = x * 2;', 5);
@@ -15229,8 +15053,6 @@ lvgl:
   test('lv_color_hex in lambda does not crash', async ({ page }) => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const result = await page.evaluate(() =>
       window.__sim.lambda.evaluate('__lambda__:' + btoa('lv_color_hex(0xFF8800)'), null)
     );
@@ -15239,8 +15061,6 @@ lvgl:
   });
 
   test('id(x).publish_state(val) propagates value to store', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, `
 display:
   - platform: custom
@@ -15272,8 +15092,6 @@ lvgl:
   });
 
   test('millis() returns a positive number', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const result = await page.evaluate(() =>
       window.__sim.lambda.evaluate('__lambda__:' + btoa('millis()'), null)
     );
@@ -15282,8 +15100,6 @@ lvgl:
   });
 
   test('for loop accumulates correctly', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const result = await page.evaluate(() =>
       window.__sim.lambda.evaluate('__lambda__:' + btoa('int sum = 0; for (int i = 1; i <= 5; i++) { sum += i; } return sum;'), null)
     );
@@ -15291,8 +15107,6 @@ lvgl:
   });
 
   test('lv_obj_t* pointer variable assignment (auto w = id(x))', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, `
 display:
   - platform: custom
@@ -15324,6 +15138,11 @@ lvgl:
 // ─── Lambda adversarial: real-config patterns (evse / bambu / cyd-lights) ─────
 
 test.describe('Lambda adversarial: real-config patterns', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const BASE = '/';
 
   // Helper: evaluate a lambda body using window.__sim.lambda.evaluate directly
@@ -15334,37 +15153,27 @@ test.describe('Lambda adversarial: real-config patterns', () => {
     );
 
   test('std::max / std::min clamp pattern (real: cyd-lights)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // std::max(0.0f, std::min(1.0f, pct)) — clamp to [0,1]
     const r = await evalDirect(page, 'float pct = 2.0f; return std::max(0.0f, std::min(1.0f, pct));');
     expect(r).toBe(1);
   });
 
   test('std::max with two values returns correct maximum', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'return std::max(3, 7);');
     expect(r).toBe(7);
   });
 
   test('std::isnan returns true for NaN (real: cyd-lights wifi bar)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'float rssi = NAN; return std::isnan(rssi);');
     expect(r).toBe(true);
   });
 
   test('std::isnan returns false for finite value', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'float rssi = -65.0f; return !std::isnan(rssi);');
     expect(r).toBe(true);
   });
 
   test('std::string ternary return (real: esp32-evse fault labels)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // return std::string(x ? "Error" : "OK")
     const ok  = await evalDirect(page, 'float x = 0; return std::string(x ? "Error" : "OK");');
     const err = await evalDirect(page, 'float x = 1; return std::string(x ? "Error" : "OK");');
@@ -15373,8 +15182,6 @@ test.describe('Lambda adversarial: real-config patterns', () => {
   });
 
   test('std::string variable declaration + if-chain (real: bambu print status)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page,
       'std::string s = "running"; if (s == "finish") return std::string("Finished"); if (s == "running") return std::string("Printing"); return std::string(s);'
     );
@@ -15382,16 +15189,12 @@ test.describe('Lambda adversarial: real-config patterns', () => {
   });
 
   test('snprintf + char buf pattern (real: bambu progress %)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // char buf[8]; snprintf(buf, sizeof(buf), "%d%%", (int)x); return std::string(buf);
     const r = await evalDirect(page, 'char buf[8]; float x = 42.0f; snprintf(buf, sizeof(buf), "%d%%", (int)x); return std::string(buf);');
     expect(r).toBe('42%');
   });
 
   test('snprintf conditional branches (real: bambu remaining time h/m)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // Use std::floor for integer division — (int) cast strips to no-op in JS
     const r = await evalDirect(page,
       'float x = 90.0f; int mins = (int)x; if (mins <= 0) return std::string("Done"); int h = std::floor(mins / 60.0f); int m = mins - h * 60; char buf[16]; if (h > 0) snprintf(buf, sizeof(buf), "%dh %dm", h, m); else snprintf(buf, sizeof(buf), "%dm", m); return std::string(buf);'
@@ -15400,8 +15203,6 @@ test.describe('Lambda adversarial: real-config patterns', () => {
   });
 
   test('snprintf minutes-only branch', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // Use std::floor so integer division works correctly in JS float arithmetic
     const r = await evalDirect(page,
       'float x = 45.0f; int mins = (int)x; int h = std::floor(mins / 60.0f); char buf[16]; if (h > 0) snprintf(buf, sizeof(buf), "%dh %dm", h, mins - h * 60); else snprintf(buf, sizeof(buf), "%dm", mins); return std::string(buf);'
@@ -15410,8 +15211,6 @@ test.describe('Lambda adversarial: real-config patterns', () => {
   });
 
   test('integer division float normalisation (real: esp32-evse meter %)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // float percent = (x - min) / (max - min); clamped; return (int)(percent * 100)
     const r = await evalDirect(page,
       'float x = 12.0f; float min_amps = 0.0f; float max_amps = 16.0f; float percent = (x - min_amps) / (max_amps - min_amps); if (percent < 0) percent = 0; if (percent > 1) percent = 1; return (int)(percent * 100);'
@@ -15420,8 +15219,6 @@ test.describe('Lambda adversarial: real-config patterns', () => {
   });
 
   test('string comparison chain (real: esp32-evse state filter)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page,
       'std::string s = "C2"; return s == "C1" || s == "C2" || s == "D1" || s == "D2";'
     );
@@ -15429,8 +15226,6 @@ test.describe('Lambda adversarial: real-config patterns', () => {
   });
 
   test('preprocessor #if/#else/#endif strips without crash (real: jtenniswood lvgl)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     // Both branches stripped to comments; lv_indev_get_next → null; if (null) skips body
@@ -15441,8 +15236,6 @@ test.describe('Lambda adversarial: real-config patterns', () => {
   });
 
   test('lv_arc_get_value reads stored arc value (real: jtenniswood volume)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, `
 display:
   - platform: custom
@@ -15473,6 +15266,11 @@ lvgl:
 //            const char* / char* declarations, static string arrays, lv_label_get_text
 
 test.describe('Lambda adversarial: Sendspin / SEN6X patterns', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const evalDirect = (page, body) =>
     page.evaluate((b) =>
       window.__sim.lambda.evaluate('__lambda__:' + btoa(b), null),
@@ -15480,8 +15278,6 @@ test.describe('Lambda adversarial: Sendspin / SEN6X patterns', () => {
     );
 
   test('strcmp returns 0 for equal strings (real: Sendspin state machine)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // strcmp(a, a) == 0 → true
     const r = await evalDirect(page,
       'const char* mode = "heat"; return strcmp(mode, "heat") == 0;'
@@ -15490,8 +15286,6 @@ test.describe('Lambda adversarial: Sendspin / SEN6X patterns', () => {
   });
 
   test('strcmp returns non-zero for unequal strings', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page,
       'const char* mode = "cool"; return strcmp(mode, "heat") == 0;'
     );
@@ -15499,15 +15293,11 @@ test.describe('Lambda adversarial: Sendspin / SEN6X patterns', () => {
   });
 
   test('strcmp ordering: strcmp("a","b") < 0', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'return strcmp("apple", "banana") < 0;');
     expect(r).toBe(true);
   });
 
   test('strcpy assigns src to dst (real: SEN6X status label)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // strcpy(label_text, "Ready") → label_text = "Ready"
     const r = await evalDirect(page,
       'char label_text[32]; strcpy(label_text, "Ready"); return label_text;'
@@ -15516,8 +15306,6 @@ test.describe('Lambda adversarial: Sendspin / SEN6X patterns', () => {
   });
 
   test('strtol parses decimal integer string (real: SEN6X config token)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page,
       'const char* s = "42"; int v = strtol(s, nullptr, 10); return v;'
     );
@@ -15525,65 +15313,47 @@ test.describe('Lambda adversarial: Sendspin / SEN6X patterns', () => {
   });
 
   test('strtol parses hex string', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'return strtol("FF", nullptr, 16);');
     expect(r).toBe(255);
   });
 
   test('lroundf rounds half-up (real: Sendspin Zero analog gauge)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'float v = 12.6f; return lroundf(v);');
     expect(r).toBe(13);
   });
 
   test('lroundf rounds down on < 0.5', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'return lroundf(12.3f);');
     expect(r).toBe(12);
   });
 
   test('atof parses float string (real: SEN6X sensor value)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'const char* s = "3.14"; float v = atof(s); return v > 3.13 && v < 3.15;');
     expect(r).toBe(true);
   });
 
   test('clamp maps to _constrain (real: SEN6X display range guard)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'float v = 150.0f; return clamp(v, 0.0f, 100.0f);');
     expect(r).toBe(100);
   });
 
   test('clamp within range is unchanged', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'return clamp(50.0f, 0.0f, 100.0f);');
     expect(r).toBe(50);
   });
 
   test('static_cast<int> strips to identity (real: Sendspin casting)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // static_cast<int>(3.7f) → (3.7f) → 3.7 in JS (no truncation, but no crash)
     const r = await evalDirect(page, 'float x = 3.0f; return static_cast<int>(x) + 1;');
     expect(r).toBe(4);
   });
 
   test('static_cast<float> strips to identity', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'int n = 7; int m = 2; return static_cast<float>(n) / m;');
     expect(r).toBe(3.5);
   });
 
   test('const char* variable declaration and use', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page,
       'const char* greeting = "hello"; return greeting;'
     );
@@ -15591,8 +15361,6 @@ test.describe('Lambda adversarial: Sendspin / SEN6X patterns', () => {
   });
 
   test('static const char* array index (real: Sendspin Zero month names)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // static const char* months[] = {"Jan","Feb",...}; return months[1];
     const r = await evalDirect(page,
       'static const char* months[] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"}; return months[4];'
@@ -15601,8 +15369,6 @@ test.describe('Lambda adversarial: Sendspin / SEN6X patterns', () => {
   });
 
   test('lv_arc_get_min_value stub returns 0 (real: SEN6X arc range)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page,
       'int lo = lv_arc_get_min_value(id(test_arc)); return lo;'
     );
@@ -15610,8 +15376,6 @@ test.describe('Lambda adversarial: Sendspin / SEN6X patterns', () => {
   });
 
   test('lv_arc_get_max_value stub returns 100 (real: SEN6X arc range)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page,
       'int hi = lv_arc_get_max_value(id(test_arc)); return hi;'
     );
@@ -15619,8 +15383,6 @@ test.describe('Lambda adversarial: Sendspin / SEN6X patterns', () => {
   });
 
   test('lv_label_get_text reads rendered label (real: Sendspin WT32 text compare)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await page.evaluate((b) =>
       window.__sim.lambda.evaluate('__lambda__:' + btoa(b), null),
       'lv_label_set_text(id(status_label), "Active");'
@@ -15638,6 +15400,11 @@ test.describe('Lambda adversarial: Sendspin / SEN6X patterns', () => {
 //            lv_label_set_text_fmt, lv_color_hex in lambda context
 
 test.describe('Lambda adversarial: stdlib / color / fmt patterns', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const evalDirect = (page, body) =>
     page.evaluate((b) =>
       window.__sim.lambda.evaluate('__lambda__:' + btoa(b), null),
@@ -15645,71 +15412,51 @@ test.describe('Lambda adversarial: stdlib / color / fmt patterns', () => {
     );
 
   test('std::stoi parses integer string', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'std::string s = "42"; return std::stoi(s) + 1;');
     expect(r).toBe(43);
   });
 
   test('std::stoi with negative string', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'return std::stoi("-7") * 2;');
     expect(r).toBe(-14);
   });
 
   test('std::stof parses float string', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'std::string s = "3.14"; return std::stof(s) > 3.0f;');
     expect(r).toBe(true);
   });
 
   test('std::stof used in arithmetic', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'return std::stof("2.5") * 4.0f;');
     expect(r).toBe(10);
   });
 
   test('sprintf writes formatted string into buffer (real: embedded status)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'char buf[32]; sprintf(buf, "%d items", 7); return buf;');
     expect(r).toBe('7 items');
   });
 
   test('sprintf float format', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'char buf[32]; sprintf(buf, "%.2f", 1.5f); return buf;');
     expect(r).toBe('1.50');
   });
 
   test('lv_color_make returns CSS hex color', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'lv_color_t c = lv_color_make(255, 0, 0); return c;');
     expect(r).toBe('#ff0000');
   });
 
   test('lv_color_make green channel', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'return lv_color_make(0, 128, 0);');
     expect(r).toBe('#008000');
   });
 
   test('lv_color_make used in expression is valid color string', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'bool ok = true; if (ok) return lv_color_make(0, 255, 0); return lv_color_make(255, 0, 0);');
     expect(r).toBe('#00ff00');
   });
 
   test('lv_label_set_text_fmt runs without JS error (real: Sendspin status label)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, `
 display:
   - platform: custom
@@ -15734,8 +15481,6 @@ lvgl:
   });
 
   test('lv_label_set_text_fmt updates label text (readable via lv_label_get_text)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, `
 display:
   - platform: custom
@@ -15769,6 +15514,11 @@ lvgl:
 // Patterns sourced from: jtenniswood/esphome-lvgl, agillis/esphome-modular-lvgl-buttons
 
 test.describe('Lambda adversarial: rounding / sensor patterns', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const evalDirect = (page, body) =>
     page.evaluate((b) =>
       window.__sim.lambda.evaluate('__lambda__:' + btoa(b), null),
@@ -15776,22 +15526,16 @@ test.describe('Lambda adversarial: rounding / sensor patterns', () => {
     );
 
   test('roundf rounds up on 0.5+ (real: jtenniswood heating delta arc)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'float cur = 21.3f; return (int)roundf(cur * 2.0f);');
     expect(r).toBe(43);
   });
 
   test('roundf rounds down on < 0.5', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'return roundf(2.1f);');
     expect(r).toBe(2);
   });
 
   test('roundf in ternary comparison (real: jtenniswood hvac)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // int cur_v = (int)roundf(cur * 2.0f); int tgt_v = (int)roundf(tgt * 2.0f); return cur_v > tgt_v ? cur_v : tgt_v;
     const r = await evalDirect(page,
       'float cur = 22.5f; float tgt = 21.0f; int cur_v = (int)roundf(cur * 2.0f); int tgt_v = (int)roundf(tgt * 2.0f); return cur_v > tgt_v ? cur_v : tgt_v;'
@@ -15800,8 +15544,6 @@ test.describe('Lambda adversarial: rounding / sensor patterns', () => {
   });
 
   test('cross-sensor state read in lambda (real: jtenniswood heating delta)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, `
 display:
   - platform: custom
@@ -15831,8 +15573,6 @@ sensor:
   });
 
   test('id(sensor).has_state() returns boolean without crash', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, `
 display:
   - platform: custom
@@ -15855,16 +15595,12 @@ sensor:
   });
 
   test('id(sensor).state.c_str() strips .c_str() and returns string', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // .c_str() on a string value is a no-op in JS
     const r = await evalDirect(page, 'std::string s = "heating"; return s.c_str();');
     expect(r).toBe('heating');
   });
 
   test('lv_disp_trig_activity runs without crash (real: esphome discussions #3543)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await evalDirect(page, 'lv_disp_trig_activity(NULL); return 1;');
@@ -15878,6 +15614,11 @@ sensor:
 // Patterns sourced from: esphome/issues #15895 (chart), M5Stack tab5-lvgl, esphome docs
 
 test.describe('Lambda adversarial: C++ casts / chart / pointer patterns', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const evalDirect = (page, body) =>
     page.evaluate((b) =>
       window.__sim.lambda.evaluate('__lambda__:' + btoa(b), null),
@@ -15885,16 +15626,12 @@ test.describe('Lambda adversarial: C++ casts / chart / pointer patterns', () => 
     );
 
   test('int() functional cast truncates (C++ int(x) → Math.trunc)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // int(5.9f) → Math.trunc(5.9) = 5 → 5 + 1 = 6
     const r = await evalDirect(page, 'return int(5.9f) + 1;');
     expect(r).toBe(6);
   });
 
   test('int() functional cast in percent calculation (real: M5Stack tab5-lvgl)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // int percent = int(x) * 100 / 255  (M5Stack slider → percent)
     // JS float division: Math.trunc(127.5) * 100 / 255 = 127 * 100 / 255 = 49.8...
     const r = await evalDirect(page, 'float x = 127.5f; return int(x) * 100 / 255;');
@@ -15903,24 +15640,18 @@ test.describe('Lambda adversarial: C++ casts / chart / pointer patterns', () => 
   });
 
   test('void* nullptr declaration and nullptr check (real: esphome #15895)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // void* ptr = nullptr; → let ptr = null; if (ptr != null) → false → return 0
     const r = await evalDirect(page, 'void* ptr = nullptr; if (ptr != nullptr) return 1; return 0;');
     expect(r).toBe(0);
   });
 
   test('lv_obj_t* nullptr check (truthy pattern)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // lv_obj_t *chart = nullptr → let chart = null; if (chart != null) → false
     const r = await evalDirect(page, 'lv_obj_t *chart = nullptr; bool has_chart = (chart != nullptr); return has_chart;');
     expect(r).toBe(false);
   });
 
   test('lv_obj_invalidate no-op with id(widget) (real: esphome #15895 chart)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     const r = await evalDirect(page, 'lv_obj_invalidate(id(graph_obj)); return 1;');
@@ -15929,15 +15660,11 @@ test.describe('Lambda adversarial: C++ casts / chart / pointer patterns', () => 
   });
 
   test('lv_obj_invalidate no-op with bare var', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'lv_obj_t *chart = nullptr; lv_obj_invalidate(chart); return 2;');
     expect(r).toBe(2);
   });
 
   test('lv_pct converts percentage to fraction', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'return lv_pct(50);');
     expect(r).toBeCloseTo(0.5, 5);
   });
@@ -15950,6 +15677,11 @@ test.describe('Lambda adversarial: C++ casts / chart / pointer patterns', () => 
 //   jtenniswood/esphome-lvgl HVAC sensors
 
 test.describe('Lambda adversarial: brace-init / string patterns', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const evalDirect = (page, body) =>
     page.evaluate((b) =>
       window.__sim.lambda.evaluate('__lambda__:' + btoa(b), null),
@@ -15957,23 +15689,17 @@ test.describe('Lambda adversarial: brace-init / string patterns', () => {
     );
 
   test('return {buf} with snprintf returns string not object (real: agillis strftime)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // C++: return {strftime_buf} means return std::string(strftime_buf)
     const r = await evalDirect(page, 'char buf[64]; snprintf(buf, sizeof(buf), "Day %d", 15); return {buf};');
     expect(r).toBe('Day 15');
   });
 
   test('return {result} with std::string returns string value', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'std::string result = "heating"; return {result};');
     expect(r).toBe('heating');
   });
 
   test('return {strftime_buf} multi-statement lambda (real: agillis solar date)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // snprintf(strftime_buf, sizeof(strftime_buf), "%s %d", "June", day); return {strftime_buf};
     const r = await evalDirect(page,
       'char strftime_buf[64]; int day = 3; snprintf(strftime_buf, sizeof(strftime_buf), "%s %d", "June", day); return {strftime_buf};'
@@ -15982,15 +15708,11 @@ test.describe('Lambda adversarial: brace-init / string patterns', () => {
   });
 
   test('std::string.length() returns correct length', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page, 'std::string s = "hello world"; return s.length();');
     expect(r).toBe(11);
   });
 
   test('if-else chain with string returns (real: jtenniswood hvac action)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page,
       'std::string action = "heating"; if (action == "heating") return "Heating"; if (action == "idle") return "Idle"; if (action == "off") return "Off"; return action.c_str();'
     );
@@ -15998,8 +15720,6 @@ test.describe('Lambda adversarial: brace-init / string patterns', () => {
   });
 
   test('if-else chain fallback to c_str()', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const r = await evalDirect(page,
       'std::string action = "cooling"; if (action == "heating") return "Heating"; if (action == "idle") return "Idle"; return action.c_str();'
     );
@@ -16007,8 +15727,6 @@ test.describe('Lambda adversarial: brace-init / string patterns', () => {
   });
 
   test('x.c_str() on sensor state string (real: jtenniswood)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // std::string x = "rainy"; return x.c_str(); — .c_str() is no-op on JS string
     const r = await evalDirect(page, 'std::string x = "rainy"; return x.c_str();');
     expect(r).toBe('rainy');
@@ -16018,6 +15736,11 @@ test.describe('Lambda adversarial: brace-init / string patterns', () => {
 // ─── parseColor LVGL function syntax ─────────────────────────────────────────
 
 test.describe('parseColor LVGL function syntax', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   function lvglColorYaml(id, textColor) {
     return `
@@ -16038,80 +15761,60 @@ lvgl:
   }
 
   test('parseColor: lv_color_hex(0xFF0000) → red', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, lvglColorYaml('lch_red', 'lv_color_hex(0xFF0000)'));
     const color = await page.locator('[data-lvgl-id="lch_red"]').evaluate(el => el.style.color);
     expect(color).toMatch(/rgb\(255,\s*0,\s*0\)|#ff0000/i);
   });
 
   test('parseColor: lv_color_hex(0x0000FF) → blue', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, lvglColorYaml('lch_blue', 'lv_color_hex(0x0000FF)'));
     const color = await page.locator('[data-lvgl-id="lch_blue"]').evaluate(el => el.style.color);
     expect(color).toMatch(/rgb\(0,\s*0,\s*255\)|#0000ff/i);
   });
 
   test('parseColor: lv_color_hex3(0xF00) → red', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, lvglColorYaml('lch3_red', 'lv_color_hex3(0xF00)'));
     const color = await page.locator('[data-lvgl-id="lch3_red"]').evaluate(el => el.style.color);
     expect(color).toMatch(/rgb\(255,\s*0,\s*0\)|#ff0000/i);
   });
 
   test('parseColor: lv_color_white() → white', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, lvglColorYaml('lcw', 'lv_color_white()'));
     const color = await page.locator('[data-lvgl-id="lcw"]').evaluate(el => el.style.color);
     expect(color).toMatch(/rgb\(255,\s*255,\s*255\)|#ffffff/i);
   });
 
   test('parseColor: lv_color_black() → black', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, lvglColorYaml('lcb', 'lv_color_black()'));
     const color = await page.locator('[data-lvgl-id="lcb"]').evaluate(el => el.style.color);
     expect(color).toMatch(/rgb\(0,\s*0,\s*0\)|#000000/i);
   });
 
   test('parseColor: lv_palette_main(LV_PALETTE_RED) → #f44336', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, lvglColorYaml('lpm_red', 'lv_palette_main(LV_PALETTE_RED)'));
     const color = await page.locator('[data-lvgl-id="lpm_red"]').evaluate(el => el.style.color);
     expect(color).toMatch(/rgb\(244,\s*67,\s*54\)|#f44336/i);
   });
 
   test('parseColor: lv_palette_main(LV_PALETTE_BLUE) → #2196f3', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, lvglColorYaml('lpm_blue', 'lv_palette_main(LV_PALETTE_BLUE)'));
     const color = await page.locator('[data-lvgl-id="lpm_blue"]').evaluate(el => el.style.color);
     expect(color).toMatch(/rgb\(33,\s*150,\s*243\)|#2196f3/i);
   });
 
   test('parseColor: lv_palette_lighten(LV_PALETTE_GREEN, 2) → green main colour', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, lvglColorYaml('lpl_green', 'lv_palette_lighten(LV_PALETTE_GREEN, 2)'));
     const color = await page.locator('[data-lvgl-id="lpl_green"]').evaluate(el => el.style.color);
     expect(color).toMatch(/rgb\(76,\s*175,\s*80\)|#4caf50/i);
   });
 
   test('parseColor: lv_palette_darken(LV_PALETTE_ORANGE, 1) → orange main colour', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, lvglColorYaml('lpd_orange', 'lv_palette_darken(LV_PALETTE_ORANGE, 1)'));
     const color = await page.locator('[data-lvgl-id="lpd_orange"]').evaluate(el => el.style.color);
     expect(color).toMatch(/rgb\(255,\s*152,\s*0\)|#ff9800/i);
   });
 
   test('parseColor: unknown lv_* function → #000000 (black)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const warnings = [];
     page.on('console', msg => { if (msg.type() === 'warning') warnings.push(msg.text()); });
     await renderYAML(page, lvglColorYaml('lv_unknown', 'lv_color_make(1, 2, 3)'));
