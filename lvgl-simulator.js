@@ -1636,6 +1636,7 @@ lvgl:
         }
 
         if (el) {
+            if (cfg && cfg.hidden === true) el.style.display = 'none';
             if (cfg && cfg.id) {
                 this._renderedElements[cfg.id] = el;
                 el.dataset.lvglId = cfg.id;
