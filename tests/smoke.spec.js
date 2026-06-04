@@ -16333,3 +16333,71 @@ lvgl:
     expect(anim).toBe('800ms');
   });
 });
+
+// ── Issue #165: rotary encoder input ────────────────────────────────────────
+test.describe('encoder panel (issue #165)', () => {
+  const encoderYAML = `
+rotary_encoders:
+  - id: main_encoder
+    resolution: 4
+    initial_focus: btn1
+lvgl:
+  pages:
+    - id: p1
+      widgets:
+        - btn:
+            id: btn1
+            text: "A"
+            width: 60
+            height: 40
+        - btn:
+            id: btn2
+            text: "B"
+            width: 60
+            height: 40
+            x: 70
+`;
+
+  const noEncoderYAML = `
+lvgl:
+  pages:
+    - id: p1
+      widgets:
+        - label:
+            id: lbl1
+            text: "hello"
+`;
+
+  test('encoder panel is visible when rotary_encoders declared', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, encoderYAML);
+    await expect(page.locator('#encoderPanel')).toBeVisible();
+  });
+
+  test('encoder panel is hidden when no rotary_encoders', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, noEncoderYAML);
+    await expect(page.locator('#encoderPanel')).toBeHidden();
+  });
+
+  test('encoder down button moves focus to next widget', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, encoderYAML);
+    await page.click('#encoderDown');
+    // After one down, focus moves away from btn1
+    const btn2Focused = await page.locator('[data-lvgl-id="btn2"]').evaluate(el => el.classList.contains('lvgl-focused'));
+    expect(btn2Focused).toBe(true);
+  });
+
+  test('arrow keys move encoder focus', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, encoderYAML);
+    await page.keyboard.press('ArrowDown');
+    const btn2Focused = await page.locator('[data-lvgl-id="btn2"]').evaluate(el => el.classList.contains('lvgl-focused'));
+    expect(btn2Focused).toBe(true);
+  });
+});

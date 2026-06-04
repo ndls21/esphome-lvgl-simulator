@@ -1736,3 +1736,45 @@ body {
     from { opacity: 0.6; }
     to   { opacity: 1.0; }
 }
+
+/* ── Issue #165: rotary encoder panel ──────────────────────────────────────── */
+.lvgl-encoder-panel {
+    margin-top: 12px;
+    padding: 8px 12px;
+    background: #1e2030;
+    border-radius: 6px;
+    border: 1px solid #333;
+}
+.lvgl-encoder-panel__label {
+    font-size: 0.75em;
+    color: #888;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.lvgl-encoder-panel__controls {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+.lvgl-encoder-btn {
+    background: #2a2a3a;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #ccc;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 6px 10px;
+    line-height: 1;
+}
+.lvgl-encoder-btn:hover {
+    background: #3a3a4a;
+    color: #fff;
+}
+.lvgl-encoder-btn--click {
+    background: #2a3a5a;
+}
+.lvgl-focused {
+    outline: 2px solid #4af !important;
+    outline-offset: 1px;
+}

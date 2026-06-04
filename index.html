@@ -99,6 +99,16 @@
                     </div>
                 </div>
 
+                <!-- Rotary encoder panel -->
+                <div id="encoderPanel" class="lvgl-encoder-panel" style="display:none">
+                  <div class="lvgl-encoder-panel__label">Encoder</div>
+                  <div class="lvgl-encoder-panel__controls">
+                    <button id="encoderUp" class="lvgl-encoder-btn" title="Previous (↑)">▲</button>
+                    <button id="encoderClick" class="lvgl-encoder-btn lvgl-encoder-btn--click" title="Click (Enter)">●</button>
+                    <button id="encoderDown" class="lvgl-encoder-btn" title="Next (↓)">▼</button>
+                  </div>
+                </div>
+
                 <!-- Swipe arrows -->
                 <div id="swipe-left"  class="swipe-arrow swipe-arrow--left">←</div>
                 <div id="swipe-right" class="swipe-arrow swipe-arrow--right">→</div>
@@ -150,6 +160,16 @@
             <div id="tab-drive" class="tab-body active">
                 <div id="mockControls" class="mock-controls">
                     <div class="mock-empty">Load a config with sensors or globals to see controls here.</div>
+                </div>
+
+                <!-- Encoder panel -->
+                <div id="encoderPanel" class="lvgl-encoder-panel" style="display:none">
+                  <div class="lvgl-encoder-panel__label">Encoder</div>
+                  <div class="lvgl-encoder-panel__controls">
+                    <button id="encoderUp" class="lvgl-encoder-btn" title="Previous (&#x2191;)">&#x25B2;</button>
+                    <button id="encoderClick" class="lvgl-encoder-btn lvgl-encoder-btn--click" title="Click (Enter)">&#x25CF;</button>
+                    <button id="encoderDown" class="lvgl-encoder-btn" title="Next (&#x2193;)">&#x25BC;</button>
+                  </div>
                 </div>
 
                 <!-- Screensaver controls -->
