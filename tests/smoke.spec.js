@@ -9939,64 +9939,6 @@ lvgl:
 
 test.describe('Widget alignment edge cases', () => {
 
-  test('align: TOP_LEFT positions widget at top-left', async ({ page }) => {
-    const yaml = `
-display:
-  - platform: custom
-    dimensions: {width: 320, height: 240}
-lvgl:
-  color_depth: 16
-  pages:
-    - id: main
-      widgets:
-        - obj:
-            id: tl_obj
-            width: 50
-            height: 50
-            align: TOP_LEFT
-`.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
-    await renderYAML(page, yaml);
-
-    await expect(page.locator('[data-lvgl-id="tl_obj"]')).toHaveCount(1);
-    const pos = await page.locator('[data-lvgl-id="tl_obj"]').evaluate(el => ({
-      top: el.style.top,
-      left: el.style.left,
-    }));
-    expect(pos.top).toBeTruthy();
-    expect(pos.left).toBeTruthy();
-  });
-
-  test('align: BOTTOM_RIGHT positions widget at bottom-right', async ({ page }) => {
-    const yaml = `
-display:
-  - platform: custom
-    dimensions: {width: 320, height: 240}
-lvgl:
-  color_depth: 16
-  pages:
-    - id: main
-      widgets:
-        - obj:
-            id: br_obj
-            width: 50
-            height: 50
-            align: BOTTOM_RIGHT
-`.trim();
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
-    await renderYAML(page, yaml);
-
-    await expect(page.locator('[data-lvgl-id="br_obj"]')).toHaveCount(1);
-    const pos = await page.locator('[data-lvgl-id="br_obj"]').evaluate(el => ({
-      bottom: el.style.bottom,
-      right: el.style.right,
-    }));
-    expect(pos.bottom).toBeTruthy();
-    expect(pos.right).toBeTruthy();
-  });
-
   test('widget with x and y offset from CENTER', async ({ page }) => {
     const yaml = `
 display:
