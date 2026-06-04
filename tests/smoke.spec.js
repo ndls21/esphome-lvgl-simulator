@@ -16087,3 +16087,70 @@ lvgl:
     expect(h).toBe('max-content');
   });
 });
+
+// ── Issue #164: list widget ──────────────────────────────────────────────────
+test.describe('list widget (issue #164)', () => {
+  const listItemsYAML = `
+lvgl:
+  pages:
+    - id: p1
+      widgets:
+        - list:
+            id: my_list
+            width: 160
+            height: 120
+            items:
+              - text: "Settings"
+                icon: "S"
+              - text: "Network"
+                icon: "N"
+`;
+
+  const listWidgetsYAML = `
+lvgl:
+  pages:
+    - id: p1
+      widgets:
+        - list:
+            id: my_list2
+            width: 160
+            height: 120
+            widgets:
+              - btn:
+                  id: btn1
+                  text: "Wi-Fi"
+              - btn:
+                  id: btn2
+                  text: "Display"
+`;
+
+  test('list with items: renders rows with text', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, listItemsYAML);
+    const el = page.locator('[data-lvgl-id="my_list"]');
+    await expect(el).toBeVisible();
+    const items = el.locator('.lvgl-list__item');
+    await expect(items).toHaveCount(2);
+    await expect(items.nth(0).locator('.lvgl-list__text')).toHaveText('Settings');
+    await expect(items.nth(1).locator('.lvgl-list__text')).toHaveText('Network');
+  });
+
+  test('list with items: renders icon spans', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, listItemsYAML);
+    const icons = page.locator('[data-lvgl-id="my_list"] .lvgl-list__icon');
+    await expect(icons).toHaveCount(2);
+  });
+
+  test('list with widgets: renders child buttons', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, listWidgetsYAML);
+    const el = page.locator('[data-lvgl-id="my_list2"]');
+    await expect(el).toBeVisible();
+    await expect(page.locator('[data-lvgl-id="btn1"]')).toBeVisible();
+    await expect(page.locator('[data-lvgl-id="btn2"]')).toBeVisible();
+  });
+});
