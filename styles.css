@@ -412,6 +412,12 @@ body {
     transform: translateX(-50%);
 }
 
+.swipe-arrow--down {
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
 /* ─── DRIVE SEARCH ──────────────────────────────────────────────────────── */
 .drive-search-wrap {
     flex: 1;

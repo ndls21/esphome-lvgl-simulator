@@ -475,6 +475,7 @@ class ESPHomeLVGLSimulator {
         document.getElementById('swipe-left')?.addEventListener('click',  () => this._handleSwipe('left'));
         document.getElementById('swipe-right')?.addEventListener('click', () => this._handleSwipe('right'));
         document.getElementById('swipe-up')?.addEventListener('click',    () => this._handleSwipe('up'));
+        document.getElementById('swipe-down')?.addEventListener('click',  () => this._handleSwipe('down'));
 
         // Mobile rail toggles
         document.getElementById('toggle-left-rail')?.addEventListener('click', () => {
