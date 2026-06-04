@@ -16015,6 +16015,93 @@ test.describe('Lambda adversarial: brace-init / string patterns', () => {
   });
 });
 
+// ─── Label long_mode ─────────────────────────────────────────────────────────
+
+/** Minimal YAML that renders a label with the given long_mode value. */
+function labelLongModeYAML(id, longMode) {
+  const longModeStr = longMode != null ? `\n            long_mode: ${longMode}` : '';
+  return `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: test_page
+      widgets:
+        - label:
+            id: ${id}
+            text: "A very long piece of text that should overflow the container"
+            width: 100
+            height: 20
+            align: CENTER${longModeStr}
+`.trim();
+}
+
+test.describe('Label long_mode', () => {
+  test('long_mode: DOT — overflow hidden and ellipsis', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, labelLongModeYAML('lbl', 'DOT'));
+    const el = page.locator('[data-lvgl-id="lbl"]');
+    const overflow = await el.evaluate(e => e.style.overflow);
+    const textOverflow = await el.evaluate(e => e.style.textOverflow);
+    expect(overflow).toBe('hidden');
+    expect(textOverflow).toBe('ellipsis');
+  });
+
+  test('long_mode: DOTS — alias for DOT, overflow hidden and ellipsis', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, labelLongModeYAML('lbl', 'DOTS'));
+    const el = page.locator('[data-lvgl-id="lbl"]');
+    const overflow = await el.evaluate(e => e.style.overflow);
+    const textOverflow = await el.evaluate(e => e.style.textOverflow);
+    expect(overflow).toBe('hidden');
+    expect(textOverflow).toBe('ellipsis');
+  });
+
+  test('long_mode: CLIP — overflow hidden, no ellipsis', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, labelLongModeYAML('lbl', 'CLIP'));
+    const el = page.locator('[data-lvgl-id="lbl"]');
+    const overflow = await el.evaluate(e => e.style.overflow);
+    const textOverflow = await el.evaluate(e => e.style.textOverflow);
+    expect(overflow).toBe('hidden');
+    expect(textOverflow).not.toBe('ellipsis');
+  });
+
+  test('long_mode: SCROLL — overflow hidden and animation set', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, labelLongModeYAML('lbl', 'SCROLL'));
+    const el = page.locator('[data-lvgl-id="lbl"]');
+    const overflow = await el.evaluate(e => e.style.overflow);
+    const animation = await el.evaluate(e => e.style.animation);
+    expect(overflow).toBe('hidden');
+    expect(animation).toMatch(/lvgl-scroll/);
+  });
+
+  test('long_mode: WRAP (explicit) — no overflow hidden', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, labelLongModeYAML('lbl', 'WRAP'));
+    const el = page.locator('[data-lvgl-id="lbl"]');
+    const overflow = await el.evaluate(e => e.style.overflow);
+    expect(overflow).not.toBe('hidden');
+  });
+
+  test('no long_mode (default) — no overflow hidden', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, labelLongModeYAML('lbl', null));
+    const el = page.locator('[data-lvgl-id="lbl"]');
+    const overflow = await el.evaluate(e => e.style.overflow);
+    expect(overflow).not.toBe('hidden');
+  });
+});
+
 // ─── parseColor LVGL function syntax ─────────────────────────────────────────
 
 test.describe('parseColor LVGL function syntax', () => {

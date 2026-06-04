@@ -90,30 +90,24 @@ export function renderLabel(config, parent) {
         el.style.justifyContent = ta === 'CENTER' ? 'center' : ta === 'RIGHT' ? 'flex-end' : 'flex-start';
     }
 
-    if (cfg.long_mode) {
-        switch (String(cfg.long_mode).toUpperCase()) {
-            case 'WRAP':
-                el.style.whiteSpace = 'normal';
-                el.style.wordBreak = 'break-word';
-                el.style.overflowWrap = 'break-word';
-                break;
-            case 'CLIP':
-                el.style.overflow = 'hidden';
-                el.style.whiteSpace = 'nowrap';
-                break;
-            case 'DOT':
-                el.style.overflow = 'hidden';
-                el.style.whiteSpace = 'nowrap';
-                el.style.textOverflow = 'ellipsis';
-                break;
-            case 'SCROLL':
-                el.style.overflow = 'hidden';
-                el.style.whiteSpace = 'nowrap';
-                // CSS marquee/scroll animation could be added here
-                break;
-            default:
-                el.style.whiteSpace = 'normal';
-        }
+    const longMode = String(cfg.long_mode || 'WRAP').toUpperCase();
+    if (longMode === 'DOT' || longMode === 'DOTS') {
+        el.style.overflow = 'hidden';
+        el.style.textOverflow = 'ellipsis';
+        el.style.whiteSpace = 'nowrap';
+    } else if (longMode === 'CLIP') {
+        el.style.overflow = 'hidden';
+        el.style.whiteSpace = 'nowrap';
+        el.style.textOverflow = '';
+    } else if (longMode === 'SCROLL') {
+        el.style.overflow = 'hidden';
+        el.style.whiteSpace = 'nowrap';
+        el.style.animation = 'lvgl-scroll 4s linear infinite';
+    } else {
+        // WRAP (default) — allow text to wrap
+        el.style.whiteSpace = 'normal';
+        el.style.overflow = 'visible';
+        el.style.textOverflow = '';
     }
 
     return el;
