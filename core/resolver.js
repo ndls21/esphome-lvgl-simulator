@@ -3,11 +3,19 @@ export async function resolveIncludes(text, fileMap, baseDir = '') {
 
     const lines = text.split('\n');
     const output = [];
+    let inPackagesSection = false;
 
     for (const line of lines) {
+        // Track packages: section — its !include entries are handled by _resolvePackages, not here
+        if (/^packages\s*:/.test(line)) {
+            inPackagesSection = true;
+        } else if (/^\S/.test(line) && line.trim() && !line.trim().startsWith('#')) {
+            inPackagesSection = false;
+        }
+
         // Match: [indent][optional key: ]!include <arg>
         const m = line.match(/^(\s*)((?:[^!].*?:\s*)?)!include\s+(.+?)\s*$/);
-        if (!m) { output.push(line); continue; }
+        if (!m || inPackagesSection) { output.push(line); continue; }
 
         const [, indent, keyPart, inclArg] = m;
 

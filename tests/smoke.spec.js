@@ -16477,3 +16477,51 @@ lvgl:
     await expect(page.locator('[data-lvgl-id="safe_bar"]')).toBeVisible();
   });
 });
+
+// ─── ZIP file loading — D5 multi-package config ──────────────────────────────
+
+const path = require('path');
+
+test.describe('Load ZIP — D5 real-world config', () => {
+  test('loads D5-for-simulator.zip and renders display without errors', async ({ page }) => {
+    const zipPath = process.env.TEST_ZIP || path.resolve(__dirname, '../D5-for-simulator.zip');
+    const errors = [];
+    page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
+    page.on('dialog', async dialog => {
+      errors.push('alert: ' + dialog.message());
+      await dialog.dismiss();
+    });
+
+    await page.goto(BASE);
+
+    // Intercept the file input created dynamically by the loadZip button
+    await page.evaluate(() => {
+      const orig = document.createElement.bind(document);
+      document.createElement = (tag) => {
+        const el = orig(tag);
+        if (tag === 'input') el.setAttribute('data-intercept', 'zip-input');
+        return el;
+      };
+    });
+
+    const [fileChooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.click('#loadZip'),
+    ]);
+    await fileChooser.setFiles(zipPath);
+
+    // If multiple candidates, a device picker modal appears — pick the first option
+    const picker = page.locator('#lvgl-device-picker-modal');
+    const pickerVisible = await picker.isVisible({ timeout: 3000 }).catch(() => false);
+    if (pickerVisible) {
+      await picker.locator('button').first().click();
+    }
+
+    // Wait for the display to render (placeholder gone)
+    await expect(page.locator('#lvglDisplay .placeholder')).toHaveCount(0, { timeout: 15000 });
+
+    // Confirm no error message rendered in the display
+    await expect(page.locator('#lvglDisplay')).not.toContainText('Error:');
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+});

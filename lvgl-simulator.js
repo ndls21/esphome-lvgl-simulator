@@ -720,7 +720,7 @@ class ESPHomeLVGLSimulator {
             zip.forEach((relPath, entry) => {
                 if (!entry.dir) {
                     loads.push(
-                        entry.async('string').then(content => { map[relPath] = content; })
+                        entry.async('string').then(content => { map[relPath.replace(/\\/g, '/')] = content; })
                     );
                 }
             });
