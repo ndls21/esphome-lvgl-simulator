@@ -15903,3 +15903,79 @@ lvgl:
   });
 
 });
+
+// ─── Label long_mode ─────────────────────────────────────────────────────────
+
+test.describe('Label long_mode', () => {
+
+  function labelLongModeYAML(id, longMode) {
+    const longModeStr = longMode != null ? `\n            long_mode: ${longMode}` : '';
+    return `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: test_page
+      widgets:
+        - label:
+            id: ${id}
+            text: "A very long piece of text that should overflow the container"
+            width: 100
+            height: 20
+            align: CENTER${longModeStr}
+`.trim();
+  }
+
+  test('long_mode: DOT — overflow hidden and ellipsis', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, labelLongModeYAML('lbl', 'DOT'));
+    const el = page.locator('[data-lvgl-id="lbl"]');
+    expect(await el.evaluate(e => e.style.overflow)).toBe('hidden');
+    expect(await el.evaluate(e => e.style.textOverflow)).toBe('ellipsis');
+  });
+
+  test('long_mode: DOTS — alias for DOT', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, labelLongModeYAML('lbl', 'DOTS'));
+    const el = page.locator('[data-lvgl-id="lbl"]');
+    expect(await el.evaluate(e => e.style.overflow)).toBe('hidden');
+    expect(await el.evaluate(e => e.style.textOverflow)).toBe('ellipsis');
+  });
+
+  test('long_mode: CLIP — overflow hidden, no ellipsis', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, labelLongModeYAML('lbl', 'CLIP'));
+    const el = page.locator('[data-lvgl-id="lbl"]');
+    expect(await el.evaluate(e => e.style.overflow)).toBe('hidden');
+    expect(await el.evaluate(e => e.style.textOverflow)).not.toBe('ellipsis');
+  });
+
+  test('long_mode: SCROLL — overflow hidden and animation set', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, labelLongModeYAML('lbl', 'SCROLL'));
+    const el = page.locator('[data-lvgl-id="lbl"]');
+    expect(await el.evaluate(e => e.style.overflow)).toBe('hidden');
+    expect(await el.evaluate(e => e.style.animation)).toMatch(/lvgl-scroll/);
+  });
+
+  test('long_mode: WRAP (explicit) — overflow visible', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, labelLongModeYAML('lbl', 'WRAP'));
+    expect(await page.locator('[data-lvgl-id="lbl"]').evaluate(e => e.style.overflow)).not.toBe('hidden');
+  });
+
+  test('no long_mode (default) — overflow visible', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, labelLongModeYAML('lbl', null));
+    expect(await page.locator('[data-lvgl-id="lbl"]').evaluate(e => e.style.overflow)).not.toBe('hidden');
+  });
+
+});
