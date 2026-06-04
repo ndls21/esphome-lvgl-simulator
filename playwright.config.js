@@ -5,7 +5,8 @@ module.exports = defineConfig({
   testDir: './tests',
   timeout: 30000,
   fullyParallel: true,
-  workers: process.env.CI ? 4 : undefined,
+  workers: process.env.CI ? 8 : undefined,
+  retries: process.env.CI ? 1 : 0,
   use: {
     baseURL: process.env.TEST_URL || 'http://localhost:8765',
     headless: true,
