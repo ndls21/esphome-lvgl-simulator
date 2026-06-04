@@ -16439,3 +16439,68 @@ lvgl:
     expect(errors).toHaveLength(0);
   });
 });
+
+// ── Issue #167: LV_PART_* sub-part styling ───────────────────────────────────
+test.describe('sub-part styling (issue #167)', () => {
+  test('arc indicator: arc_color applies stroke to indicator path', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, `
+lvgl:
+  pages:
+    - id: p1
+      widgets:
+        - arc:
+            id: my_arc
+            value: 50
+            min_value: 0
+            max_value: 100
+            indicator:
+              arc_color: 0xFF0000
+`);
+    const indicator = page.locator('[data-lvgl-id="my_arc"] .lvgl-arc__indicator');
+    const stroke = await indicator.evaluate(e => e.style.stroke || e.getAttribute('stroke') || '');
+    expect(stroke.toLowerCase()).toContain('f');  // some red-ish color value
+  });
+
+  test('bar indicator: bg_color applies to fill element', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, `
+lvgl:
+  pages:
+    - id: p1
+      widgets:
+        - bar:
+            id: my_bar
+            value: 60
+            min_value: 0
+            max_value: 100
+            indicator:
+              bg_color: 0x00FF00
+`);
+    const fill = page.locator('[data-lvgl-id="my_bar"] .lvgl-bar__indicator');
+    const bg = await fill.evaluate(e => e.style.backgroundColor || e.style.background || '');
+    expect(bg).toBeTruthy();
+  });
+
+  test('unknown parts are silently ignored (no console errors)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await renderYAML(page, `
+lvgl:
+  pages:
+    - id: p1
+      widgets:
+        - bar:
+            id: safe_bar
+            value: 50
+            nonexistent_part:
+              bg_color: 0xFF0000
+`);
+    expect(errors).toHaveLength(0);
+    await expect(page.locator('[data-lvgl-id="safe_bar"]')).toBeVisible();
+  });
+});

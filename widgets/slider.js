@@ -21,13 +21,7 @@ export function renderSlider(config, parent) {
     indicator.style.width = pct + '%';
     if (isLambda) indicator.classList.add('lvgl-slider__indicator--unknown');
 
-    const ind = cfg.indicator || {};
-    if (ind.bg_color !== undefined) {
-        indicator.style.backgroundColor = this.parseColor(ind.bg_color);
-    }
-    if (ind.radius !== undefined) {
-        indicator.style.borderRadius = ind.radius >= 100 ? '50%' : ind.radius + 'px';
-    }
+    if (cfg.indicator) this.applyPartStyles(indicator, cfg.indicator);
 
     // Knob
     const knob = document.createElement('div');
@@ -41,11 +35,10 @@ export function renderSlider(config, parent) {
     knob.style.height = knobH + 'px';
     knob.style.marginLeft = -(knobW / 2) + 'px';
 
-    if (k.bg_color !== undefined) {
-        knob.style.backgroundColor = this.parseColor(k.bg_color);
-    }
+    // Apply knob radius default before applyPartStyles (so explicit config overrides it)
     const kr = k.radius ?? 255;
     knob.style.borderRadius = kr >= 100 ? '50%' : kr + 'px';
+    if (cfg.knob) this.applyPartStyles(knob, cfg.knob);
 
     // Lambda marker: '?' overlaid on the knob
     if (isLambda) {
