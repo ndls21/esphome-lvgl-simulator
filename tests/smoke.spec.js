@@ -16072,3 +16072,110 @@ test.describe('Lambda adversarial: brace-init / string patterns', () => {
     expect(r).toBe('rainy');
   });
 });
+
+// ─── parseColor LVGL function syntax ─────────────────────────────────────────
+
+test.describe('parseColor LVGL function syntax', () => {
+
+  function lvglColorYaml(id, textColor) {
+    return `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: ${id}
+            text: "Test"
+            align: CENTER
+            text_color: "${textColor}"
+`.trim();
+  }
+
+  test('parseColor: lv_color_hex(0xFF0000) → red', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, lvglColorYaml('lch_red', 'lv_color_hex(0xFF0000)'));
+    const color = await page.locator('[data-lvgl-id="lch_red"]').evaluate(el => el.style.color);
+    expect(color).toMatch(/rgb\(255,\s*0,\s*0\)|#ff0000/i);
+  });
+
+  test('parseColor: lv_color_hex(0x0000FF) → blue', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, lvglColorYaml('lch_blue', 'lv_color_hex(0x0000FF)'));
+    const color = await page.locator('[data-lvgl-id="lch_blue"]').evaluate(el => el.style.color);
+    expect(color).toMatch(/rgb\(0,\s*0,\s*255\)|#0000ff/i);
+  });
+
+  test('parseColor: lv_color_hex3(0xF00) → red', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, lvglColorYaml('lch3_red', 'lv_color_hex3(0xF00)'));
+    const color = await page.locator('[data-lvgl-id="lch3_red"]').evaluate(el => el.style.color);
+    expect(color).toMatch(/rgb\(255,\s*0,\s*0\)|#ff0000/i);
+  });
+
+  test('parseColor: lv_color_white() → white', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, lvglColorYaml('lcw', 'lv_color_white()'));
+    const color = await page.locator('[data-lvgl-id="lcw"]').evaluate(el => el.style.color);
+    expect(color).toMatch(/rgb\(255,\s*255,\s*255\)|#ffffff/i);
+  });
+
+  test('parseColor: lv_color_black() → black', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, lvglColorYaml('lcb', 'lv_color_black()'));
+    const color = await page.locator('[data-lvgl-id="lcb"]').evaluate(el => el.style.color);
+    expect(color).toMatch(/rgb\(0,\s*0,\s*0\)|#000000/i);
+  });
+
+  test('parseColor: lv_palette_main(LV_PALETTE_RED) → #f44336', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, lvglColorYaml('lpm_red', 'lv_palette_main(LV_PALETTE_RED)'));
+    const color = await page.locator('[data-lvgl-id="lpm_red"]').evaluate(el => el.style.color);
+    expect(color).toMatch(/rgb\(244,\s*67,\s*54\)|#f44336/i);
+  });
+
+  test('parseColor: lv_palette_main(LV_PALETTE_BLUE) → #2196f3', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, lvglColorYaml('lpm_blue', 'lv_palette_main(LV_PALETTE_BLUE)'));
+    const color = await page.locator('[data-lvgl-id="lpm_blue"]').evaluate(el => el.style.color);
+    expect(color).toMatch(/rgb\(33,\s*150,\s*243\)|#2196f3/i);
+  });
+
+  test('parseColor: lv_palette_lighten(LV_PALETTE_GREEN, 2) → green main colour', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, lvglColorYaml('lpl_green', 'lv_palette_lighten(LV_PALETTE_GREEN, 2)'));
+    const color = await page.locator('[data-lvgl-id="lpl_green"]').evaluate(el => el.style.color);
+    expect(color).toMatch(/rgb\(76,\s*175,\s*80\)|#4caf50/i);
+  });
+
+  test('parseColor: lv_palette_darken(LV_PALETTE_ORANGE, 1) → orange main colour', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, lvglColorYaml('lpd_orange', 'lv_palette_darken(LV_PALETTE_ORANGE, 1)'));
+    const color = await page.locator('[data-lvgl-id="lpd_orange"]').evaluate(el => el.style.color);
+    expect(color).toMatch(/rgb\(255,\s*152,\s*0\)|#ff9800/i);
+  });
+
+  test('parseColor: unknown lv_* function → #000000 (black)', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const warnings = [];
+    page.on('console', msg => { if (msg.type() === 'warning') warnings.push(msg.text()); });
+    await renderYAML(page, lvglColorYaml('lv_unknown', 'lv_color_make(1, 2, 3)'));
+    const color = await page.locator('[data-lvgl-id="lv_unknown"]').evaluate(el => el.style.color);
+    expect(color).toMatch(/rgb\(0,\s*0,\s*0\)|#000000/i);
+    expect(warnings.some(w => w.includes('parseColor'))).toBe(true);
+  });
+
+});
