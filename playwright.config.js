@@ -10,7 +10,7 @@ module.exports = defineConfig({
   use: {
     baseURL: process.env.TEST_URL || 'http://localhost:8765',
     headless: true,
-    screenshot: 'on',
+    screenshot: 'only-on-failure',
     viewport: { width: 1400, height: 900 },
   },
   webServer: process.env.TEST_URL ? undefined : {
