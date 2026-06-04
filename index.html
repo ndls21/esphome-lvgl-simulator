@@ -116,58 +116,17 @@
             </div>
         </div>
 
-        <!-- RIGHT RAIL -->
+        <!-- RIGHT RAIL — Drive panel -->
         <div id="right-rail">
             <div class="rail-header">
-                <span class="rail-label">Inspect</span>
-                <span id="inspector-widget-name" class="inspector-widget-name"></span>
+                <span class="rail-label">Drive</span>
+                <div class="drive-search-wrap">
+                    <input id="driveSearch" class="drive-search-input" type="search" placeholder="Filter…" autocomplete="off">
+                </div>
             </div>
             <div id="right-rail-body">
-                <div id="inspector-body">
-                    <p class="rail-placeholder">Select a widget</p>
-                </div>
-                <div class="tree-sub-header">
-                    <span class="rail-label">Tree</span>
-                </div>
-                <div id="tree-body">
-                    <p class="rail-placeholder">Load a config</p>
-                </div>
-            </div>
-        </div>
 
-        <!-- BOTTOM CONSOLE -->
-        <div id="bottom-console">
-            <!-- Tab strip -->
-            <div id="tab-strip">
-                <!-- YAML slice tabs (JS populates after render) -->
-                <div id="yaml-tabs" class="console-tab-group"></div>
-
-                <!-- Vertical divider -->
-                <div class="tab-divider"></div>
-
-                <!-- Always-present tabs -->
-                <button class="console-tab active" data-tab="drive">◉ Drive</button>
-                <button class="console-tab" data-tab="live">◎ Live</button>
-
-                <!-- More tabs menu -->
-                <div class="tab-more-wrap">
-                    <button class="console-tab tab-more-btn" id="tabMoreBtn" title="More panels">···</button>
-                    <div class="tab-more-menu" id="tabMoreMenu">
-                        <label><input type="checkbox" data-panel="edit"> ✎ Edit</label>
-                        <label><input type="checkbox" data-panel="page"> Page YAML</label>
-                        <label><input type="checkbox" data-panel="overlay"> Overlay YAML</label>
-                        <label><input type="checkbox" data-panel="globals"> Globals YAML</label>
-                    </div>
-                </div>
-
-                <!-- Right side context info -->
-                <div id="tab-strip-right" class="tab-strip-right"></div>
-            </div>
-
-            <!-- ─── TAB BODIES ──────────────────────────────────────────── -->
-
-            <!-- DRIVE TAB -->
-            <div id="tab-drive" class="tab-body active">
+                <!-- Sensor / global mock controls (JS populates) -->
                 <div id="mockControls" class="mock-controls">
                     <div class="mock-empty">Load a config with sensors or globals to see controls here.</div>
                 </div>
@@ -246,6 +205,54 @@
                     <button id="netPingBtn" class="mock-btn">Ping</button>
                     <span id="netPingResult" class="drive-row-dim"></span>
                 </div>
+
+            </div>
+        </div>
+
+        <!-- BOTTOM CONSOLE -->
+        <div id="bottom-console">
+            <!-- Tab strip -->
+            <div id="tab-strip">
+                <!-- YAML slice tabs (JS populates after render) -->
+                <div id="yaml-tabs" class="console-tab-group"></div>
+
+                <!-- Vertical divider -->
+                <div class="tab-divider"></div>
+
+                <!-- Always-present tabs -->
+                <button class="console-tab active" data-tab="live">◎ Live</button>
+
+                <!-- More tabs menu -->
+                <div class="tab-more-wrap">
+                    <button class="console-tab tab-more-btn" id="tabMoreBtn" title="More panels">···</button>
+                    <div class="tab-more-menu" id="tabMoreMenu">
+                        <label><input type="checkbox" data-panel="inspect"> ⬡ Inspect</label>
+                        <label><input type="checkbox" data-panel="tree"> ⋮ Tree</label>
+                        <label><input type="checkbox" data-panel="edit"> ✎ Edit</label>
+                        <label><input type="checkbox" data-panel="page"> Page YAML</label>
+                        <label><input type="checkbox" data-panel="overlay"> Overlay YAML</label>
+                        <label><input type="checkbox" data-panel="globals"> Globals YAML</label>
+                    </div>
+                </div>
+
+                <!-- Right side context info -->
+                <div id="tab-strip-right" class="tab-strip-right"></div>
+            </div>
+
+            <!-- ─── TAB BODIES ──────────────────────────────────────────── -->
+
+            <!-- INSPECT TAB -->
+            <div id="tab-inspect" class="tab-body" style="display:none">
+                <div id="inspector-body" style="flex:1;overflow-y:auto;padding:8px">
+                    <p class="rail-placeholder">Ctrl+click a widget to inspect</p>
+                </div>
+            </div>
+
+            <!-- TREE TAB -->
+            <div id="tab-tree" class="tab-body" style="display:none">
+                <div id="tree-body" style="flex:1;overflow-y:auto">
+                    <p class="rail-placeholder">Load a config</p>
+                </div>
             </div>
 
             <!-- EDIT TAB -->
@@ -322,7 +329,7 @@
     });
 
     // ── ··· more-panels menu ──────────────────────────────────────────────
-    var OPTIONAL_PANELS = ['edit', 'page', 'overlay', 'globals'];
+    var OPTIONAL_PANELS = ['inspect', 'tree', 'edit', 'page', 'overlay', 'globals'];
     var STORAGE_KEY = 'lvgl-visible-panels';
 
     function getVisiblePanels() {
@@ -348,7 +355,7 @@
     var moreWrap = document.querySelector('.tab-more-wrap');
     OPTIONAL_PANELS.forEach(function(p) {
       if (!document.querySelector('.console-tab[data-tab="' + p + '"]')) {
-        var labels = { edit: '✎ Edit', page: 'Page YAML', overlay: 'Overlay YAML', globals: 'Globals YAML' };
+        var labels = { inspect: '⬡ Inspect', tree: '⋮ Tree', edit: '✎ Edit', page: 'Page YAML', overlay: 'Overlay YAML', globals: 'Globals YAML' };
         var btn = document.createElement('button');
         btn.className = 'console-tab';
         btn.dataset.tab = p;
@@ -377,7 +384,24 @@
         applyPanelVisibility();
         // If we just hid the active tab, fall back to Drive
         var activeTab = document.querySelector('.console-tab.active');
-        if (!activeTab || activeTab.style.display === 'none') activateTab('drive');
+        if (!activeTab || activeTab.style.display === 'none') activateTab('live');
+      });
+    });
+
+    // ── Drive search filter ────────────────────────────────────────────────
+    document.getElementById('driveSearch').addEventListener('input', function() {
+      var q = this.value.trim().toLowerCase();
+      document.querySelectorAll('#mockControls .mock-section').forEach(function(section) {
+        var anyVisible = false;
+        section.querySelectorAll('[data-label]').forEach(function(row) {
+          var label = (row.dataset.label || '').toLowerCase();
+          var show = !q || label.includes(q);
+          row.style.display = show ? '' : 'none';
+          if (show) anyVisible = true;
+        });
+        // Hide entire section if nothing matches; expand it if something does
+        section.style.display = (!q || anyVisible) ? '' : 'none';
+        if (q && anyVisible) section.classList.remove('mock-section--collapsed');
       });
     });
 

@@ -178,8 +178,8 @@ body {
 /* ─── 5-ZONE LAYOUT ─────────────────────────────────────────────────────── */
 #app-layout {
     display: grid;
-    grid-template-columns: 220px 1fr 300px;
-    grid-template-rows: 1fr 252px;
+    grid-template-columns: 220px 1fr 320px;
+    grid-template-rows: 1fr 220px;
     grid-template-areas:
         "left hero right"
         "left console right";
@@ -234,8 +234,8 @@ body {
 .rail-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 10px 12px;
+    gap: 8px;
+    padding: 8px 12px;
     border-bottom: 1px solid var(--borderS);
     flex-shrink: 0;
 }
@@ -387,6 +387,27 @@ body {
     top: 12px;
     left: 50%;
     transform: translateX(-50%);
+}
+
+/* ─── DRIVE SEARCH ──────────────────────────────────────────────────────── */
+.drive-search-wrap {
+    flex: 1;
+    margin-left: 10px;
+}
+.drive-search-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--borderS);
+    border-radius: 5px;
+    padding: 3px 8px;
+    font-size: 12px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    box-sizing: border-box;
+}
+.drive-search-input:focus {
+    outline: none;
+    border-color: var(--accent);
 }
 
 /* ─── RIGHT RAIL BODY ───────────────────────────────────────────────────── */

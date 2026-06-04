@@ -2465,28 +2465,28 @@ lvgl:
             const isNumeric = numericTypes.has(type) && item.type !== 'boolean' && item.type !== 'string' && !isPointer;
             const isBoolean = item.type === 'boolean' || type === 'binary_sensor';
             const isString = item.type === 'string' || type === 'text_sensor';
+            let row;
             if (isPointer) {
-                const row = document.createElement('div');
+                row = document.createElement('div');
                 row.className = 'mock-item';
                 row.dataset.entityId = item.id;
                 row.innerHTML = `<span class="mock-item-id">${item.id}</span><span class="mock-item-type" style="opacity:0.4">ptr</span>`;
-                body.appendChild(row);
             } else if (isNumeric) {
-                body.appendChild(this.createNumericControl(item.id, item));
+                row = this.createNumericControl(item.id, item);
             } else if (isBoolean) {
-                body.appendChild(this.createBooleanControl(item.id, item));
+                row = this.createBooleanControl(item.id, item);
             } else if (isString) {
-                body.appendChild(this.createStringControl(item.id, item));
+                row = this.createStringControl(item.id, item);
             } else {
-                const row = document.createElement('div');
+                row = document.createElement('div');
                 row.className = 'mock-item';
                 row.dataset.entityId = item.id;
                 row.innerHTML = `
                     <span class="mock-item-id">${item.id}</span>
                     <span class="mock-item-type">${item.type || type}</span>
                 `;
-                body.appendChild(row);
             }
+            if (row) { row.dataset.label = item.id; body.appendChild(row); }
         });
 
         section.appendChild(header);
@@ -3063,13 +3063,16 @@ lvgl:
 
     selectWidget(id, cfg, widgetType) {
         this._selectedWidgetId = id;
-        // Update right rail subtitle
-        const nameEl = document.getElementById('inspector-widget-name');
-        if (nameEl) nameEl.textContent = id || '(anonymous)';
         // Highlight tree node
         document.querySelectorAll('.tree-node').forEach(n => {
             n.classList.toggle('tree-node--selected', id && n.dataset.widgetId === id);
         });
+        // Show inspect tab in bottom console (enable it if hidden)
+        const inspectBtn = document.querySelector('.console-tab[data-tab="inspect"]');
+        if (inspectBtn) {
+            inspectBtn.style.display = '';
+            if (typeof activateTab === 'function') activateTab('inspect');
+        }
         // Populate inspector
         this.buildInspector(cfg, widgetType);
     }
