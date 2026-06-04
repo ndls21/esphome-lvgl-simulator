@@ -1644,10 +1644,23 @@ lvgl:
             }
             if (cfg) {
                 const widgetType = type;
-                el.style.cursor = 'pointer';
                 el.addEventListener('click', e => {
                     e.stopPropagation();
-                    this.selectWidget(cfg.id || null, cfg, widgetType);
+                    if (e.ctrlKey || e.metaKey) {
+                        // Ctrl/Cmd+click → inspect
+                        this.selectWidget(cfg.id || null, cfg, widgetType);
+                    } else if (cfg.on_click) {
+                        // Plain click → fire on_click lambda
+                        this.lambda.evaluate(cfg.on_click, null);
+                    }
+                    // Plain click with no on_click → no-op (let it feel like a real tap)
+                });
+                // Show inspect cursor only when Ctrl is held
+                el.addEventListener('mouseenter', e => {
+                    el.style.cursor = e.ctrlKey || e.metaKey ? 'crosshair' : 'default';
+                });
+                el.addEventListener('mousemove', e => {
+                    el.style.cursor = e.ctrlKey || e.metaKey ? 'crosshair' : 'default';
                 });
             }
             if (cfg && cfg.align_to) this._deferredAlignments.push({ el, alignTo: cfg.align_to });

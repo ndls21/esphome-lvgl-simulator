@@ -477,8 +477,41 @@ body {
     color: var(--text);
 }
 
-.tab-strip-right {
+.tab-more-wrap {
+    position: relative;
     margin-left: auto;
+}
+.tab-more-btn {
+    letter-spacing: 2px;
+    padding: 0 10px;
+}
+.tab-more-menu {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 4px);
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 0;
+    z-index: 200;
+    min-width: 160px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+.tab-more-menu.open { display: block; }
+.tab-more-menu label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    font-size: 12px;
+    color: var(--text);
+    cursor: pointer;
+    white-space: nowrap;
+}
+.tab-more-menu label:hover { background: var(--bg); }
+
+.tab-strip-right {
     display: flex;
     align-items: center;
     gap: 6px;

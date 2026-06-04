@@ -147,8 +147,18 @@
 
                 <!-- Always-present tabs -->
                 <button class="console-tab active" data-tab="drive">◉ Drive</button>
-                <button class="console-tab" data-tab="edit">✎ Edit</button>
                 <button class="console-tab" data-tab="live">◎ Live</button>
+
+                <!-- More tabs menu -->
+                <div class="tab-more-wrap">
+                    <button class="console-tab tab-more-btn" id="tabMoreBtn" title="More panels">···</button>
+                    <div class="tab-more-menu" id="tabMoreMenu">
+                        <label><input type="checkbox" data-panel="edit"> ✎ Edit</label>
+                        <label><input type="checkbox" data-panel="page"> Page YAML</label>
+                        <label><input type="checkbox" data-panel="overlay"> Overlay YAML</label>
+                        <label><input type="checkbox" data-panel="globals"> Globals YAML</label>
+                    </div>
+                </div>
 
                 <!-- Right side context info -->
                 <div id="tab-strip-right" class="tab-strip-right"></div>
@@ -297,16 +307,81 @@
 
     <!-- ─── TAB SWITCHING ─────────────────────────────────────────────────── -->
     <script>
-    document.querySelectorAll('.console-tab').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        document.querySelectorAll('.console-tab').forEach(function(b) { b.classList.remove('active'); });
-        document.querySelectorAll('.tab-body').forEach(function(b) { b.style.display = 'none'; });
-        btn.classList.add('active');
-        var body = document.getElementById('tab-' + btn.dataset.tab);
-        if (body) body.style.display = 'flex';
+    // ── Tab switching ──────────────────────────────────────────────────────
+    function activateTab(tabName) {
+      document.querySelectorAll('.console-tab[data-tab]').forEach(function(b) { b.classList.remove('active'); });
+      document.querySelectorAll('.tab-body').forEach(function(b) { b.style.display = 'none'; });
+      var btn = document.querySelector('.console-tab[data-tab="' + tabName + '"]');
+      if (btn) btn.classList.add('active');
+      var body = document.getElementById('tab-' + tabName);
+      if (body) body.style.display = 'flex';
+    }
+
+    document.querySelectorAll('.console-tab[data-tab]').forEach(function(btn) {
+      btn.addEventListener('click', function() { activateTab(btn.dataset.tab); });
+    });
+
+    // ── ··· more-panels menu ──────────────────────────────────────────────
+    var OPTIONAL_PANELS = ['edit', 'page', 'overlay', 'globals'];
+    var STORAGE_KEY = 'lvgl-visible-panels';
+
+    function getVisiblePanels() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
+    }
+    function saveVisiblePanels(list) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    }
+
+    function applyPanelVisibility() {
+      var visible = getVisiblePanels();
+      OPTIONAL_PANELS.forEach(function(p) {
+        var tab = document.querySelector('.console-tab[data-tab="' + p + '"]');
+        var show = visible.includes(p);
+        if (tab) tab.style.display = show ? '' : 'none';
+        var cb = document.querySelector('#tabMoreMenu input[data-panel="' + p + '"]');
+        if (cb) cb.checked = show;
+      });
+    }
+
+    // Ensure optional panel tabs exist in the strip (edit tab was removed from HTML)
+    var strip = document.getElementById('tab-strip');
+    var moreWrap = document.querySelector('.tab-more-wrap');
+    OPTIONAL_PANELS.forEach(function(p) {
+      if (!document.querySelector('.console-tab[data-tab="' + p + '"]')) {
+        var labels = { edit: '✎ Edit', page: 'Page YAML', overlay: 'Overlay YAML', globals: 'Globals YAML' };
+        var btn = document.createElement('button');
+        btn.className = 'console-tab';
+        btn.dataset.tab = p;
+        btn.textContent = labels[p] || p;
+        btn.style.display = 'none';
+        btn.addEventListener('click', function() { activateTab(p); });
+        strip.insertBefore(btn, moreWrap);
+      }
+    });
+
+    applyPanelVisibility();
+
+    document.getElementById('tabMoreBtn').addEventListener('click', function(e) {
+      e.stopPropagation();
+      document.getElementById('tabMoreMenu').classList.toggle('open');
+    });
+    document.addEventListener('click', function() {
+      document.getElementById('tabMoreMenu').classList.remove('open');
+    });
+    document.querySelectorAll('#tabMoreMenu input[type=checkbox]').forEach(function(cb) {
+      cb.addEventListener('change', function() {
+        var visible = getVisiblePanels();
+        if (cb.checked) { if (!visible.includes(cb.dataset.panel)) visible.push(cb.dataset.panel); }
+        else { visible = visible.filter(function(p) { return p !== cb.dataset.panel; }); }
+        saveVisiblePanels(visible);
+        applyPanelVisibility();
+        // If we just hid the active tab, fall back to Drive
+        var activeTab = document.querySelector('.console-tab.active');
+        if (!activeTab || activeTab.style.display === 'none') activateTab('drive');
       });
     });
 
+    // ── Theme toggle ───────────────────────────────────────────────────────
     document.getElementById('theme-toggle').addEventListener('click', function() {
       var html = document.documentElement;
       if (html.getAttribute('data-theme') === 'light') {
