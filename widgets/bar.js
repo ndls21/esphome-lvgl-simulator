@@ -44,14 +44,7 @@ export function renderBar(config, parent) {
 
     if (isLambda) indicator.classList.add('lvgl-bar__indicator--unknown');
 
-    const ind = cfg.indicator || {};
-    if (ind.bg_color && ind.bg_grad_color && ind.bg_grad_dir) {
-        const dir = this.parseGradientDirection(ind.bg_grad_dir);
-        indicator.style.background = `linear-gradient(${dir}, ${this.parseColor(ind.bg_color)}, ${this.parseColor(ind.bg_grad_color)})`;
-    } else if (ind.bg_color) {
-        indicator.style.backgroundColor = this.parseColor(ind.bg_color);
-    }
-    if (ind.radius !== undefined) indicator.style.borderRadius = ind.radius + 'px';
+    if (cfg.indicator) this.applyPartStyles(indicator, cfg.indicator);
 
     el.appendChild(indicator);
     return el;

@@ -3265,6 +3265,36 @@ lvgl:
 }
 
 Object.assign(ESPHomeLVGLSimulator.prototype, {
+    // ── Issue #167: LV_PART_* sub-part styling ──────────────────────────────
+    applyPartStyles(el, partConfig) {
+        if (!el || !partConfig) return;
+        if (partConfig.bg_color !== undefined) el.style.backgroundColor = this.parseColor(partConfig.bg_color);
+        if (partConfig.bg_grad_color !== undefined) {
+            const c1 = this.parseColor(partConfig.bg_color || '#000');
+            const c2 = this.parseColor(partConfig.bg_grad_color);
+            const dir = String(partConfig.bg_grad_dir || 'HOR').toUpperCase();
+            el.style.background = dir === 'VER'
+                ? `linear-gradient(to bottom, ${c1}, ${c2})`
+                : `linear-gradient(to right, ${c1}, ${c2})`;
+        }
+        if (partConfig.border_color !== undefined) el.style.borderColor = this.parseColor(partConfig.border_color);
+        if (partConfig.border_width !== undefined) {
+            el.style.borderWidth = partConfig.border_width + 'px';
+            el.style.borderStyle = 'solid';
+        }
+        if (partConfig.radius !== undefined) {
+            el.style.borderRadius = Number(partConfig.radius) >= 100 ? '50%' : partConfig.radius + 'px';
+        }
+        if (partConfig.shadow_width !== undefined) {
+            const sw = partConfig.shadow_width;
+            const sc = partConfig.shadow_color ? this.parseColor(partConfig.shadow_color) : 'rgba(0,0,0,0.5)';
+            el.style.boxShadow = `0 0 ${sw}px ${sc}`;
+        }
+        // SVG arc sub-parts: stroke attributes
+        if (partConfig.arc_color !== undefined) el.style.stroke = this.parseColor(partConfig.arc_color);
+        if (partConfig.arc_width !== undefined) el.style.strokeWidth = partConfig.arc_width + 'px';
+    },
+
     renderObj,
     renderLabel,
     renderButton,

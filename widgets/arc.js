@@ -47,9 +47,10 @@ export function renderArc(config, parent) {
             const indWidth = cfg.indicator.arc_width ?? arcWidth;
             const indRounded = cfg.indicator.arc_rounded ? 'round' : rounded;
             const indicatorEl = this.makeSVGArc(ns, cx, cy, r, indStartAngle, indicatorSpan, indWidth, indColor, indRounded);
-            indicatorEl.classList.add('arc-indicator');
+            indicatorEl.classList.add('arc-indicator', 'lvgl-arc__indicator');
             if (isLambda) indicatorEl.setAttribute('stroke-dasharray', '8 4');
             if (cfg.indicator.arc_opa !== undefined) indicatorEl.setAttribute('stroke-opacity', this.parseOpacity(cfg.indicator.arc_opa));
+            this.applyPartStyles(indicatorEl, cfg.indicator);
             svg.appendChild(indicatorEl);
         }
     }
