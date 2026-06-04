@@ -187,6 +187,7 @@ class ESPHomeLVGLSimulator {
         this._intervalStartReal = 0;
         this._gpioPollInterval = null;
         this._lastRaw = null;
+        this._activeTimers = [];
         this.displayElement = document.getElementById('lvglDisplay');
         this.yamlEditor = document.getElementById('yamlEditor');
         this.pageSelect = document.getElementById('pageSelect');
@@ -1065,6 +1066,7 @@ lvgl:
         }
 
         this._stopIntervalRunner();
+        this._clearIntervalTimers();
         if (this._storeUnsub) { this._storeUnsub(); this._storeUnsub = null; }
         if (this._onValueUnsubs) { this._onValueUnsubs.forEach(u => u()); this._onValueUnsubs = []; }
         if (this._rerenderTimer) { clearTimeout(this._rerenderTimer); this._rerenderTimer = null; }
@@ -1124,6 +1126,7 @@ lvgl:
             this.buildDrivePanel();
             this._maybeShowSupabasePanel();
             this._setupEncoder(this.config);
+            this._startIntervalComponents(this.config);
             this._storeUnsub = this.store.subscribeAll(() => this._scheduleRerender());
         } catch (error) {
             console.error('Error rendering:', error);
@@ -2920,6 +2923,67 @@ lvgl:
             cancelAnimationFrame(this._intervalRafId);
             this._intervalRafId = null;
         }
+    }
+
+    // ── setInterval-based auto-firing interval: component support (issue #166) ──
+
+    _parseIntervalDuration(val) {
+        if (!val) return null;
+        const s = String(val).trim();
+        if (s.endsWith('ms')) return parseInt(s, 10) || null;
+        if (s.endsWith('m')) return (parseInt(s, 10) || 0) * 60000;
+        if (s.endsWith('s')) return (parseFloat(s) || 0) * 1000;
+        return parseInt(s, 10) || null;
+    }
+
+    _clearIntervalTimers() {
+        (this._activeTimers || []).forEach(id => clearInterval(id));
+        this._activeTimers = [];
+    }
+
+    _startIntervalComponents(parsedYaml) {
+        const intervals = parsedYaml && parsedYaml.interval;
+        if (!Array.isArray(intervals)) return;
+        intervals.forEach(entry => {
+            const ms = this._parseIntervalDuration(entry.interval);
+            if (!ms) return;
+            const thenBlock = entry.then;
+            if (!Array.isArray(thenBlock)) return;
+            thenBlock.forEach(action => {
+                if (action && action.lambda) {
+                    // action.lambda is a preprocessed __lambda__:BASE64 string or raw C++ string
+                    let lambdaStr = action.lambda;
+                    if (!lambdaStr.startsWith('__lambda__:')) {
+                        lambdaStr = '__lambda__:' + btoa(unescape(encodeURIComponent(lambdaStr)));
+                    }
+                    const capturedLambda = lambdaStr;
+                    const id = setInterval(() => {
+                        try {
+                            this.lambda._proxy = this._buildLVGLProxy();
+                            this.lambda.evaluate(capturedLambda, null);
+                        } catch(e) {}
+                    }, ms);
+                    this._activeTimers.push(id);
+                }
+            });
+        });
+        if (this._activeTimers.length > 0) {
+            this._showLiveIndicator(true);
+        }
+    }
+
+    _showLiveIndicator(active) {
+        let ind = document.getElementById('liveIndicator');
+        if (!ind) {
+            const header = document.querySelector('.sensor-panel-header, #sensorPanel h3, #sensorPanel .panel-title');
+            if (!header) return;
+            ind = document.createElement('span');
+            ind.id = 'liveIndicator';
+            ind.style.cssText = 'margin-left:8px;font-size:0.75em;color:#4f4;animation:lvgl-animimg-pulse 1s ease-in-out infinite alternate;';
+            ind.textContent = '◉ LIVE';
+            header.appendChild(ind);
+        }
+        ind.style.display = active ? '' : 'none';
     }
 
     // ── Widget Tree ──────────────────────────────────────────────────────────

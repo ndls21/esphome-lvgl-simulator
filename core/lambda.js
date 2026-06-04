@@ -76,6 +76,7 @@ export class LambdaEvaluator {
                     'history_ready', 'millis', 'NAN', 'INFINITY', 'M_PI',
                     'fridge_dmm', 'van_dmm', 'outside_dmm', 'battery_dmm',
                     '__statics__',
+                    'lv_timer_create',
                     ...arrayNames,
                     translated
                 ));
@@ -98,6 +99,10 @@ export class LambdaEvaluator {
                 typeof outside_dmm !== 'undefined' ? outside_dmm : null,
                 typeof battery_dmm !== 'undefined' ? battery_dmm : null,
                 this._statics,
+                (callback, period_ms, user_data) => {
+                    const id = setInterval(() => { try { callback(null); } catch(e) {} }, period_ms);
+                    return { _intervalId: id };
+                },
                 ...arrayVals
             );
             return result ?? fallback;
@@ -832,6 +837,7 @@ export class LambdaEvaluator {
                 'NAN', 'INFINITY', 'M_PI',
                 'fridge_dmm', 'van_dmm', 'outside_dmm', 'battery_dmm',
                 '__statics__',
+                'lv_timer_create',
                 ...arrayNames,
                 'x', 'id',
                 translated
@@ -851,6 +857,10 @@ export class LambdaEvaluator {
                 typeof outside_dmm !== 'undefined' ? outside_dmm : null,
                 typeof battery_dmm !== 'undefined' ? battery_dmm : null,
                 this._statics,
+                (callback, period_ms, user_data) => {
+                    const id = setInterval(() => { try { callback(null); } catch(e) {} }, period_ms);
+                    return { _intervalId: id };
+                },
                 ...arrayVals,
                 xValue, xValue
             );
