@@ -22,6 +22,7 @@ import { renderMeter } from './widgets/meter.js';
 import { renderChart, drawChart } from './widgets/chart.js';
 import { renderList } from './widgets/list.js';
 import { renderTable } from './widgets/table.js';
+import { renderMsgbox } from './widgets/msgbox.js';
 import { detectFeatures } from './core/feature-detector.js';
 
 function deepMergeStyles(target, source) {
@@ -1617,6 +1618,7 @@ lvgl:
             case 'chart':    el = this.renderChart(cfg, parent);    break;
             case 'list':     el = this.renderList(cfg, parent);     break;
             case 'table':    el = this.renderTable(cfg, parent);    break;
+            case 'msgbox':   el = this.renderMsgbox(cfg, parent);   break;
             default:
                 console.warn(`Unsupported widget: ${type}`);
                 el = this.renderUnsupported(type, cfg, parent);
@@ -3212,6 +3214,7 @@ Object.assign(ESPHomeLVGLSimulator.prototype, {
     drawChart,
     renderList,
     renderTable,
+    renderMsgbox,
 });
 
 document.addEventListener('DOMContentLoaded', () => {

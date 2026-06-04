@@ -1649,3 +1649,64 @@ body {
     font-weight: bold;
     background: rgba(255,255,255,0.08);
 }
+
+/* ── msgbox widget (issue #168) ─────────────────────────────────────────────── */
+.lvgl-msgbox {
+    position: absolute;
+    box-sizing: border-box;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 100;
+}
+.lvgl-msgbox__card {
+    position: relative;
+    box-sizing: border-box;
+    background: #2a2a3a;
+    border-radius: 8px;
+    padding: 16px 20px;
+    min-width: 180px;
+    max-width: 320px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+}
+.lvgl-msgbox__close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 18px;
+    cursor: pointer;
+    line-height: 1;
+}
+.lvgl-msgbox__title {
+    margin: 0 0 8px 0;
+    font-size: 1em;
+    font-weight: bold;
+    color: #fff;
+}
+.lvgl-msgbox__body {
+    margin: 0 0 12px 0;
+    font-size: 0.9em;
+    color: #ccc;
+}
+.lvgl-msgbox__buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+.lvgl-msgbox__btn {
+    background: #4a6fa5;
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    padding: 6px 14px;
+    cursor: pointer;
+    font-size: 0.85em;
+}
+.lvgl-msgbox__btn:hover {
+    background: #5a7fb5;
+}
