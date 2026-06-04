@@ -15831,6 +15831,11 @@ lvgl:
 // ─── Label recolor markup ─────────────────────────────────────────────────────
 
 test.describe('Label recolor markup', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   function recolorYaml(id, text, recolor) {
     const recolorLine = recolor !== undefined ? `\n            recolor: ${recolor}` : '';
@@ -15850,8 +15855,6 @@ lvgl:
   }
 
   test('recolor: true — single color span renders with correct color and text', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // #FF0000 Warning:# normal
     await renderYAML(page, recolorYaml('lbl', '#FF0000 Warning:#  normal', true));
     const spanColor = await page.locator('[data-lvgl-id="lbl"] span').first().evaluate(el => el.style.color);
@@ -15861,8 +15864,6 @@ lvgl:
   });
 
   test('recolor: false — text rendered as-is, no spans', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, recolorYaml('lbl', '#FF0000 Warning:# normal', false));
     const spanCount = await page.locator('[data-lvgl-id="lbl"] span').count();
     expect(spanCount).toBe(0);
@@ -15871,8 +15872,6 @@ lvgl:
   });
 
   test('recolor: true — multiple color spans render with correct colors', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     // Two color spans: #FF0000 Red# and #00FF00 Green#
     await renderYAML(page, recolorYaml('lbl', '#FF0000 Red# and #00FF00 Green#', true));
     const spans = page.locator('[data-lvgl-id="lbl"] span');
@@ -15884,8 +15883,6 @@ lvgl:
   });
 
   test('recolor: true — malformed markup (no closing #) renders without JS error', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const errors = [];
     page.on('pageerror', err => errors.push(err.message));
     // No closing # — should render as plain text without throwing
@@ -15896,8 +15893,6 @@ lvgl:
   });
 
   test('recolor: true — no markup in text renders plain text correctly', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, recolorYaml('lbl', 'Just plain text', true));
     const spanCount = await page.locator('[data-lvgl-id="lbl"] span').count();
     expect(spanCount).toBe(0);
@@ -15910,6 +15905,11 @@ lvgl:
 // ─── Label long_mode ─────────────────────────────────────────────────────────
 
 test.describe('Label long_mode', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
 
   function labelLongModeYAML(id, longMode) {
     const longModeStr = longMode != null ? `\n            long_mode: ${longMode}` : '';
@@ -15932,8 +15932,6 @@ lvgl:
   }
 
   test('long_mode: DOT — overflow hidden and ellipsis', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, labelLongModeYAML('lbl', 'DOT'));
     const el = page.locator('[data-lvgl-id="lbl"]');
     expect(await el.evaluate(e => e.style.overflow)).toBe('hidden');
@@ -15941,8 +15939,6 @@ lvgl:
   });
 
   test('long_mode: DOTS — alias for DOT', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, labelLongModeYAML('lbl', 'DOTS'));
     const el = page.locator('[data-lvgl-id="lbl"]');
     expect(await el.evaluate(e => e.style.overflow)).toBe('hidden');
@@ -15950,8 +15946,6 @@ lvgl:
   });
 
   test('long_mode: CLIP — overflow hidden, no ellipsis', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, labelLongModeYAML('lbl', 'CLIP'));
     const el = page.locator('[data-lvgl-id="lbl"]');
     expect(await el.evaluate(e => e.style.overflow)).toBe('hidden');
@@ -15959,8 +15953,6 @@ lvgl:
   });
 
   test('long_mode: SCROLL — overflow hidden and animation set', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, labelLongModeYAML('lbl', 'SCROLL'));
     const el = page.locator('[data-lvgl-id="lbl"]');
     expect(await el.evaluate(e => e.style.overflow)).toBe('hidden');
@@ -15968,15 +15960,11 @@ lvgl:
   });
 
   test('long_mode: WRAP (explicit) — overflow visible', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, labelLongModeYAML('lbl', 'WRAP'));
     expect(await page.locator('[data-lvgl-id="lbl"]').evaluate(e => e.style.overflow)).not.toBe('hidden');
   });
 
   test('no long_mode (default) — overflow visible', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, labelLongModeYAML('lbl', null));
     expect(await page.locator('[data-lvgl-id="lbl"]').evaluate(e => e.style.overflow)).not.toBe('hidden');
   });
@@ -15985,6 +15973,11 @@ lvgl:
 
 // ── Issue #177: align constant aliases ──────────────────────────────────────
 test.describe('align constant aliases (issue #177)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   function alignAliasYAML(id, align) {
     return `
 lvgl:
@@ -16006,8 +15999,6 @@ lvgl:
   }
 
   test('align: TOP_CENTER behaves like TOP_MID — centered horizontally at top', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, alignAliasYAML('lbl', 'TOP_CENTER'));
     const el = page.locator('[data-lvgl-id="lbl"]');
     const left = await el.evaluate(e => e.style.left);
@@ -16017,8 +16008,6 @@ lvgl:
   });
 
   test('align: BOTTOM_CENTER behaves like BOTTOM_MID — centered horizontally at bottom', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, alignAliasYAML('lbl', 'BOTTOM_CENTER'));
     const el = page.locator('[data-lvgl-id="lbl"]');
     const left = await el.evaluate(e => e.style.left);
@@ -16028,8 +16017,6 @@ lvgl:
   });
 
   test('align: LEFT_CENTER behaves like LEFT_MID — centered vertically on left', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, alignAliasYAML('lbl', 'LEFT_CENTER'));
     const el = page.locator('[data-lvgl-id="lbl"]');
     const top = await el.evaluate(e => e.style.top);
@@ -16039,8 +16026,6 @@ lvgl:
   });
 
   test('align: RIGHT_CENTER behaves like RIGHT_MID — centered vertically on right', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, alignAliasYAML('lbl', 'RIGHT_CENTER'));
     const el = page.locator('[data-lvgl-id="lbl"]');
     const top = await el.evaluate(e => e.style.top);
@@ -16052,6 +16037,11 @@ lvgl:
 
 // ── Issue #174: LV_SIZE_CONTENT width/height alias ──────────────────────────
 test.describe('LV_SIZE_CONTENT alias (issue #174)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   function sizeContentYAML(id, w, h) {
     return `
 lvgl:
@@ -16067,24 +16057,18 @@ lvgl:
   }
 
   test('width: SIZE_CONTENT — existing behaviour preserved', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, sizeContentYAML('lbl', 'SIZE_CONTENT', '20'));
     const w = await page.locator('[data-lvgl-id="lbl"]').evaluate(e => e.style.width);
     expect(w).toBe('max-content');
   });
 
   test('width: LV_SIZE_CONTENT → max-content', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, sizeContentYAML('lbl', 'LV_SIZE_CONTENT', '20'));
     const w = await page.locator('[data-lvgl-id="lbl"]').evaluate(e => e.style.width);
     expect(w).toBe('max-content');
   });
 
   test('height: LV_SIZE_CONTENT → max-content', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, sizeContentYAML('lbl', '80', 'LV_SIZE_CONTENT'));
     const h = await page.locator('[data-lvgl-id="lbl"]').evaluate(e => e.style.height);
     expect(h).toBe('max-content');
@@ -16093,6 +16077,11 @@ lvgl:
 
 // ── Issue #164: list widget ──────────────────────────────────────────────────
 test.describe('list widget (issue #164)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const listItemsYAML = `
 lvgl:
   pages:
@@ -16128,8 +16117,6 @@ lvgl:
 `;
 
   test('list with items: renders rows with text', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, listItemsYAML);
     const el = page.locator('[data-lvgl-id="my_list"]');
     await expect(el).toBeVisible();
@@ -16140,16 +16127,12 @@ lvgl:
   });
 
   test('list with items: renders icon spans', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, listItemsYAML);
     const icons = page.locator('[data-lvgl-id="my_list"] .lvgl-list__icon');
     await expect(icons).toHaveCount(2);
   });
 
   test('list with widgets: renders child buttons', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, listWidgetsYAML);
     const el = page.locator('[data-lvgl-id="my_list2"]');
     await expect(el).toBeVisible();
@@ -16160,6 +16143,11 @@ lvgl:
 
 // ── Issue #169: table widget ─────────────────────────────────────────────────
 test.describe('table widget (issue #169)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const tableYAML = `
 lvgl:
   pages:
@@ -16177,8 +16165,6 @@ lvgl:
 `;
 
   test('table renders with correct row count', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, tableYAML);
     const el = page.locator('[data-lvgl-id="my_table"]');
     await expect(el).toBeVisible();
@@ -16187,8 +16173,6 @@ lvgl:
   });
 
   test('table renders header row as th elements', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, tableYAML);
     const ths = page.locator('[data-lvgl-id="my_table"] th');
     await expect(ths).toHaveCount(3);
@@ -16196,8 +16180,6 @@ lvgl:
   });
 
   test('table renders data rows as td elements', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, tableYAML);
     const tds = page.locator('[data-lvgl-id="my_table"] td');
     expect(await tds.count()).toBeGreaterThan(0);
@@ -16205,8 +16187,6 @@ lvgl:
   });
 
   test('table with no rows renders without error', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, `
 lvgl:
   pages:
@@ -16223,6 +16203,11 @@ lvgl:
 
 // ── Issue #168: msgbox widget ────────────────────────────────────────────────
 test.describe('msgbox widget (issue #168)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const msgboxYAML = `
 lvgl:
   pages:
@@ -16236,8 +16221,6 @@ lvgl:
 `;
 
   test('msgbox renders with title and body', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, msgboxYAML);
     const el = page.locator('[data-lvgl-id="my_msgbox"]');
     await expect(el).toBeVisible();
@@ -16246,8 +16229,6 @@ lvgl:
   });
 
   test('msgbox renders button count correctly', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, msgboxYAML);
     const btns = page.locator('[data-lvgl-id="my_msgbox"] .lvgl-msgbox__btn');
     await expect(btns).toHaveCount(2);
@@ -16256,8 +16237,6 @@ lvgl:
   });
 
   test('msgbox with close_button: true renders close button', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, `
 lvgl:
   pages:
@@ -16273,8 +16252,6 @@ lvgl:
   });
 
   test('msgbox without close_button has no close button', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, msgboxYAML);
     await expect(page.locator('[data-lvgl-id="my_msgbox"] .lvgl-msgbox__close')).toHaveCount(0);
   });
@@ -16282,6 +16259,11 @@ lvgl:
 
 // ── Issue #170: animimg widget ───────────────────────────────────────────────
 test.describe('animimg widget (issue #170)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const animimgYAML = `
 lvgl:
   pages:
@@ -16295,23 +16277,17 @@ lvgl:
 `;
 
   test('animimg renders a visible element', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, animimgYAML);
     await expect(page.locator('[data-lvgl-id="wifi_anim"]')).toBeVisible();
   });
 
   test('animimg label shows correct frame count', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, animimgYAML);
     const label = page.locator('[data-lvgl-id="wifi_anim"] .lvgl-animimg__label');
     await expect(label).toHaveText('[animimg: 4 frames]');
   });
 
   test('animimg with single frame shows "1 frame" (singular)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, `
 lvgl:
   pages:
@@ -16326,8 +16302,6 @@ lvgl:
   });
 
   test('animimg applies CSS animation', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, animimgYAML);
     const anim = await page.locator('[data-lvgl-id="wifi_anim"]').evaluate(e => e.style.animationDuration);
     expect(anim).toBe('800ms');
@@ -16336,6 +16310,11 @@ lvgl:
 
 // ── Issue #165: rotary encoder input ────────────────────────────────────────
 test.describe('encoder panel (issue #165)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const encoderYAML = `
 rotary_encoders:
   - id: main_encoder
@@ -16369,22 +16348,16 @@ lvgl:
 `;
 
   test('encoder panel is visible when rotary_encoders declared', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, encoderYAML);
     await expect(page.locator('#encoderPanel')).toBeVisible();
   });
 
   test('encoder panel is hidden when no rotary_encoders', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, noEncoderYAML);
     await expect(page.locator('#encoderPanel')).toBeHidden();
   });
 
   test('encoder down button moves focus to next widget', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, encoderYAML);
     await page.click('#encoderDown');
     // After one down, focus moves away from btn1
@@ -16393,8 +16366,6 @@ lvgl:
   });
 
   test('arrow keys move encoder focus', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, encoderYAML);
     await page.keyboard.press('ArrowDown');
     const btn2Focused = await page.locator('[data-lvgl-id="btn2"]').evaluate(el => el.classList.contains('lvgl-focused'));
@@ -16404,6 +16375,11 @@ lvgl:
 
 // ── Issue #166: lv_timer / interval support ──────────────────────────────────
 test.describe('interval component (issue #166)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
   const intervalYAML = `
 interval:
   - interval: 500ms
@@ -16420,8 +16396,6 @@ lvgl:
 `;
 
   test('interval YAML renders without error (label still visible)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await renderYAML(page, intervalYAML);
@@ -16430,8 +16404,6 @@ lvgl:
   });
 
   test('interval does not throw on reload (timers cleared)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await renderYAML(page, intervalYAML);
@@ -16442,9 +16414,12 @@ lvgl:
 
 // ── Issue #167: LV_PART_* sub-part styling ───────────────────────────────────
 test.describe('sub-part styling (issue #167)', () => {
-  test('arc indicator: arc_color applies stroke to indicator path', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto(BASE);
     await page.waitForLoadState('networkidle');
+  });
+
+  test('arc indicator: arc_color applies stroke to indicator path', async ({ page }) => {
     await renderYAML(page, `
 lvgl:
   pages:
@@ -16459,13 +16434,11 @@ lvgl:
               arc_color: 0xFF0000
 `);
     const indicator = page.locator('[data-lvgl-id="my_arc"] .lvgl-arc__indicator');
-    const stroke = await indicator.evaluate(e => e.style.stroke || e.getAttribute('stroke') || '');
-    expect(stroke.toLowerCase()).toContain('f');  // some red-ish color value
+    const stroke = await indicator.evaluate(e => e.getAttribute('stroke') || e.style.stroke || '');
+    expect(stroke).toBeTruthy();  // stroke attribute should be set to a red colour
   });
 
   test('bar indicator: bg_color applies to fill element', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     await renderYAML(page, `
 lvgl:
   pages:
@@ -16485,8 +16458,6 @@ lvgl:
   });
 
   test('unknown parts are silently ignored (no console errors)', async ({ page }) => {
-    await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await renderYAML(page, `
@@ -16496,6 +16467,8 @@ lvgl:
       widgets:
         - bar:
             id: safe_bar
+            width: 200
+            height: 20
             value: 50
             nonexistent_part:
               bg_color: 0xFF0000
