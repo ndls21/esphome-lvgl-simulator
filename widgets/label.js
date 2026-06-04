@@ -1,3 +1,45 @@
+/**
+ * Parse LVGL recolor markup (#RRGGBB text#) into HTML spans.
+ * Malformed or unclosed markup is returned as plain text (no crash).
+ * @param {string} text
+ * @returns {string} HTML string safe to assign to innerHTML
+ */
+function applyRecolor(text) {
+    const RECOLOR_RE = /#([0-9A-Fa-f]{6})\s([^#]*)#/g;
+    // If no markup found, return escaped plain text
+    if (!RECOLOR_RE.test(text)) {
+        return escapeHtml(text);
+    }
+    // Reset lastIndex after test()
+    RECOLOR_RE.lastIndex = 0;
+    let result = '';
+    let lastIndex = 0;
+    let match;
+    while ((match = RECOLOR_RE.exec(text)) !== null) {
+        // Append any plain text before this match (escaped)
+        if (match.index > lastIndex) {
+            result += escapeHtml(text.slice(lastIndex, match.index));
+        }
+        const color = match[1].toUpperCase();
+        const content = match[2];
+        result += `<span style="color:#${color}">${escapeHtml(content)}</span>`;
+        lastIndex = RECOLOR_RE.lastIndex;
+    }
+    // Append any remaining plain text after the last match
+    if (lastIndex < text.length) {
+        result += escapeHtml(text.slice(lastIndex));
+    }
+    return result;
+}
+
+function escapeHtml(str) {
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
 export function renderLabel(config, parent) {
     const cfg = this.resolveStyles(config);
     const el = document.createElement('div');
@@ -28,7 +70,12 @@ export function renderLabel(config, parent) {
                 el.textContent = '[format?]';
             }
         } else {
-            el.textContent = String(raw);
+            const text = String(raw);
+            if (cfg.recolor === true) {
+                el.innerHTML = applyRecolor(text);
+            } else {
+                el.textContent = text;
+            }
         }
     }
 

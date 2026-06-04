@@ -16121,3 +16121,82 @@ lvgl:
   });
 
 });
+
+// ─── Label recolor markup ─────────────────────────────────────────────────────
+
+test.describe('Label recolor markup', () => {
+
+  function recolorYaml(id, text, recolor) {
+    const recolorLine = recolor !== undefined ? `\n            recolor: ${recolor}` : '';
+    return `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: test_page
+      widgets:
+        - label:
+            id: ${id}
+            text: "${text}"${recolorLine}
+`.trim();
+  }
+
+  test('recolor: true — single color span renders with correct color and text', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    // #FF0000 Warning:# normal
+    await renderYAML(page, recolorYaml('lbl', '#FF0000 Warning:#  normal', true));
+    const spanColor = await page.locator('[data-lvgl-id="lbl"] span').first().evaluate(el => el.style.color);
+    expect(spanColor).toMatch(/rgb\(255,\s*0,\s*0\)|#FF0000|#ff0000/i);
+    const spanText = await page.locator('[data-lvgl-id="lbl"] span').first().evaluate(el => el.textContent);
+    expect(spanText).toContain('Warning:');
+  });
+
+  test('recolor: false — text rendered as-is, no spans', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, recolorYaml('lbl', '#FF0000 Warning:# normal', false));
+    const spanCount = await page.locator('[data-lvgl-id="lbl"] span').count();
+    expect(spanCount).toBe(0);
+    const text = await page.locator('[data-lvgl-id="lbl"]').evaluate(el => el.textContent);
+    expect(text).toContain('#FF0000');
+  });
+
+  test('recolor: true — multiple color spans render with correct colors', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    // Two color spans: #FF0000 Red# and #00FF00 Green#
+    await renderYAML(page, recolorYaml('lbl', '#FF0000 Red# and #00FF00 Green#', true));
+    const spans = page.locator('[data-lvgl-id="lbl"] span');
+    await expect(spans).toHaveCount(2);
+    const firstColor = await spans.nth(0).evaluate(el => el.style.color);
+    expect(firstColor).toMatch(/rgb\(255,\s*0,\s*0\)|#FF0000|#ff0000/i);
+    const secondColor = await spans.nth(1).evaluate(el => el.style.color);
+    expect(secondColor).toMatch(/rgb\(0,\s*255,\s*0\)|#00FF00|#00ff00/i);
+  });
+
+  test('recolor: true — malformed markup (no closing #) renders without JS error', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    const errors = [];
+    page.on('pageerror', err => errors.push(err.message));
+    // No closing # — should render as plain text without throwing
+    await renderYAML(page, recolorYaml('lbl', '#FF0000 No closing hash here', true));
+    expect(errors).toHaveLength(0);
+    // The label element itself should exist
+    await expect(page.locator('[data-lvgl-id="lbl"]')).toHaveCount(1);
+  });
+
+  test('recolor: true — no markup in text renders plain text correctly', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await renderYAML(page, recolorYaml('lbl', 'Just plain text', true));
+    const spanCount = await page.locator('[data-lvgl-id="lbl"] span').count();
+    expect(spanCount).toBe(0);
+    const text = await page.locator('[data-lvgl-id="lbl"]').evaluate(el => el.textContent);
+    expect(text).toContain('Just plain text');
+  });
+
+});
