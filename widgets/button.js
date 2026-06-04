@@ -20,9 +20,9 @@ export function renderButton(config, parent) {
         el.classList.add('lvgl-button--checked');
     }
     if (cfg.on_click) {
-        el.style.cursor = 'pointer';
         el.addEventListener('click', (e) => {
             e.stopPropagation();
+            this.lambda._proxy = this._buildLVGLProxy();
             this.lambda.evaluate(cfg.on_click, null);
         });
     }

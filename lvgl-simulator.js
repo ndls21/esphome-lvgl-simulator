@@ -1644,16 +1644,18 @@ lvgl:
             }
             if (cfg) {
                 const widgetType = type;
+                // 'button' handles on_click itself in button.js — don't double-fire here
+                const handlesOwnClick = (type === 'button');
                 el.addEventListener('click', e => {
                     e.stopPropagation();
                     if (e.ctrlKey || e.metaKey) {
                         // Ctrl/Cmd+click → inspect
                         this.selectWidget(cfg.id || null, cfg, widgetType);
-                    } else if (cfg.on_click) {
-                        // Plain click → fire on_click lambda
+                    } else if (!handlesOwnClick && cfg.on_click) {
+                        // Plain click → fire on_click lambda (for obj, label, etc.)
+                        this.lambda._proxy = this._buildLVGLProxy();
                         this.lambda.evaluate(cfg.on_click, null);
                     }
-                    // Plain click with no on_click → no-op (let it feel like a real tap)
                 });
                 // Show inspect cursor only when Ctrl is held
                 el.addEventListener('mouseenter', e => {

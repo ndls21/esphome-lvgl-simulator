@@ -258,17 +258,18 @@ export class LambdaEvaluator {
             (_, wid, val) => `__lvgl__.setSliderValue('${wid}', ${val.trim()})`);
 
 
-        // Page index property: id(page_id)->index → store lookup .index
-        b = b.replace(/\bid\s*\(\s*(\w+)\s*\)\s*->\s*index\b/g,
-            (_, pageId) => `(__store__.get('${pageId}') || {}).index`);
+        // Page navigation: id(lvgl_comp)->show_page(id(PAGE), anim, duration)
+        // MUST run before ->index translation, which would rewrite id(PAGE)->index inside the args
+        b = b.replace(/id\(\w+\)\s*->\s*show_page\s*\(\s*id\((\w+)\)[^)]*\)/g,
+            (_, pageId) => `__lvgl__.showPage('${pageId}')`);
 
         // id(comp)->get_current_page() → __lvgl__.getCurrentPage()
         b = b.replace(/id\(\w+\)\s*->\s*get_current_page\s*\(\s*\)/g,
             '__lvgl__.getCurrentPage()');
 
-        // Page navigation: id(lvgl_comp)->show_page(id(PAGE), anim, duration)
-        b = b.replace(/id\(\w+\)\s*->\s*show_page\s*\(\s*id\((\w+)\)[^)]*\)/g,
-            (_, pageId) => `__lvgl__.showPage('${pageId}')`);
+        // Page index property: id(page_id)->index → store lookup .index
+        b = b.replace(/\bid\s*\(\s*(\w+)\s*\)\s*->\s*index\b/g,
+            (_, pageId) => `(__store__.get('${pageId}') || {}).index`);
 
         // nullptr/NULL comparisons — must come BEFORE nullptr→null substitution in _translateStrings
         // id(x) == nullptr  →  !__store__.get('x')
