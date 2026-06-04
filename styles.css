@@ -1595,3 +1595,32 @@ body {
     .tab-btn span { display: none; }
     .tab-btn::before { font-size: 14px; }
 }
+
+/* ── list widget (issue #164) ─────────────────────────────────────────────── */
+.lvgl-list {
+    position: absolute;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.lvgl-list__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    cursor: default;
+}
+.lvgl-list__item:hover {
+    background: rgba(255,255,255,0.08);
+}
+.lvgl-list__icon {
+    font-size: 1em;
+    flex-shrink: 0;
+}
+.lvgl-list__text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
