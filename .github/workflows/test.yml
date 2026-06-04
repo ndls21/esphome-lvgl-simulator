@@ -23,11 +23,12 @@ jobs:
 
       - name: Install Playwright
         run: |
-          npm install @playwright/test
+          npm install @playwright/test serve
           npx playwright install --with-deps chromium
 
       - name: Run smoke tests (local server)
         run: npx playwright test --reporter=list
+        timeout-minutes: 8
 
       - name: Upload screenshots
         if: always()
