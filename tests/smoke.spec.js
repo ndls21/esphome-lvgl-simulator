@@ -5126,6 +5126,7 @@ lvgl:
     const encoded = btoa(unescape(encodeURIComponent(state)));
     const url = `http://localhost:8765/#state=${encoded}`;
 
+    await page.goto('about:blank');
     await page.goto(url);
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
@@ -14751,6 +14752,7 @@ lvgl:
   test('legacy #yaml= hash format still loads', async ({ page }) => {
     // Encode using the same method the app uses: btoa(unescape(encodeURIComponent(yaml)))
     const encoded = await page.evaluate((yaml) => btoa(unescape(encodeURIComponent(yaml))), SHARE_YAML);
+    await page.goto('about:blank');
     await page.goto(`${BASE}#yaml=${encoded}`);
     await page.waitForLoadState('networkidle');
     await expect(page.locator('#lvglDisplay .placeholder')).toHaveCount(0, { timeout: 10000 });
@@ -14765,6 +14767,7 @@ lvgl:
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
 
+    await page.goto('about:blank');
     await page.goto(`${BASE}#state=NOTVALIDBASE64!!!`);
     await page.waitForLoadState('networkidle');
 
