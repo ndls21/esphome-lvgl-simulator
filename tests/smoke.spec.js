@@ -16817,13 +16817,15 @@ lvgl:
     await renderYAML(page, yaml);
     await expect(page.locator('[data-lvgl-id="label_a"]')).toBeVisible();
 
-    // Click display first so keyboard events land on it
+    // Keyboard mapping (see lvgl-simulator.js): ArrowRight → swipe 'left' → fires on_swipe_left
+    //                                            ArrowLeft  → swipe 'right' → fires on_swipe_right
+    // Click display first so keyboard events land on the document (not a textarea/input).
     await page.locator('#lvglDisplay').click();
-    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('ArrowRight');   // swipe left → page_a.on_swipe_left → page_b
     await page.waitForTimeout(400);
     await expect(page.locator('[data-lvgl-id="label_b"]')).toBeVisible();
 
-    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowLeft');    // swipe right → page_b.on_swipe_right → page_a
     await page.waitForTimeout(400);
     await expect(page.locator('[data-lvgl-id="label_a"]')).toBeVisible();
   });
