@@ -1817,15 +1817,18 @@ lvgl:
                 // 'button' handles on_click itself in button.js — don't double-fire here
                 const handlesOwnClick = (type === 'button');
                 el.addEventListener('click', e => {
-                    e.stopPropagation();
                     if (e.ctrlKey || e.metaKey) {
-                        // Ctrl/Cmd+click → inspect
+                        // Ctrl/Cmd+click → inspect; always stop so parent widgets don't also inspect
+                        e.stopPropagation();
                         this.selectWidget(cfg.id || null, cfg, widgetType);
                     } else if (!handlesOwnClick && cfg.on_click) {
                         // Plain click → fire on_click action (for obj, label, etc.)
+                        // Stop propagation so parent widgets don't double-fire
+                        e.stopPropagation();
                         console.debug('[sim] on_click fired for widget', cfg.id, 'type:', widgetType);
                         this._executeActions(cfg.on_click);
                     }
+                    // No handler: let click bubble up to parent widget's on_click
                 });
                 // Show inspect cursor only when Ctrl is held
                 el.addEventListener('mouseenter', e => {
