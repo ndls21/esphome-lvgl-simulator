@@ -5,21 +5,22 @@ const BASE = process.env.TEST_URL || 'http://localhost:8765';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
-/** Activate the Edit tab and load the built-in example config. */
+/** Load the built-in example config via the simulator API. */
 async function loadExample(page) {
-  await page.click('.console-tab[data-tab="edit"]');
-  await page.click('#loadExample');
+  await page.evaluate(() => window.simulator.loadExampleConfig());
   await expect(page.locator('#lvglDisplay .placeholder')).toHaveCount(0, { timeout: 10000 });
 }
 
 /**
- * Paste a YAML string into the editor and click Render Preview.
- * Waits until the placeholder disappears.
+ * Inject a YAML string and render it.
+ * Uses window.simulator directly so it works regardless of whether the
+ * Edit tab is currently visible in the console.
  */
 async function renderYAML(page, yaml) {
-  await page.click('.console-tab[data-tab="edit"]');
-  await page.fill('#yamlEditor', yaml);
-  await page.click('#renderPreview');
+  await page.evaluate((yamlText) => {
+    window.simulator.yamlEditor.value = yamlText;
+    window.simulator.renderFromEditor();
+  }, yaml);
   await expect(page.locator('#lvglDisplay .placeholder')).toHaveCount(0, { timeout: 10000 });
 }
 
@@ -16523,5 +16524,393 @@ test.describe('Load ZIP — D5 real-world config', () => {
     // Confirm no error message rendered in the display
     await expect(page.locator('#lvglDisplay')).not.toContainText('Error:');
     expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+});
+
+// ─── ESPHome LVGL YAML actions — _executeActions tests ──────────────────────
+// These tests cover the three previously broken scenarios:
+//  1. on_value + lvgl.*.update actions → reactive display updates
+//  2. on_swipe + lvgl.page.show action → swipe navigation
+//  3. on_click + lvgl.page.show action → button/widget navigation
+//
+// All use inline YAML with ESPHome YAML actions (not C++ lambdas) so they
+// exercise the _executeActions() code path, not the lambda translator.
+
+test.describe('ESPHome LVGL YAML actions (_executeActions)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+  });
+
+  // ── 1. on_value: lvgl.label.update ──────────────────────────────────────
+
+  test('on_value with lvgl.label.update updates label text reactively', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: wifi_signal
+    name: "WiFi Signal"
+    unit_of_measurement: "dBm"
+    on_value:
+      - lvgl.label.update:
+          id: wifi_label
+          text: !lambda "return _sprintf('%d dBm', (int)x);"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: wifi_label
+            text: "-- dBm"
+            align: CENTER
+`.trim();
+
+    await renderYAML(page, yaml);
+
+    // Verify initial text
+    const initial = await page.locator('[data-lvgl-id="wifi_label"]').textContent();
+    expect(initial.trim()).toBe('-- dBm');
+
+    // Trigger on_value by setting the store directly (simulates Drive panel slider)
+    await page.evaluate(() => window.simulator.store.set('wifi_signal', -65));
+    await page.waitForTimeout(300); // > 100ms debounce
+
+    const updated = await page.locator('[data-lvgl-id="wifi_label"]').textContent();
+    expect(updated.trim()).toBe('-65 dBm');
+  });
+
+  // ── 2. on_value: lvgl.arc.update ─────────────────────────────────────────
+
+  test('on_value with lvgl.arc.update updates arc value reactively', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: battery_pct
+    name: "Battery"
+    unit_of_measurement: "%"
+    on_value:
+      - lvgl.arc.update:
+          id: battery_arc
+          value: !lambda "return (int)x;"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - arc:
+            id: battery_arc
+            value: 0
+            min_value: 0
+            max_value: 100
+            align: CENTER
+`.trim();
+
+    await renderYAML(page, yaml);
+
+    // Trigger via store
+    await page.evaluate(() => window.simulator.store.set('battery_pct', 75));
+    await page.waitForTimeout(300);
+
+    // The arc element's data-value attribute or the CSS variable should reflect 75
+    const arcEl = page.locator('[data-lvgl-id="battery_arc"]');
+    await expect(arcEl).toBeVisible();
+    const arcValue = await arcEl.evaluate(el => parseInt(el.dataset.value ?? el.getAttribute('data-arc-value') ?? '0'));
+    expect(arcValue).toBe(75);
+  });
+
+  // ── 3. on_swipe with lvgl.page.show action ────────────────────────────────
+
+  test('on_swipe_left with lvgl.page.show action navigates to target page', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: flow_page
+      on_swipe_left:
+        - lvgl.page.show:
+            id: settings_page
+            animation: MOVE_LEFT
+      widgets:
+        - label:
+            id: flow_label
+            text: "Flow"
+            align: CENTER
+    - id: settings_page
+      widgets:
+        - label:
+            id: settings_label
+            text: "Settings"
+            align: CENTER
+`.trim();
+
+    await renderYAML(page, yaml);
+
+    // Confirm we start on flow_page
+    await expect(page.locator('[data-lvgl-id="flow_label"]')).toBeVisible();
+
+    // Click the swipe-left arrow
+    await page.click('#swipe-left');
+    await page.waitForTimeout(400);
+
+    // Should now show settings_page
+    await expect(page.locator('[data-lvgl-id="settings_label"]')).toBeVisible();
+  });
+
+  // ── 4. on_swipe_right returns to previous page ────────────────────────────
+
+  test('on_swipe_right with lvgl.page.show action navigates back', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: alpha_page
+      on_swipe_left:
+        - lvgl.page.show:
+            id: beta_page
+            animation: MOVE_LEFT
+      widgets:
+        - label:
+            id: alpha_label
+            text: "Alpha"
+            align: CENTER
+    - id: beta_page
+      on_swipe_right:
+        - lvgl.page.show:
+            id: alpha_page
+            animation: MOVE_RIGHT
+      widgets:
+        - label:
+            id: beta_label
+            text: "Beta"
+            align: CENTER
+`.trim();
+
+    await renderYAML(page, yaml);
+    await page.click('#swipe-left');
+    await page.waitForTimeout(400);
+    await expect(page.locator('[data-lvgl-id="beta_label"]')).toBeVisible();
+
+    await page.click('#swipe-right');
+    await page.waitForTimeout(400);
+    await expect(page.locator('[data-lvgl-id="alpha_label"]')).toBeVisible();
+  });
+
+  // ── 5. on_click on obj with lvgl.page.show ────────────────────────────────
+
+  test('obj on_click with lvgl.page.show action navigates to page', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: home_page
+      widgets:
+        - obj:
+            id: nav_button
+            width: 100
+            height: 50
+            align: CENTER
+            on_click:
+              - lvgl.page.show:
+                  id: detail_page
+            widgets:
+              - label:
+                  text: "Go"
+                  align: CENTER
+    - id: detail_page
+      widgets:
+        - label:
+            id: detail_label
+            text: "Detail"
+            align: CENTER
+`.trim();
+
+    await renderYAML(page, yaml);
+    await expect(page.locator('[data-lvgl-id="nav_button"]')).toBeVisible();
+
+    // Plain click (not Ctrl) should trigger on_click
+    await page.locator('[data-lvgl-id="nav_button"]').click();
+    await page.waitForTimeout(300);
+
+    await expect(page.locator('[data-lvgl-id="detail_label"]')).toBeVisible();
+  });
+
+  // ── 6. button on_click with lvgl.page.show ───────────────────────────────
+
+  test('button on_click with lvgl.page.show action navigates to page', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: home_page
+      widgets:
+        - button:
+            id: sound_btn
+            width: 100
+            height: 50
+            align: CENTER
+            on_click:
+              - lvgl.page.show:
+                  id: sound_page
+            widgets:
+              - label:
+                  text: "Sound"
+                  align: CENTER
+    - id: sound_page
+      widgets:
+        - label:
+            id: sound_label
+            text: "Sound Settings"
+            align: CENTER
+`.trim();
+
+    await renderYAML(page, yaml);
+    await page.locator('[data-lvgl-id="sound_btn"]').click();
+    await page.waitForTimeout(300);
+
+    await expect(page.locator('[data-lvgl-id="sound_label"]')).toBeVisible();
+  });
+
+  // ── 7. on_value: then: wrapper form ──────────────────────────────────────
+
+  test('on_value with then: wrapper still fires correctly', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+sensor:
+  - platform: template
+    id: temp_c
+    name: "Temperature"
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: temp_label
+            text: !lambda "return _sprintf('%.0f°C', x);"
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main
+      widgets:
+        - label:
+            id: temp_label
+            text: "---"
+            align: CENTER
+`.trim();
+
+    await renderYAML(page, yaml);
+    await page.evaluate(() => window.simulator.store.set('temp_c', 22));
+    await page.waitForTimeout(300);
+
+    const text = await page.locator('[data-lvgl-id="temp_label"]').textContent();
+    expect(text.trim()).toBe('22°C');
+  });
+});
+
+// ─── D5 ZIP — reactive interaction tests ─────────────────────────────────────
+// These tests only run when TEST_ZIP is set. They verify the three scenarios
+// that were broken on the real D5 config before the _executeActions fix.
+
+test.describe('D5 ZIP — reactive interactions', () => {
+  test.skip(!process.env.TEST_ZIP, 'Set TEST_ZIP to run D5 real-world tests');
+
+  let zipPath;
+  test.beforeAll(() => {
+    zipPath = process.env.TEST_ZIP || path.resolve(__dirname, '../D5-for-simulator.zip');
+  });
+
+  /** Load the D5 ZIP, dismiss any device picker, wait for first page to render. */
+  async function loadD5(page) {
+    const [fileChooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.click('#loadZip'),
+    ]);
+    await fileChooser.setFiles(zipPath);
+    const picker = page.locator('#lvgl-device-picker-modal');
+    const pickerVisible = await picker.isVisible({ timeout: 3000 }).catch(() => false);
+    if (pickerVisible) await picker.locator('button').first().click();
+    await expect(page.locator('#lvglDisplay .placeholder')).toHaveCount(0, { timeout: 15000 });
+  }
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+    await loadD5(page);
+  });
+
+  test('WiFi signal slider update changes display (on_value reactivity)', async ({ page }) => {
+    // Find the van_wifi_signal control in Drive panel and change its value.
+    // The display should update (some element should change text or value).
+    // We take a snapshot before and after and confirm something changed.
+    await page.click('.console-tab[data-tab="drive"]');
+    await page.waitForTimeout(200);
+
+    // Find the wifi signal numeric input (title/data-entity-id = van_wifi_signal)
+    const wifiInput = page.locator('.mock-control[data-entity-id="van_wifi_signal"] .mock-control__number');
+    const exists = await wifiInput.count();
+    test.skip(exists === 0, 'van_wifi_signal control not found in Drive panel');
+
+    const before = await page.locator('#lvglDisplay').innerHTML();
+    await wifiInput.fill('-50');
+    await wifiInput.dispatchEvent('change');
+    await page.waitForTimeout(400);
+    const after = await page.locator('#lvglDisplay').innerHTML();
+
+    expect(after).not.toBe(before);
+  });
+
+  test('swipe-left on flow page navigates to next page', async ({ page }) => {
+    // Navigate to the flow page (usually page index 0 or named flow_page).
+    // Then swipe left and confirm the displayed page changes.
+    const pageBefore = await page.locator('#pageSelect').inputValue().catch(() => '');
+
+    await page.click('#swipe-left');
+    await page.waitForTimeout(500);
+
+    const pageAfter = await page.locator('#pageSelect').inputValue().catch(() => '');
+    // If the page changed, navigation worked. If there's only 1 page or no swipe handler,
+    // both values will be equal — but on D5 with multiple pages this should differ.
+    expect(pageAfter).not.toBe(pageBefore);
+  });
+
+  test('clicking sound icon navigates to sound settings page', async ({ page }) => {
+    // Navigate to the settings page first via the page selector.
+    const pageSelector = page.locator('#pageSelect');
+    const options = await pageSelector.locator('option').allTextContents();
+    const settingsIdx = options.findIndex(o => /setting/i.test(o));
+    test.skip(settingsIdx < 0, 'No settings page found in page list');
+
+    await pageSelector.selectOption({ index: settingsIdx });
+    await page.waitForTimeout(400);
+
+    // Find a widget that should navigate on click (sound/volume icon or button)
+    const soundWidget = page.locator('[data-lvgl-id*="sound"], [data-lvgl-id*="volume"], [data-lvgl-id*="audio"]').first();
+    const soundExists = await soundWidget.count();
+    test.skip(soundExists === 0, 'No sound/volume widget found on settings page');
+
+    const pageBefore = await pageSelector.inputValue();
+    await soundWidget.click();
+    await page.waitForTimeout(500);
+
+    const pageAfter = await pageSelector.inputValue();
+    expect(pageAfter).not.toBe(pageBefore);
   });
 });

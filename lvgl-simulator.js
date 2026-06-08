@@ -3571,5 +3571,5 @@ Object.assign(ESPHomeLVGLSimulator.prototype, {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-    new ESPHomeLVGLSimulator();
+    window.simulator = new ESPHomeLVGLSimulator();
 });
