@@ -16708,7 +16708,127 @@ lvgl:
     await expect(page.locator('[data-lvgl-id="alpha_label"]')).toBeVisible();
   });
 
-  // ── 5. on_click on obj with lvgl.page.show ────────────────────────────────
+  // ── 5. on_swipe_up / on_swipe_down ────────────────────────────────────────
+
+  test('on_swipe_up and on_swipe_down with lvgl.page.show navigate vertically', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: main_page
+      on_swipe_up:
+        - lvgl.page.show:
+            id: top_page
+      widgets:
+        - label:
+            id: main_label
+            text: "Main"
+            align: CENTER
+    - id: top_page
+      on_swipe_down:
+        - lvgl.page.show:
+            id: main_page
+      widgets:
+        - label:
+            id: top_label
+            text: "Top"
+            align: CENTER
+`.trim();
+
+    await renderYAML(page, yaml);
+    await expect(page.locator('[data-lvgl-id="main_label"]')).toBeVisible();
+
+    // Swipe up → top_page
+    await page.click('#swipe-up');
+    await page.waitForTimeout(400);
+    await expect(page.locator('[data-lvgl-id="top_label"]')).toBeVisible();
+
+    // Swipe down → back to main_page
+    await page.click('#swipe-down');
+    await page.waitForTimeout(400);
+    await expect(page.locator('[data-lvgl-id="main_label"]')).toBeVisible();
+  });
+
+  // ── 6. swipe on page with no handler — no navigation ─────────────────────
+
+  test('swipe on page with no swipe handler does not navigate', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: only_page
+      widgets:
+        - label:
+            id: only_label
+            text: "Only page"
+            align: CENTER
+`.trim();
+
+    await renderYAML(page, yaml);
+    await expect(page.locator('[data-lvgl-id="only_label"]')).toBeVisible();
+
+    // All four swipe directions should be harmless no-ops
+    await page.click('#swipe-left');
+    await page.click('#swipe-right');
+    await page.click('#swipe-up');
+    await page.click('#swipe-down');
+    await page.waitForTimeout(300);
+
+    // Still on the only page
+    await expect(page.locator('[data-lvgl-id="only_label"]')).toBeVisible();
+  });
+
+  // ── 7. keyboard arrow keys trigger swipe navigation ──────────────────────
+
+  test('keyboard left/right arrow keys trigger swipe navigation', async ({ page }) => {
+    const yaml = `
+display:
+  - platform: custom
+    dimensions: {width: 320, height: 240}
+lvgl:
+  color_depth: 16
+  pages:
+    - id: page_a
+      on_swipe_left:
+        - lvgl.page.show:
+            id: page_b
+      widgets:
+        - label:
+            id: label_a
+            text: "Page A"
+            align: CENTER
+    - id: page_b
+      on_swipe_right:
+        - lvgl.page.show:
+            id: page_a
+      widgets:
+        - label:
+            id: label_b
+            text: "Page B"
+            align: CENTER
+`.trim();
+
+    await renderYAML(page, yaml);
+    await expect(page.locator('[data-lvgl-id="label_a"]')).toBeVisible();
+
+    // Click display first so keyboard events land on it
+    await page.locator('#lvglDisplay').click();
+    await page.keyboard.press('ArrowLeft');
+    await page.waitForTimeout(400);
+    await expect(page.locator('[data-lvgl-id="label_b"]')).toBeVisible();
+
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(400);
+    await expect(page.locator('[data-lvgl-id="label_a"]')).toBeVisible();
+  });
+
+  // ── 9. on_click on obj with lvgl.page.show ────────────────────────────────
 
   test('obj on_click with lvgl.page.show action navigates to page', async ({ page }) => {
     const yaml = `
