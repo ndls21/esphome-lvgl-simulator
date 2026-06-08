@@ -628,6 +628,196 @@ class ESPHomeLVGLSimulator {
     }
 
 
+    /**
+     * Execute an ESPHome action value, which may be:
+     *   - A __lambda__:BASE64 string → evaluate via lambda engine
+     *   - An ESPHome action object (e.g. {then: [...]})
+     *   - An array of action objects
+     * Handles the most common LVGL YAML actions: lvgl.page.show, lvgl.arc.update,
+     * lvgl.label.update, lvgl.widget.show/hide, lvgl.slider.update, lvgl.bar.update,
+     * lvgl.checkbox.update, lvgl.switch.update.
+     * Also handles nested then: lists and condition: guards (conditions are skipped).
+     * @param {*} actionOrList – the YAML action value
+     * @param {number|null} xValue – the sensor value for on_value context (null otherwise)
+     */
+    _executeActions(actionOrList, xValue = null) {
+        if (!actionOrList) return;
+
+        // Normalise to an array of action objects
+        let actions = [];
+        if (typeof actionOrList === 'string') {
+            // Raw lambda string
+            actions = [{ lambda: actionOrList }];
+        } else if (Array.isArray(actionOrList)) {
+            actions = actionOrList;
+        } else if (typeof actionOrList === 'object') {
+            // Single object — could be {then: [...]} or an action like {lambda: ...}
+            // or {'lvgl.page.show': {...}}
+            if (actionOrList.then) {
+                // Unwrap then: and recurse
+                return this._executeActions(actionOrList.then, xValue);
+            }
+            actions = [actionOrList];
+        }
+
+        for (const action of actions) {
+            if (!action || typeof action !== 'object') continue;
+
+            // --- lambda action ---
+            if (action.lambda) {
+                this.lambda._proxy = this._buildLVGLProxy();
+                if (xValue !== null) {
+                    this.lambda.evaluateWithX(action.lambda, xValue);
+                } else {
+                    this.lambda.evaluate(action.lambda, null);
+                }
+                continue;
+            }
+
+            // --- then: wrapper ---
+            if (action.then) {
+                this._executeActions(action.then, xValue);
+                continue;
+            }
+
+            // --- lvgl.page.show ---
+            const pageShow = action['lvgl.page.show'];
+            if (pageShow) {
+                const pageId = pageShow.id;
+                if (pageId) {
+                    const idx = this.pages.findIndex(p => p.id === pageId);
+                    if (idx >= 0) {
+                        // Map animation string to our internal format
+                        const animRaw = pageShow.animation || pageShow.anim || 'NONE';
+                        const anim = animRaw === 'NONE' ? 'NONE' : `MOVE_${animRaw.replace(/^MOVE_/, '')}`;
+                        const duration = pageShow.duration ?? null;
+                        this.currentPageIndex = idx;
+                        this.syncPageSelect();
+                        this.renderCurrentPage(anim, duration);
+                    } else {
+                        console.debug('[sim] lvgl.page.show: unknown page id', pageId);
+                    }
+                }
+                continue;
+            }
+
+            // --- lvgl.label.update ---
+            const labelUpdate = action['lvgl.label.update'];
+            if (labelUpdate) {
+                this._applyLvglWidgetUpdate(labelUpdate, xValue, 'label');
+                continue;
+            }
+
+            // --- lvgl.arc.update ---
+            const arcUpdate = action['lvgl.arc.update'];
+            if (arcUpdate) {
+                this._applyLvglWidgetUpdate(arcUpdate, xValue, 'arc');
+                continue;
+            }
+
+            // --- lvgl.slider.update ---
+            const sliderUpdate = action['lvgl.slider.update'];
+            if (sliderUpdate) {
+                this._applyLvglWidgetUpdate(sliderUpdate, xValue, 'slider');
+                continue;
+            }
+
+            // --- lvgl.bar.update ---
+            const barUpdate = action['lvgl.bar.update'];
+            if (barUpdate) {
+                this._applyLvglWidgetUpdate(barUpdate, xValue, 'bar');
+                continue;
+            }
+
+            // --- lvgl.checkbox.update ---
+            const cbUpdate = action['lvgl.checkbox.update'];
+            if (cbUpdate) {
+                this._applyLvglWidgetUpdate(cbUpdate, xValue, 'checkbox');
+                continue;
+            }
+
+            // --- lvgl.widget.show / lvgl.widget.hide ---
+            const widgetShow = action['lvgl.widget.show'];
+            if (widgetShow !== undefined) {
+                const ids = Array.isArray(widgetShow.id) ? widgetShow.id : [widgetShow.id];
+                ids.forEach(id => { if (id) this._buildLVGLProxy().show(id); });
+                continue;
+            }
+            const widgetHide = action['lvgl.widget.hide'];
+            if (widgetHide !== undefined) {
+                const ids = Array.isArray(widgetHide.id) ? widgetHide.id : [widgetHide.id];
+                ids.forEach(id => { if (id) this._buildLVGLProxy().hide(id); });
+                continue;
+            }
+
+            // --- lvgl.widget.update (generic property update) ---
+            const widgetUpdate = action['lvgl.widget.update'];
+            if (widgetUpdate) {
+                this._applyLvglWidgetUpdate(widgetUpdate, xValue, 'widget');
+                continue;
+            }
+
+            // Anything else — log and skip
+            const keys = Object.keys(action);
+            if (keys.length) console.debug('[sim] _executeActions: unhandled action', keys[0], action);
+        }
+    }
+
+    /**
+     * Apply an lvgl.*.update action object to the DOM via the proxy.
+     * Handles `id` (string or array), `text`, `value`, `checked`, `state`, `src`.
+     */
+    _applyLvglWidgetUpdate(updateCfg, xValue, widgetType) {
+        if (!updateCfg) return;
+        const proxy = this._buildLVGLProxy();
+        const ids = Array.isArray(updateCfg.id) ? updateCfg.id : [updateCfg.id];
+        ids.forEach(id => {
+            if (!id) return;
+            if (updateCfg.text !== undefined) {
+                const text = this._resolveActionValue(updateCfg.text, xValue);
+                if (text !== null) proxy.setText(id, String(text));
+            }
+            if (updateCfg.value !== undefined) {
+                const val = this._resolveActionValue(updateCfg.value, xValue);
+                if (val !== null) {
+                    if (widgetType === 'arc') proxy.setArcValue(id, Number(val));
+                    else if (widgetType === 'slider') proxy.setSliderValue(id, Number(val));
+                    else if (widgetType === 'bar') proxy.setBarValue(id, Number(val));
+                    else proxy.setArcValue(id, Number(val)); // generic fallback
+                }
+            }
+            if (updateCfg.checked !== undefined) {
+                const val = this._resolveActionValue(updateCfg.checked, xValue);
+                if (val !== null) proxy.setChecked(id, !!val);
+            }
+            if (updateCfg.state !== undefined) {
+                const val = this._resolveActionValue(updateCfg.state, xValue);
+                if (val !== null) proxy.setChecked(id, !!val);
+            }
+            if (updateCfg.src !== undefined) {
+                const val = this._resolveActionValue(updateCfg.src, xValue);
+                if (val !== null) proxy.setImageSrc(id, String(val));
+            }
+        });
+    }
+
+    /**
+     * Resolve an action field value — may be a literal, a __lambda__:... string,
+     * or a plain expression.  Returns the resolved JS value.
+     */
+    _resolveActionValue(field, xValue) {
+        if (field === undefined || field === null) return null;
+        if (typeof field === 'string' && field.startsWith('__lambda__:')) {
+            this.lambda._proxy = this._buildLVGLProxy();
+            if (xValue !== null) {
+                return this.lambda.evaluateWithX(field, xValue);
+            } else {
+                return this.lambda.evaluate(field, null);
+            }
+        }
+        return field; // literal boolean/number/string
+    }
+
     _handleSwipe(dir) {
         const page = this.pages[this.currentPageIndex];
         if (!page) return;
@@ -638,8 +828,7 @@ class ESPHomeLVGLSimulator {
         console.debug('[sim] _handleSwipe:', dir, '| page:', page.id, '| handler key:', handlerKey, '| has handler:', !!page[handlerKey]);
         if (page[handlerKey]) {
             console.debug('[sim] swipe handler value:', JSON.stringify(page[handlerKey]).slice(0, 200));
-            // Try to parse a show_page(id(X)->index, ...) call from the lambda body.
-            // This lets us honour the YAML author's navigation intent without executing C++.
+            // Try to parse a show_page call from a raw lambda body (C++ style).
             const nav = this._parseShowPageNav(page[handlerKey]);
             console.debug('[sim] _parseShowPageNav result:', nav);
             if (nav !== null) {
@@ -650,8 +839,8 @@ class ESPHomeLVGLSimulator {
                     this.renderCurrentPage(nav.anim || animMap[dir], nav.duration ?? null);
                 }
             } else {
-                // Lambda exists but doesn't contain a show_page call — evaluate as-is
-                this.lambda.evaluate(page[handlerKey], null);
+                // Use _executeActions to handle both lambdas and LVGL YAML actions
+                this._executeActions(page[handlerKey]);
             }
         }
         // No handler → no navigation. The YAML author decides what swipes do;
@@ -994,47 +1183,21 @@ lvgl:
     }
 
     _collectOnValueHandlers() {
-        this._onValueHandlers = {}; // { sensorId: lambdaStr }
+        this._onValueHandlers = {}; // { sensorId: actionValue }
+        // actionValue is whatever on_value holds — lambda string, array of actions,
+        // or object with then: — _executeActions handles all forms.
 
         const componentTypes = ['sensor', 'binary_sensor', 'text_sensor', 'number', 'switch', 'select'];
-        // globals uses plural key; include it alongside the standard component types
         const allComponents = componentTypes.flatMap(t => [].concat(this.config[t] || []));
         allComponents.push(...[].concat(this.config.globals || []));
 
         for (const comp of allComponents) {
-                const id = comp.id;
-                if (!id) continue;
-
-                const onValue = comp.on_value;
-                if (!onValue) continue;
-
-                // Handle multiple YAML forms:
-                //   on_value: !lambda |...         → string after preprocessor encodes as __lambda__:...
-                //   on_value: - lambda: |...        → array with {lambda: str}
-                //   on_value: then: - lambda: |...  → object with .then array
-                let lambdaStr = null;
-                if (typeof onValue === 'string') {
-                    lambdaStr = onValue;
-                } else if (Array.isArray(onValue)) {
-                    for (const action of onValue) {
-                        if (action?.lambda) { lambdaStr = action.lambda; break; }
-                        if (action?.then) {
-                            for (const a of (Array.isArray(action.then) ? action.then : [action.then])) {
-                                if (a?.lambda) { lambdaStr = a.lambda; break; }
-                            }
-                            if (lambdaStr) break;
-                        }
-                    }
-                } else if (onValue?.then) {
-                    const then = Array.isArray(onValue.then) ? onValue.then : [onValue.then];
-                    for (const a of then) {
-                        if (a?.lambda) { lambdaStr = a.lambda; break; }
-                    }
-                } else if (onValue?.lambda) {
-                    lambdaStr = onValue.lambda;
-                }
-
-                if (lambdaStr) this._onValueHandlers[id] = lambdaStr;
+            const id = comp.id;
+            if (!id) continue;
+            const onValue = comp.on_value;
+            if (!onValue) continue;
+            // Store the whole action value; _executeActions will handle all formats
+            this._onValueHandlers[id] = onValue;
         }
     }
 
@@ -1055,11 +1218,10 @@ lvgl:
             return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
         }
 
-        Object.entries(this._onValueHandlers).forEach(([sensorId, lambdaStr]) => {
+        Object.entries(this._onValueHandlers).forEach(([sensorId, actionValue]) => {
             const handler = debounce((newValue) => {
                 console.debug('[sim] on_value fired for', sensorId, '=', newValue);
-                this.lambda._proxy = this._buildLVGLProxy();
-                this.lambda.evaluateWithX(lambdaStr, newValue);
+                this._executeActions(actionValue, newValue);
             }, 100);
 
             const unsub = this.store.subscribe(sensorId, handler);
@@ -1660,11 +1822,9 @@ lvgl:
                         // Ctrl/Cmd+click → inspect
                         this.selectWidget(cfg.id || null, cfg, widgetType);
                     } else if (!handlesOwnClick && cfg.on_click) {
-                        // Plain click → fire on_click lambda (for obj, label, etc.)
-                        console.debug('[sim] on_click fired for widget', cfg.id, 'type:', widgetType, 'on_click:', JSON.stringify(cfg.on_click).slice(0, 200));
-                        this.lambda._proxy = this._buildLVGLProxy();
-                        const res = this.lambda.evaluate(cfg.on_click, '__NO_RESULT__');
-                        console.debug('[sim] on_click evaluate result:', res);
+                        // Plain click → fire on_click action (for obj, label, etc.)
+                        console.debug('[sim] on_click fired for widget', cfg.id, 'type:', widgetType);
+                        this._executeActions(cfg.on_click);
                     }
                 });
                 // Show inspect cursor only when Ctrl is held

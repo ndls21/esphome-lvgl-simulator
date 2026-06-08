@@ -129,6 +129,22 @@ export function buildLVGLProxy(elements, navigateFn, simulator) {
       return textEl.textContent || '';
     },
 
+    // Checkbox / toggle state
+    setChecked(id, checked) {
+      const el = getEl(id);
+      if (!el) return;
+      if (checked) el.classList.add('lvgl-button--checked', 'lvgl-checkbox--checked');
+      else el.classList.remove('lvgl-button--checked', 'lvgl-checkbox--checked');
+    },
+
+    // Image source
+    setImageSrc(id, src) {
+      const el = getEl(id);
+      if (!el) return;
+      const img = el.querySelector('img') || el;
+      if (img.tagName === 'IMG') img.src = src;
+    },
+
     // Colors
     setTextColor(id, hex) { const el = getEl(id); if (el) el.style.color = hex; },
     setBgColor(id, hex) { const el = getEl(id); if (el) el.style.backgroundColor = hex; },

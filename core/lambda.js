@@ -849,7 +849,7 @@ export class LambdaEvaluator {
                 'x', 'id',
                 translated
             );
-            fn(
+            return fn(
                 this.store,
                 (fmt, ...a) => _sprintfImpl(fmt, a),
                 _constrainImpl,
