@@ -635,10 +635,13 @@ class ESPHomeLVGLSimulator {
         const handlerKey = `on_swipe_${dir}`;
         const animMap = { left: 'MOVE_LEFT', right: 'MOVE_RIGHT', up: 'MOVE_TOP', down: 'MOVE_BOTTOM' };
 
+        console.debug('[sim] _handleSwipe:', dir, '| page:', page.id, '| handler key:', handlerKey, '| has handler:', !!page[handlerKey]);
         if (page[handlerKey]) {
+            console.debug('[sim] swipe handler value:', JSON.stringify(page[handlerKey]).slice(0, 200));
             // Try to parse a show_page(id(X)->index, ...) call from the lambda body.
             // This lets us honour the YAML author's navigation intent without executing C++.
             const nav = this._parseShowPageNav(page[handlerKey]);
+            console.debug('[sim] _parseShowPageNav result:', nav);
             if (nav !== null) {
                 const targetIdx = this.pages.findIndex(p => p.id === nav.pageId);
                 if (targetIdx !== -1) {
@@ -1044,6 +1047,9 @@ lvgl:
         }
         this._onValueUnsubs = [];
 
+        const handlerIds = Object.keys(this._onValueHandlers);
+        console.debug('[sim] _wireOnValueHandlers: wiring', handlerIds.length, 'on_value handlers:', handlerIds);
+
         function debounce(fn, ms) {
             let t;
             return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
@@ -1051,6 +1057,7 @@ lvgl:
 
         Object.entries(this._onValueHandlers).forEach(([sensorId, lambdaStr]) => {
             const handler = debounce((newValue) => {
+                console.debug('[sim] on_value fired for', sensorId, '=', newValue);
                 this.lambda._proxy = this._buildLVGLProxy();
                 this.lambda.evaluateWithX(lambdaStr, newValue);
             }, 100);
@@ -1654,8 +1661,10 @@ lvgl:
                         this.selectWidget(cfg.id || null, cfg, widgetType);
                     } else if (!handlesOwnClick && cfg.on_click) {
                         // Plain click → fire on_click lambda (for obj, label, etc.)
+                        console.debug('[sim] on_click fired for widget', cfg.id, 'type:', widgetType, 'on_click:', JSON.stringify(cfg.on_click).slice(0, 200));
                         this.lambda._proxy = this._buildLVGLProxy();
-                        this.lambda.evaluate(cfg.on_click, null);
+                        const res = this.lambda.evaluate(cfg.on_click, '__NO_RESULT__');
+                        console.debug('[sim] on_click evaluate result:', res);
                     }
                 });
                 // Show inspect cursor only when Ctrl is held

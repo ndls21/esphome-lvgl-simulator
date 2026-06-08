@@ -826,10 +826,16 @@ export class LambdaEvaluator {
             } else if (typeof lambdaStr === 'string') {
                 body = lambdaStr;
             } else {
+                console.debug('[lambda] evaluateWithX: lambdaStr is not a string, type:', typeof lambdaStr);
                 return;
             }
+            console.debug('[lambda] evaluateWithX body:', body.slice(0, 200));
             const translated = this._translate(body);
-            if (translated === null) return;
+            if (translated === null) {
+                console.debug('[lambda] evaluateWithX: translation returned null (untranslatable) for body:', body.slice(0, 200));
+                return;
+            }
+            console.debug('[lambda] evaluateWithX translated:', translated.slice(0, 200));
             const arrayNames = Object.keys(this._histArrays || {});
             const arrayVals = arrayNames.map(n => this._histArrays[n]);
             // eslint-disable-next-line no-new-func

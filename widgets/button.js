@@ -22,8 +22,10 @@ export function renderButton(config, parent) {
     if (cfg.on_click) {
         el.addEventListener('click', (e) => {
             e.stopPropagation();
+            console.debug('[button] on_click fired, cfg.on_click:', JSON.stringify(cfg.on_click).slice(0, 200));
             this.lambda._proxy = this._buildLVGLProxy();
-            this.lambda.evaluate(cfg.on_click, null);
+            const result = this.lambda.evaluate(cfg.on_click, '__NO_RESULT__');
+            console.debug('[button] on_click evaluate result:', result);
         });
     }
     if (cfg.widgets) {
