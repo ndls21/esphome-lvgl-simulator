@@ -1,4 +1,4 @@
-// @ts-check
+﻿// @ts-check
 const { test, expect } = require('@playwright/test');
 
 const BASE = process.env.TEST_URL || 'http://localhost:8765';
@@ -22,6 +22,23 @@ async function renderYAML(page, yaml) {
     window.simulator.renderFromEditor();
   }, yaml);
   await expect(page.locator('#lvglDisplay .placeholder')).toHaveCount(0, { timeout: 10000 });
+}
+
+/**
+ * Drive is a permanent right-rail panel — no tab to click.
+ * Call this wherever tests used to click the drive tab; it's now a no-op.
+ */
+async function openDrivePanel(page) {
+  // Drive panel is always visible in the right rail; nothing to click.
+  await page.waitForTimeout(50);
+}
+
+/**
+ * Set the YAML editor content without rendering.
+ * Use this + page.click('#renderPreview') for tests that expect render errors.
+ */
+async function fillYAML(page, yaml) {
+  await page.evaluate((y) => { window.simulator.yamlEditor.value = y; }, yaml);
 }
 
 /** Minimal 2-page config for navigation tests.
@@ -405,8 +422,7 @@ test.describe('Error handling', () => {
     page.on('pageerror', err => errors.push(err.message));
 
 
-    await page.click('.console-tab[data-tab="edit"]');
-    await page.fill('#yamlEditor', 'this: is: not: valid: yaml: {{{{');
+    await fillYAML(page, 'this: is: not: valid: yaml: {{{{');
     await page.click('#renderPreview');
     await page.waitForTimeout(500);
 
@@ -1379,8 +1395,7 @@ sensor:
     id: my_sensor
 `.trim();
 
-    await page.click('.console-tab[data-tab="edit"]');
-    await page.fill('#yamlEditor', yaml);
+    await fillYAML(page, yaml);
     await page.click('#renderPreview');
     await page.waitForTimeout(500);
 
@@ -2385,7 +2400,7 @@ lvgl:
     await renderYAML(page, yaml);
 
     // Navigate to Drive tab
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     await page.waitForTimeout(200);
 
     const driveContent = await page.locator('#mockControls').textContent();
@@ -2416,7 +2431,7 @@ lvgl:
     await renderYAML(page, yaml);
 
     // Switch to Drive tab and interact with the sensor slider
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     await page.waitForTimeout(200);
 
     // Find the number input for speed_sensor and set it to 99 via 'change' event
@@ -2481,7 +2496,7 @@ lvgl:
     await renderYAML(page, yaml);
 
     // Switch to Drive tab
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     await page.waitForTimeout(200);
 
     // The binary sensor control should be a checkbox/toggle
@@ -3677,7 +3692,7 @@ lvgl:
             align: CENTER
 `.trim();
     await renderYAML(page, yaml);
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     const mockControls = await page.locator('#mockControls').textContent();
     expect(mockControls.toLowerCase()).toContain('my_counter');
   });
@@ -4691,7 +4706,7 @@ lvgl:
             align: CENTER
 `.trim();
     await renderYAML(page, yaml);
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     const textInput = page.locator('#mockControls input[type="text"]');
     await expect(textInput).toBeAttached();
   });
@@ -4718,7 +4733,7 @@ lvgl:
             align: CENTER
 `.trim();
     await renderYAML(page, yaml);
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     const numControl = page.locator('#mockControls .mock-control--numeric');
     await expect(numControl).toBeAttached();
   });
@@ -4794,7 +4809,7 @@ lvgl:
             align: CENTER
 `.trim();
     await renderYAML(page, yaml);
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     const input = page.locator('#mockControls input[type="text"]').first();
     await input.fill('ONLINE');
     await input.dispatchEvent('input');
@@ -5268,7 +5283,7 @@ lvgl:
             align: CENTER
 `.trim();
     await renderYAML(page, yaml);
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     const driveText = await page.locator('#mockControls').textContent();
     expect(driveText).toContain('°C');
   });
@@ -5293,7 +5308,7 @@ lvgl:
             align: CENTER
 `.trim();
     await renderYAML(page, yaml);
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     const checkbox = page.locator('#mockControls input[type="checkbox"]').first();
     await expect(checkbox).toBeAttached();
   });
@@ -5358,7 +5373,7 @@ lvgl:
     await renderYAML(page, yaml);
 
     // Set sensor to 75 → bar should show 75%
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     const slider = page.locator('#mockControls input[type="range"]').first();
     await slider.evaluate(el => {
       el.value = '75';
@@ -5436,7 +5451,7 @@ lvgl:
     expect(errors).toHaveLength(0);
 
     // Trigger via Drive panel
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     const slider = page.locator('#mockControls input[type="range"]').first();
     await slider.evaluate(el => {
       el.value = '50';
@@ -5488,7 +5503,7 @@ lvgl:
     await renderYAML(page, yaml);
 
     // Set sensor value via Drive panel
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     const slider = page.locator('#mockControls input[type="range"]').first();
     await slider.evaluate(el => {
       el.value = '42';
@@ -5697,7 +5712,7 @@ lvgl:
             align: CENTER
 `.trim();
     await renderYAML(page, yaml);
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     const rangeInput = page.locator('#mockControls input[type="range"]').first();
     const min = await rangeInput.getAttribute('min');
     const max = await rangeInput.getAttribute('max');
@@ -5727,7 +5742,7 @@ lvgl:
             align: CENTER
 `.trim();
     await renderYAML(page, yaml);
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     const rangeInput = page.locator('#mockControls input[type="range"]').first();
     const val = await rangeInput.evaluate(el => parseFloat(el.value));
     expect(val).toBe(0);
@@ -7080,7 +7095,7 @@ lvgl:
 `.trim();
     await renderYAML(page, yaml);
 
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     // Drive panel should have a toggle/checkbox for binary_sensor
     const toggleCount = await page.locator('#mockControls input[type="checkbox"]').count();
     expect(toggleCount).toBeGreaterThanOrEqual(1);
@@ -7109,7 +7124,7 @@ lvgl:
 `.trim();
     await renderYAML(page, yaml);
 
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     const sliders = await page.locator('#mockControls input[type="range"]').count();
     expect(sliders).toBeGreaterThanOrEqual(1);
   });
@@ -9310,8 +9325,7 @@ test.describe('YAML error handling', () => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     // Use direct fill without waiting for placeholder removal (empty YAML keeps placeholder)
-    await page.click('.console-tab[data-tab="edit"]');
-    await page.fill('#yamlEditor', '');
+    await fillYAML(page, '');
     await page.click('#renderPreview');
     await page.waitForTimeout(500);
 
@@ -9332,8 +9346,7 @@ display:
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     // Use direct fill without waiting for placeholder removal (no lvgl keeps placeholder)
-    await page.click('.console-tab[data-tab="edit"]');
-    await page.fill('#yamlEditor', yaml);
+    await fillYAML(page, yaml);
     await page.click('#renderPreview');
     await page.waitForTimeout(500);
 
@@ -10904,7 +10917,7 @@ lvgl:
     await renderYAML(page, GPIO_YAML);
 
     // Switch to Drive tab to see GPIO panel
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     await page.waitForTimeout(300);
 
     // LEDs for GPIO 4 and 7 should appear
@@ -10930,7 +10943,7 @@ lvgl:
 `.trim();
     await renderYAML(page, noGpioYaml);
 
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     await page.waitForTimeout(300);
 
     const gpioContainer = page.locator('#gpioPins');
@@ -10940,7 +10953,7 @@ lvgl:
   test('GPIO pulse button is present for each detected pin', async ({ page }) => {
     await renderYAML(page, GPIO_YAML);
 
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     await page.waitForTimeout(300);
 
     // Each pin should have a pulse button (⏻) and a hold button (H)
@@ -11053,7 +11066,7 @@ globals:
 
     await renderYAML(page, intervalYaml);
 
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     await page.waitForTimeout(300);
 
     const countEl = page.locator('#intervalCount');
@@ -11500,7 +11513,7 @@ test.describe('Screensaver simulation', () => {
   test('screensaver Simulate checkbox is present', async ({ page }) => {
     await loadExample(page);
 
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     await expect(page.locator('label').filter({ hasText: 'Simulate' })).toHaveCount(1);
   });
 });
@@ -12769,7 +12782,7 @@ lvgl:
   test('interval runner checkbox is wired in Drive tab', async ({ page }) => {
     await loadExample(page);
 
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
 
     // Checking the enable checkbox should start the runner
     const checkbox = page.locator('#intervalsEnable');
@@ -12785,7 +12798,7 @@ lvgl:
   test('interval speed selector changes _intervalSpeed', async ({ page }) => {
     await loadExample(page);
 
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     await page.selectOption('#intervalSpeed', '10');
     await page.waitForTimeout(100);
 
@@ -13279,7 +13292,7 @@ lvgl:
 
     await renderYAML(page, yaml);
 
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     await page.waitForTimeout(200);
 
     // The signal generator button (⌇) should be present in the drive panel
@@ -13308,7 +13321,7 @@ lvgl:
 
     await renderYAML(page, yaml);
 
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     await page.waitForTimeout(200);
 
     // Click the generator button
@@ -13341,7 +13354,7 @@ lvgl:
 
     await renderYAML(page, yaml);
 
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     await page.waitForTimeout(200);
 
     // Open generator panel and start
@@ -13396,7 +13409,7 @@ lvgl:
 
     await renderYAML(page, yaml);
 
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     await page.waitForTimeout(300);
 
     // Drive tab renders without error (select entity shown in sidebar, not in mock controls)
@@ -13707,7 +13720,7 @@ lvgl:
 
     await renderYAML(page, yaml);
 
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     await page.waitForTimeout(200);
 
     const drivePanel = page.locator('#mockControls');
@@ -14790,8 +14803,7 @@ test.describe('Invalid YAML / error recovery', () => {
     page.on('pageerror', e => errors.push(e.message));
 
 
-    await page.click('.console-tab[data-tab="edit"]');
-    await page.fill('#yamlEditor', 'this: is: not: valid: yaml:');
+    await fillYAML(page, 'this: is: not: valid: yaml:');
     await page.click('#renderPreview');
     await page.waitForTimeout(500);
 
@@ -14803,8 +14815,7 @@ test.describe('Invalid YAML / error recovery', () => {
 
   test('YAML with no lvgl: block shows an error message', async ({ page }) => {
 
-    await page.click('.console-tab[data-tab="edit"]');
-    await page.fill('#yamlEditor', 'display:\n  - platform: custom\n    dimensions: {width: 320, height: 240}\n');
+    await fillYAML(page, 'display:\n  - platform: custom\n    dimensions: {width: 320, height: 240}\n');
     await page.click('#renderPreview');
     await page.waitForTimeout(500);
 
@@ -14816,8 +14827,7 @@ test.describe('Invalid YAML / error recovery', () => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
 
-    await page.click('.console-tab[data-tab="edit"]');
-    await page.fill('#yamlEditor', `
+    await fillYAML(page, `
 display:
   - platform: custom
     dimensions: {width: 320, height: 240}
@@ -14834,8 +14844,7 @@ lvgl:
   test('re-render after error renders correctly', async ({ page }) => {
 
     // First: bad YAML
-    await page.click('.console-tab[data-tab="edit"]');
-    await page.fill('#yamlEditor', 'not valid yaml :::');
+    await fillYAML(page, 'not valid yaml :::');
     await page.click('#renderPreview');
     await page.waitForTimeout(300);
 
@@ -16982,7 +16991,7 @@ test.describe('D5 ZIP — reactive interactions', () => {
     // Find the van_wifi_signal control in Drive panel and change its value.
     // The display should update (some element should change text or value).
     // We take a snapshot before and after and confirm something changed.
-    await page.click('.console-tab[data-tab="drive"]');
+    await openDrivePanel(page);
     await page.waitForTimeout(200);
 
     // Find the wifi signal numeric input (title/data-entity-id = van_wifi_signal)
@@ -17036,3 +17045,4 @@ test.describe('D5 ZIP — reactive interactions', () => {
     expect(pageAfter).not.toBe(pageBefore);
   });
 });
+
