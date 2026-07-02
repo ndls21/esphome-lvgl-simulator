@@ -46,6 +46,9 @@
       "spend_category_names": []
     }
   },
+  "category_cap_overrides": {
+    "_comment": "Optional manual monthly $ cap per category_name. If absent, the dashboard suggests a cap from the 3-month historical average."
+  },
   "account_pocket_labels": {
     "_comment": "Fill in friendly names for numbered Save account pockets as you identify them. Key = account_number as it appears in the CSV.",
     "x xxxx 0811": "ING Orange Everyday (main spend)",
