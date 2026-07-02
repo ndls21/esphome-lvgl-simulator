@@ -1,0 +1,57 @@
+{
+  "own_name_keywords": [
+    "fung ming mario cheng",
+    "fung m cheng",
+    "fung cheng"
+  ],
+  "internal_transfer_keywords": [
+    "for interest"
+  ],
+  "interest_income_keywords": [
+    "interest"
+  ],
+  "big_event_threshold": 3000,
+  "big_event_keywords": [
+    "unisuper"
+  ],
+  "sinking_funds": {
+    "holiday": {
+      "label": "Holiday banking",
+      "contribution_keywords": ["holiday banking"],
+      "spend_category_names": ["Travel/Holidays"]
+    },
+    "car": {
+      "label": "Car insurance / rego",
+      "contribution_keywords": ["car insurance rego"],
+      "spend_category_names": ["Automotive", "Insurance"]
+    },
+    "health": {
+      "label": "Health (Bupa)",
+      "contribution_keywords": ["bupa"],
+      "spend_category_names": ["Healthcare/Medical"]
+    },
+    "savings": {
+      "label": "General savings",
+      "contribution_keywords": ["savings"],
+      "spend_category_names": []
+    },
+    "splurge_mario": {
+      "label": "Splurge - Mario",
+      "contribution_keywords": ["splurge  mario", "splurge mario"],
+      "spend_category_names": []
+    },
+    "splurge_jenessa": {
+      "label": "Splurge - Jenessa",
+      "contribution_keywords": ["splurge  jenessa", "splurge jenessa"],
+      "spend_category_names": []
+    }
+  },
+  "category_cap_overrides": {
+    "_comment": "Optional manual monthly $ cap per category_name. If absent, the dashboard suggests a cap from the 3-month historical average."
+  },
+  "account_pocket_labels": {
+    "_comment": "Fill in friendly names for numbered Save account pockets as you identify them. Key = account_number as it appears in the CSV.",
+    "x xxxx 0811": "ING Orange Everyday (main spend)",
+    "x xxxx 7206": "ING Savings Maximiser"
+  }
+}
